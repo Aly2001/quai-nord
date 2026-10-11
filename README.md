@@ -1,85 +1,87 @@
 # Quai Nord 🚆
 
-**Will my TER train be on time?** An end-to-end data project on regional trains (TER) in the Hauts-de-France region, built from SNCF open data.
+🇬🇧 [English version](README.en.md)
 
-Quai Nord continuously collects real-time SNCF data, builds a clean delay dataset, analyses punctuality station by station, and serves it through a React web app where travellers can search a journey and see the observed delay risk of each train.
+**Mon TER sera-t-il à l'heure ?** Un projet data de bout en bout sur les trains régionaux (TER) des Hauts-de-France, construit à partir des données ouvertes de la SNCF.
 
-![Station map](docs/carte.png)
+Quai Nord collecte en continu les données temps réel de la SNCF, construit une base propre des retards, analyse la ponctualité gare par gare, et la présente dans une application web React : le voyageur recherche un trajet et voit, pour chaque train, son risque de retard observé.
 
-## What it does
+![Carte des gares](docs/carte.png)
 
-- **Continuous collection**: every 5 minutes, a Python collector downloads the SNCF real-time feed (GTFS-RT) and stores every train passage in SQLite, without duplicates (upsert).
-- **Automated daily pipeline**: official timetables (GTFS), hourly weather (Open-Meteo), a clean delay table and per-train delay risks are rebuilt every day, triggered by the collector itself.
-- **Exploratory analysis**: punctuality by hour, line, station and position along the journey, with explicit sample-size rules.
-- **Web app (React)**:
-  - journey search for today, tomorrow and the day after, from the chosen time onwards;
-  - direct trains **and journeys with one connection**, keeping only non-dominated options;
-  - for each train: the **observed delay risk**, the **forecast weather** at departure, and its **live status** (delay, cancellation);
-  - **fragile connections** flagged from the data, and **broken connections** detected in real time;
-  - station punctuality map and analysis pages, with data freshness always displayed.
+## Ce que fait le projet
 
-## First findings (2 days of data, to be confirmed)
+- **Collecte en continu** : toutes les 5 minutes, un collecteur Python télécharge le flux temps réel de la SNCF (GTFS-RT) et enregistre chaque passage de train dans SQLite, sans doublons (upsert).
+- **Pipeline quotidien automatisé** : chaque jour, les horaires officiels (GTFS), la météo heure par heure (Open-Meteo), la table des retards et les risques par train sont reconstruits, déclenchés par le collecteur lui-même.
+- **Analyse exploratoire** : ponctualité par heure, par ligne, par gare et selon la position dans le trajet, avec des règles explicites de taille d'échantillon.
+- **Application web (React)** :
+  - recherche de trajet pour aujourd'hui, demain et après-demain, à partir de l'heure choisie ;
+  - trains directs **et trajets avec une correspondance**, en ne gardant que les meilleures options ;
+  - pour chaque train : le **risque de retard observé**, la **météo prévue** au départ et son **état en direct** (retard, suppression) ;
+  - les **correspondances fragiles** signalées grâce aux données, et les **correspondances compromises** détectées en temps réel ;
+  - une carte de ponctualité des gares et des pages d'analyse, avec la date de mise à jour des données toujours affichée.
 
-| Finding | Detail |
+## Premiers résultats (2 jours de données, à confirmer)
+
+| Constat | Détail |
 |---|---|
-| Delays come in 5-minute steps | Almost no 1 to 4 minute delays: announcements are rounded. The model target is therefore a threshold (delay ≥ 5 min), not a number of minutes. |
-| Delay accumulates along the journey | 9.2 % of passages are late at the first station, 24.0 % after the 14th. |
-| Survivorship bias avoided | Starting the collection at 9 pm showed 45 % delays for 2 pm trains: only late or long trains were still in the feed. Only continuously covered periods are analysed. |
-| Unit of analysis matters | 17.6 % of station passages are late, but 22.3 % of trains at their last observed station. |
+| Les retards vont par paliers de 5 minutes | Presque aucun retard de 1 à 4 minutes : les annonces sont arrondies. La cible du modèle est donc un seuil (retard ≥ 5 min), et non un nombre de minutes. |
+| Le retard s'accumule au fil du trajet | 9,2 % des passages sont en retard à la première gare, 24,0 % après la quatorzième. |
+| Un biais de sélection évité | Une collecte lancée à 21 h affichait 45 % de retard pour les trains de 14 h : seuls les trains en retard ou les longs trajets étaient encore dans le flux. Seules les périodes couvertes en continu sont analysées. |
+| L'unité d'analyse compte | 17,6 % des passages en gare sont en retard, mais 22,3 % des trains à leur dernière gare observée. |
 
 ## Architecture
 
 ```
-SNCF GTFS-RT (every 5 min) ──► collecteur.py ──► sncf.db            (raw observations)
-                                     └─────────► temps_reel.json     (live status for the app)
+SNCF GTFS-RT (toutes les 5 min) ──► collecteur.py ──► sncf.db          (observations brutes)
+                                         └──────────► temps_reel.json  (état en direct pour le site)
 
-Daily, triggered by the collector (mettre_a_jour.py):
-  1. charger_gtfs.py        SNCF timetables      ──► gtfs.db
-  2. collecter_meteo.py     Open-Meteo weather   ──► meteo.db, meteo.json
-  3. exporter_horaires.py   timetables per station and day, connection hubs ──► JSON
-  4. construire_retards.py  clean delay table joined with weather ──► analyse.db
-  5. exporter_risques.py    observed delay risk per train, line and hour ──► risques.json
+Chaque jour, déclenché par le collecteur (mettre_a_jour.py) :
+  1. charger_gtfs.py        horaires SNCF            ──► gtfs.db
+  2. collecter_meteo.py     météo Open-Meteo         ──► meteo.db, meteo.json
+  3. exporter_horaires.py   horaires par gare et par jour, gares de correspondance ──► JSON
+  4. construire_retards.py  table propre des retards, avec la météo ──► analyse.db
+  5. exporter_risques.py    risque de retard observé par train, ligne et heure ──► risques.json
 
-                                React app (site/) reads the JSON files
+                          L'application React (site/) lit les fichiers JSON
 ```
 
-## Tech stack
+## Technologies
 
-Python · SQL (SQLite) · pandas · Matplotlib · GTFS / GTFS-RT · REST APIs (Open-Meteo) · React · React Router · Vite · CSS
+Python · SQL (SQLite) · pandas · Matplotlib · GTFS / GTFS-RT · API REST (Open-Meteo) · React · React Router · Vite · CSS
 
-## Run it locally
+## Lancer le projet
 
 ```bash
-# 1. Python side
+# 1. Partie Python
 pip install -r requirements.txt
-python collecteur.py          # keeps running: collection + daily update
+python collecteur.py          # tourne en continu : collecte + mise à jour quotidienne
 
-# 2. Web app (in another terminal)
+# 2. Application web (dans un autre terminal)
 cd site
 npm install
 npm run dev                   # http://localhost:5173
 ```
 
-## Limits
+## Limites
 
-- Only a few days of data so far: results are early trends, not conclusions.
-- At most one connection per journey, in the same station.
-- The displayed risk is the **observed** delay rate (per train, then per line and hour); it is not yet a machine learning prediction.
-- Delay causes are not available in the feed.
+- Seulement quelques jours de données pour l'instant : les résultats sont des premières tendances, pas des conclusions.
+- Une correspondance au maximum par trajet, dans la même gare.
+- Le risque affiché est le taux de retard **observé** (par train, puis par ligne et par heure) : ce n'est pas encore une prédiction par apprentissage automatique.
+- Les causes des retards ne sont pas disponibles dans le flux.
 
-## Roadmap
+## Suite du projet
 
-- [ ] Prediction model: scikit-learn baseline, then a TensorFlow sequence model following delay propagation from station to station
-- [ ] FastAPI API and Docker deployment
-- [ ] Cloud collection (24/7) and online deployment
-- [ ] Weather vs delays analysis once several weeks of data are available
+- [ ] Modèle de prédiction : une référence avec scikit-learn, puis un modèle séquentiel TensorFlow qui suit la propagation du retard de gare en gare
+- [ ] API FastAPI et déploiement avec Docker
+- [ ] Collecte dans le cloud (24h/24) et mise en ligne du site
+- [ ] Analyse météo et retards, quand plusieurs semaines de données seront disponibles
 
-## Data and licence
+## Données et licences
 
-Data: SNCF Voyageurs (GTFS and GTFS-RT), via transport.data.gouv.fr, under the ODbL licence.
-Weather: Open-Meteo, under the CC BY 4.0 licence.
-Personal project, not affiliated with SNCF.
+Données : SNCF Voyageurs (GTFS et GTFS-RT), via transport.data.gouv.fr, sous licence ODbL.
+Météo : Open-Meteo, sous licence CC BY 4.0.
+Projet personnel, sans lien avec la SNCF.
 
 ---
 
-**Aly Keita**, MSc student in Complex Systems Engineering (EILCO, Calais), looking for a 6-month Data Science / Data Engineering internship.
+**Aly Keita**, étudiant en Master 2 Ingénierie des Systèmes Complexes (EILCO, Calais), à la recherche d'un stage de 6 mois en Data Science / Data Engineering.

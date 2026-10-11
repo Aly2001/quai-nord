@@ -1,0 +1,205 @@
+/* ---------- Éléments communs (réutilisés par d'autres pages) ---------- */
+.surtitre {
+  margin: 0;
+  font-weight: 600;
+  font-size: 15px;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--mer);
+}
+
+.titre-section {
+  margin: 0;
+  font-family: var(--police-titre);
+  font-weight: 700;
+  font-size: 40px;
+}
+
+.texte-doux { margin: 0; color: var(--texte-doux); font-size: 16px; line-height: 1.55; }
+
+.bouton {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  min-height: 52px;
+  background: var(--nuit);
+  color: #FFFFFF;
+  text-decoration: none;
+  font-weight: 600;
+  font-size: 18px;
+  border-radius: 4px;
+}
+.bouton:hover { color: var(--signal); }
+
+.bloc {
+  background: #FFFFFF;
+  border: 1px solid var(--filet);
+  border-radius: 8px;
+  padding: 40px;
+  margin-bottom: 64px;
+}
+
+.bloc__entete {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: space-between;
+  align-items: baseline;
+  gap: 12px;
+  margin-bottom: 32px;
+}
+
+.bloc__note { margin-top: 28px; }
+
+/* ---------- 1. Bandeau sur toute la largeur ---------- */
+/* Le bandeau « sort » du conteneur centré pour occuper tout l'écran */
+.page { overflow-x: clip; }
+
+.bandeau {
+  position: relative;
+  margin-left: calc(50% - 50vw);
+  margin-right: calc(50% - 50vw);
+  margin-bottom: 56px;
+  min-height: 600px;
+  display: flex;
+  align-items: center;
+  overflow: hidden;
+  background: var(--nuit);
+}
+
+.bandeau__contenu {
+  position: relative;        /* passe au-dessus du décor */
+  width: 100%;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-start;
+  gap: 32px;
+  padding-top: 48px;
+  padding-bottom: 56px;
+}
+
+.bandeau__recherche {
+  flex: 1 1 420px;
+  min-width: 0;
+  max-width: 480px;
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+}
+
+.bandeau__titre {
+  margin: 0;
+  font-family: var(--police-titre);
+  font-weight: 700;
+  font-size: clamp(40px, 5vw, 60px);
+  line-height: 0.95;
+  color: #FFFFFF;
+}
+
+/* ---------- Le panneau « Ponctualité mesurée » ---------- */
+.info-ponctualite {
+  flex: 0 1 340px;
+  margin-left: auto;
+  margin-top: 74px;
+  background: #FFFFFF;
+  border-radius: 10px;
+  overflow: hidden;
+  box-shadow: 0 18px 40px rgba(0, 0, 0, 0.3);
+}
+
+.info-ponctualite p,
+.info-ponctualite h2,
+.info-ponctualite h3 { margin: 0; }
+
+.info-ponctualite__titre {
+  font-family: var(--police-titre);
+  font-weight: 700;
+  font-size: 30px;
+  padding: 18px 24px;
+  border-bottom: 4px solid var(--signal);
+}
+
+.info-ponctualite__corps {
+  padding: 18px 24px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  font-size: 16px;
+  color: var(--texte-doux);
+}
+
+.info-ponctualite__valeur {
+  font-family: var(--police-titre);
+  font-weight: 700;
+  font-size: 64px;
+  line-height: 0.9;
+  color: var(--retard) !important;
+  white-space: nowrap;
+}
+
+.info-ponctualite__source { font-size: 13px; color: #4A5468; }
+
+.info-ponctualite__podium {
+  background: #EEF1F5;
+  padding: 16px 24px 20px;
+}
+
+.info-ponctualite__podium h3 { font-size: 15px; font-weight: 600; margin-bottom: 8px; }
+.info-ponctualite__podium ol { list-style: none; margin: 0 0 8px; padding: 0; }
+
+.info-ponctualite__podium li {
+  display: flex;
+  justify-content: space-between;
+  padding: 6px 0;
+  border-bottom: 1px solid var(--filet);
+}
+
+.info-ponctualite__podium strong { font-family: var(--police-titre); font-size: 20px; color: var(--retard); }
+.info-ponctualite__lien { display: inline-block; padding: 8px 0 0; font-weight: 600; }
+
+/* Sur téléphone : marges latérales réduites pour toutes les pages */
+@media (max-width: 480px) {
+  .conteneur { padding-left: 16px; padding-right: 16px; }
+}
+
+@media (max-width: 860px) {
+  .info-ponctualite { margin: 0; flex-basis: 100%; }
+  .bandeau__recherche { max-width: none; }
+}
+
+/* ---------- 2. Chiffres clés ---------- */
+.accueil__chiffres {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+  gap: 16px;
+  margin-bottom: 64px;
+}
+
+/* ---------- 4. Découvertes ---------- */
+.accueil__decouvertes { display: flex; flex-direction: column; gap: 24px; }
+
+.grille-decouvertes {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+  gap: 16px;
+}
+
+.decouverte {
+  background: #FFFFFF;
+  border: 1px solid var(--filet);
+  border-radius: 8px;
+  padding: 28px;
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+
+.decouverte h3 { margin: 0; font-size: 21px; font-weight: 600; }
+
+.decouverte__chiffre {
+  font-family: var(--police-titre);
+  font-weight: 700;
+  font-size: 44px;
+  line-height: 1;
+}
+
+.decouverte__lien { font-weight: 600; margin-top: auto; padding: 10px 0; }

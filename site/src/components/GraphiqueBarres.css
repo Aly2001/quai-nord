@@ -1,0 +1,43 @@
+.graphique__zone,
+.graphique__axe {
+  display: grid;
+  grid-auto-columns: minmax(0, 1fr);
+  grid-auto-flow: column;
+  gap: 24px;
+}
+
+.graphique__zone {
+  align-items: end;
+  height: 280px;
+  border-bottom: 2px solid var(--nuit);
+}
+
+.graphique__colonne {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 8px;
+  height: 100%;
+}
+
+.graphique__valeur {
+  font-family: var(--police-titre);
+  font-weight: 700;
+  font-size: 24px;
+}
+
+.graphique__barre {
+  width: 100%;
+  max-width: 120px;
+  background: var(--mer);
+  border-radius: 4px 4px 0 0;
+}
+
+.graphique__barre--haute { background: var(--retard); }
+
+.graphique__axe {
+  padding-top: 12px;
+  text-align: center;
+  font-weight: 600;
+}

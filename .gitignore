@@ -1,0 +1,36 @@
+﻿# Fichiers que Git ne doit PAS envoyer sur GitHub
+
+# Bases de donnees et fichiers generes (lourds, recreables)
+*.db
+*.db-journal
+*.zip
+*.csv
+*.tmp
+graph_*.png
+horaires_*.html
+derniere_mise_a_jour.txt
+
+# Journaux
+*.log
+
+# Python et notebooks
+__pycache__/
+*.pyc
+.venv/
+venv/
+.ipynb_checkpoints/
+Untitled*.ipynb
+
+# Site React
+site/node_modules/
+site/dist/
+site/public/horaires/
+
+# Systeme et editeur
+.DS_Store
+Thumbs.db
+desktop.ini
+.vscode/
+
+# Secrets
+.env

@@ -1,0 +1,122 @@
+/* ==========================================================
+   Formulaire de recherche, en carte (champs empilés)
+   ========================================================== */
+.recherche {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  background: #FFFFFF;
+  border-radius: 10px;
+  padding: 24px;
+  box-shadow: 0 18px 40px rgba(20, 33, 61, 0.18);
+}
+
+/* Une « boîte » = un champ avec son icône, sur fond gris clair */
+.boite {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  background: #EEF1F5;
+  border-radius: 8px;
+  padding: 10px 16px;
+  color: var(--nuit);
+  border: 2px solid transparent;
+}
+
+.boite:focus-within { border-color: var(--mer); background: #FFFFFF; }
+.boite svg { flex: none; color: #3E485C; }
+
+.boite__contenu { flex: 1; min-width: 0; display: flex; flex-direction: column; }
+.boite__contenu label { font-size: 13px; color: #4A5468; }
+
+.boite__contenu input {
+  font: inherit;
+  font-size: 18px;
+  font-weight: 500;
+  color: var(--nuit);
+  background: transparent;
+  border: 0;
+  padding: 2px 0;
+  min-width: 0;
+  outline: none;
+}
+
+.boite__contenu input::placeholder { color: #7A8496; font-weight: 400; }
+
+/* ---------- Départ / arrivée + bouton d'inversion ---------- */
+.recherche__gares { position: relative; display: flex; flex-direction: column; gap: 10px; }
+.recherche__gares .boite { padding-right: 64px; }
+
+.recherche__inverser {
+  position: absolute;
+  right: 12px;
+  top: 50%;
+  transform: translateY(-50%);
+  width: 44px;
+  height: 44px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: #FFFFFF;
+  border: 1px solid #A9B3C2;
+  border-radius: 50%;
+  color: var(--nuit);
+  cursor: pointer;
+}
+
+.recherche__inverser:hover { background: var(--signal); border-color: var(--signal); }
+
+/* ---------- Jours ---------- */
+.recherche__jours { margin: 0; padding: 0; border: 0; min-width: 0; }
+.recherche__jours legend { padding: 0; margin-bottom: 6px; font-size: 13px; color: #4A5468; }
+.recherche__choix-jours { display: flex; gap: 8px; }
+
+.choix-jour {
+  flex: 1 1 0;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  padding: 8px 12px;
+  font: inherit;
+  background: #EEF1F5;
+  border: 2px solid transparent;
+  border-radius: 8px;
+  color: var(--nuit);
+  cursor: pointer;
+}
+
+.choix-jour:hover { border-color: #A9B3C2; }
+.choix-jour--actif { background: var(--nuit); color: #FFFFFF; }
+.choix-jour--actif:hover { border-color: var(--nuit); }
+.choix-jour__nom { font-weight: 600; font-size: 16px; white-space: nowrap; }
+.choix-jour__date { font-size: 13px; color: #4A5468; }
+.choix-jour--actif .choix-jour__date { color: var(--signal); }
+
+.recherche__alerte { margin: 6px 0 0; color: var(--retard); font-weight: 600; }
+
+/* ---------- Bouton ---------- */
+.recherche__actions { display: flex; justify-content: flex-end; }
+
+.recherche__bouton {
+  min-height: 50px;
+  padding: 0 32px;
+  font: inherit;
+  font-weight: 600;
+  font-size: 18px;
+  background: var(--nuit);
+  color: #FFFFFF;
+  border: 0;
+  border-radius: 8px;
+  cursor: pointer;
+}
+
+.recherche__bouton:hover { background: #22325A; }
+.recherche__bouton:disabled { opacity: 0.5; cursor: not-allowed; }
+
+@media (max-width: 480px) {
+  .recherche { padding: 18px; }
+  .recherche__choix-jours { flex-direction: column; }
+  .choix-jour { flex-direction: row; justify-content: space-between; align-items: center; }
+  .recherche__bouton { width: 100%; }
+}

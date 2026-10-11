@@ -1,0 +1,160 @@
+.analyses__entete {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 32px 64px;
+  align-items: flex-end;
+  padding: 56px 0 48px;
+}
+
+.analyses__intro {
+  flex: 999 1 520px;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+
+.analyses__titre {
+  margin: 0;
+  font-family: var(--police-titre);
+  font-weight: 700;
+  font-size: clamp(44px, 6.5vw, 72px);
+  line-height: 0.95;
+}
+
+.analyses__chapo { font-size: 19px; max-width: 36em; }
+
+.analyses__resume {
+  flex: 1 1 340px;
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 12px;
+}
+
+.analyses__resume .carte-chiffre { padding: 16px 18px; }
+.analyses__resume .carte-chiffre__valeur { font-size: 34px; }
+
+/* ---------- Bloc constat ---------- */
+.constat {
+  background: #FFFFFF;
+  border: 1px solid var(--filet);
+  border-radius: 8px;
+  padding: 40px;
+  margin-bottom: 24px;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 32px 56px;
+}
+
+.constat--sombre { background: var(--nuit); color: #FFFFFF; border-color: var(--nuit); }
+.constat--pointille { border: 2px dashed var(--nuit); }
+.constat--compact { flex-direction: column; flex-wrap: nowrap; padding: 36px; margin-bottom: 0; }
+
+.constat__texte {
+  flex: 1 1 340px;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+
+.constat__texte p { margin: 0; font-size: 17px; line-height: 1.6; color: var(--texte-doux); }
+.constat--sombre .constat__texte p { color: #E3E8EE; }
+.constat__texte strong { color: var(--nuit); }
+.constat--sombre .constat__texte strong { color: #FFFFFF; }
+
+.constat__numero {
+  font-family: var(--police-titre);
+  font-weight: 700;
+  font-size: 22px;
+  color: var(--mer);
+}
+
+.constat--sombre .constat__numero { color: var(--signal); }
+.constat--pointille .constat__numero { color: var(--retard); }
+
+.constat__titre {
+  margin: 0;
+  font-family: var(--police-titre);
+  font-weight: 700;
+  font-size: 40px;
+  line-height: 1;
+}
+
+.constat__visuel {
+  flex: 999 1 480px;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+
+.constat--compact .constat__visuel { flex: none; }
+.constat--compact .graphique__zone { height: 200px; }
+
+.legende-graphique { margin: 0; font-size: 14px; color: #4A5468; }
+.constat--sombre .legende-graphique { color: #C9D3E3; }
+
+/* ---------- Barres horizontales ---------- */
+.barres-h { display: flex; flex-direction: column; gap: 14px; }
+
+.barres-h__ligne {
+  display: grid;
+  grid-template-columns: 96px minmax(0, 1fr) 72px;
+  align-items: center;
+  gap: 16px;
+}
+
+.barres-h__nom { font-weight: 600; }
+.barres-h__piste { height: 34px; background: #2E3B5C; border-radius: 4px; overflow: hidden; }
+.barres-h__barre { display: block; height: 100%; background: #F28C38; }
+
+.barres-h__valeur {
+  font-family: var(--police-titre);
+  font-weight: 700;
+  font-size: 26px;
+  text-align: right;
+}
+
+/* ---------- Constats 3 et 4 côte à côte ---------- */
+.analyses__duo {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(340px, 1fr));
+  gap: 24px;
+  margin-bottom: 24px;
+}
+
+.comparaison { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 16px; }
+.comparaison__case { border-top: 4px solid; padding-top: 12px; }
+.comparaison__case--passage { border-color: var(--mer); }
+.comparaison__case--train { border-color: var(--retard); }
+
+.comparaison__valeur {
+  margin: 0 0 6px;
+  font-family: var(--police-titre);
+  font-weight: 700;
+  font-size: 60px;
+  line-height: 1;
+  white-space: nowrap;
+}
+
+/* ---------- Méthode ---------- */
+.methode { display: flex; flex-direction: column; gap: 16px; margin-top: 32px; }
+
+.methode__grille {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+  gap: 16px;
+}
+
+.methode__case {
+  background: #FFFFFF;
+  border: 1px solid var(--filet);
+  border-radius: 8px;
+  padding: 24px;
+  font-size: 16px;
+  line-height: 1.55;
+  color: var(--texte-doux);
+}
+
+.methode__case strong { display: block; margin-bottom: 6px; color: var(--nuit); font-size: 17px; }

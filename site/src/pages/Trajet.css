@@ -1,0 +1,358 @@
+/* ---------- Bandeau des résultats (plus fin que celui de l'accueil) ---------- */
+.bandeau-resultats {
+  position: relative;
+  margin-left: calc(50% - 50vw);
+  margin-right: calc(50% - 50vw);
+  margin-bottom: 32px;
+  overflow: hidden;
+  background: var(--nuit);
+  color: #FFFFFF;
+}
+
+.bandeau-resultats__contenu {
+  position: relative;          /* au-dessus du décor */
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding-top: 36px;
+  padding-bottom: 32px;
+}
+
+.bandeau-resultats__surtitre {
+  margin: 0;
+  font-weight: 600;
+  font-size: 15px;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--signal);
+}
+
+.bandeau-resultats__titre {
+  margin: 0;
+  font-family: var(--police-titre);
+  font-weight: 700;
+  font-size: clamp(36px, 5vw, 56px);
+  line-height: 1;
+}
+
+.bandeau-resultats__date { margin: 0; font-size: 18px; color: #E3E8EE; }
+.bandeau-resultats .fraicheur { margin-top: 6px; }
+
+.visuellement-cache {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip: rect(0 0 0 0);
+  white-space: nowrap;
+}
+
+/* ---------- Deux colonnes : formulaire à gauche, trains à droite ---------- */
+.trajet__mise-en-page {
+  display: grid;
+  grid-template-columns: 360px minmax(0, 1fr);
+  gap: 28px;
+  align-items: start;
+}
+
+.trajet__formulaire { position: sticky; top: 20px; }
+.trajet__formulaire .recherche { box-shadow: none; border: 1px solid var(--filet); }
+
+.resultats__compte {
+  margin: 0 0 14px;
+  font-family: var(--police-titre);
+  font-weight: 700;
+  font-size: 30px;
+}
+
+.resultats__message { font-size: 18px; color: var(--texte-doux); max-width: 46em; margin: 0 0 16px; }
+.resultats__message--erreur { color: var(--retard); font-weight: 600; }
+
+/* ---------- Une carte de trajet ---------- */
+.liste-trajets { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 14px; }
+
+.trajet-carte {
+  --couleur-niveau: #A9B3C2;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 220px;
+  gap: 24px;
+  align-items: center;
+  background: #FFFFFF;
+  border-radius: 10px;
+  border-left: 6px solid var(--couleur-niveau);   /* couleur selon le risque */
+  padding: 20px 24px;
+  box-shadow: 0 2px 8px rgba(20, 33, 61, 0.08);
+}
+
+.trajet-carte--faible { --couleur-niveau: var(--mer); }
+.trajet-carte--modere { --couleur-niveau: #E0A526; }
+.trajet-carte--eleve { --couleur-niveau: var(--retard); }
+
+.trajet-carte__principal { min-width: 0; }
+
+.trajet-carte__horaires { display: flex; align-items: center; gap: 14px; }
+
+.trajet-carte__heure {
+  font-family: var(--police-titre);
+  font-weight: 700;
+  font-size: 32px;
+  font-variant-numeric: tabular-nums;
+}
+
+/* La ligne entre départ et arrivée, avec la durée au milieu */
+.trajet-carte__ligne {
+  flex: 1;
+  position: relative;
+  height: 2px;
+  background: var(--nuit);
+  display: flex;
+  justify-content: center;
+}
+
+.trajet-carte__ligne::before,
+.trajet-carte__ligne::after {
+  content: "";
+  position: absolute;
+  top: -4px;
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  background: #FFFFFF;
+  border: 2px solid var(--nuit);
+  box-sizing: border-box;
+}
+
+.trajet-carte__ligne::before { left: 0; }
+.trajet-carte__ligne::after { right: 0; }
+
+.trajet-carte__duree {
+  position: relative;
+  top: -11px;
+  padding: 0 10px;
+  background: #FFFFFF;
+  font-weight: 600;
+  font-size: 15px;
+  line-height: 22px;
+  height: 22px;
+}
+
+.trajet-carte__gares {
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+  font-size: 17px;
+  margin-top: 2px;
+}
+
+.trajet-carte__bas {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: space-between;
+  align-items: center;
+  gap: 10px;
+  margin-top: 14px;
+}
+
+.trajet-carte__details {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  min-height: 36px;
+  padding: 4px 12px;
+  font: inherit;
+  font-size: 15px;
+  background: #EEF1F5;
+  border: 0;
+  border-radius: 999px;
+  color: var(--nuit);
+  cursor: pointer;
+}
+
+.trajet-carte__details:hover { background: #E3E8EE; }
+
+.trajet-carte__badges { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; font-size: 15px; }
+
+.badge {
+  padding: 3px 10px;
+  border-radius: 4px;
+  background: #EEF1F5;
+  font-weight: 600;
+}
+
+.badge--ligne { background: var(--nuit); color: #FFFFFF; }
+.trajet-carte__direct { color: var(--texte-doux); }
+
+/* Liste des arrêts (Détails) */
+.arrets {
+  list-style: none;
+  margin: 14px 0 0;
+  padding: 12px 0 0 6px;
+  border-top: 1px solid var(--filet);
+}
+
+.arrets li {
+  position: relative;
+  display: flex;
+  gap: 16px;
+  padding: 4px 0 4px 18px;
+  font-size: 15px;
+  border-left: 2px solid var(--filet);
+}
+
+.arrets li::before {
+  content: "";
+  position: absolute;
+  left: -6px;
+  top: 10px;
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  background: #FFFFFF;
+  border: 2px solid var(--nuit);
+  box-sizing: border-box;
+}
+
+.arrets__heure { font-weight: 600; font-variant-numeric: tabular-nums; min-width: 44px; }
+
+/* ---------- La boîte de risque (à la place du prix) ---------- */
+.risque-boite {
+  align-self: stretch;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  gap: 6px;
+  padding: 14px 16px;
+  border-radius: 8px;
+  background: var(--nuit);
+  color: #FFFFFF;
+}
+
+.risque-boite p { margin: 0; }
+.risque-boite__titre { font-size: 13px; letter-spacing: 0.06em; text-transform: uppercase; color: #C9D3E3; }
+
+.risque-boite__valeur {
+  font-family: var(--police-titre);
+  font-weight: 700;
+  font-size: 34px;
+  line-height: 1;
+}
+
+.risque-boite__mot {
+  font-family: var(--police-texte);
+  font-size: 15px;
+  font-weight: 600;
+  margin-left: 6px;
+  color: var(--couleur-niveau);
+}
+
+.trajet-carte--faible .risque-boite__mot { color: #5FB3CE; }
+.trajet-carte--modere .risque-boite__mot { color: #F2C230; }
+.trajet-carte--eleve .risque-boite__mot { color: #F28C38; }
+
+.risque-boite__piste {
+  height: 10px;
+  border-radius: 5px;
+  background: #2E3B5C;
+  overflow: hidden;
+}
+
+.risque-boite__jauge { display: block; height: 100%; border-radius: 5px; background: #5FB3CE; }
+.trajet-carte--modere .risque-boite__jauge { background: #F2C230; }
+.trajet-carte--eleve .risque-boite__jauge { background: #F28C38; }
+
+.risque-boite__source { font-size: 12px; color: #C9D3E3; }
+.risque-boite__vide { font-size: 15px; color: #C9D3E3; }
+
+.trajet__note { margin-top: 20px; }
+
+/* ---------- Petits écrans ---------- */
+@media (max-width: 960px) {
+  /* minmax(0, 1fr) : la colonne peut rétrécir sous la largeur de son contenu */
+  .trajet__mise-en-page { grid-template-columns: minmax(0, 1fr); }
+  /* Sur petit écran, les trains d'abord ; le formulaire pour modifier vient après */
+  .trajet__formulaire { position: static; order: 2; }
+}
+
+@media (max-width: 640px) {
+  .trajet-carte { grid-template-columns: minmax(0, 1fr); gap: 14px; padding: 16px; }
+  .trajet-carte__horaires { gap: 8px; }
+  .trajet-carte__gares { font-size: 15px; }
+  .trajet-carte__heure { font-size: 26px; }
+}
+
+/* Dans la colonne étroite, les jours s'empilent (nom à gauche, date à droite) */
+.trajet__formulaire .recherche__choix-jours { flex-direction: column; }
+.trajet__formulaire .choix-jour { flex-direction: row; justify-content: space-between; align-items: center; }
+.trajet__formulaire .recherche__bouton { width: 100%; }
+
+/* ---------- Météo prévue ---------- */
+.badge--meteo { display: inline-flex; align-items: center; gap: 6px; font-weight: 500; background: #F5F7F9; border: 1px solid var(--filet); }
+.badge--meteo-alerte { background: #E8F3F7; border-color: #9FCCDC; color: #0F4C61; }
+
+/* ---------- État en direct ---------- */
+.direct {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px 10px;
+  margin: 12px 0 0;
+  padding-top: 12px;
+  border-top: 1px dashed var(--filet);
+  font-size: 15px;
+  color: var(--texte-doux);
+}
+
+.direct__puce {
+  padding: 2px 10px;
+  border-radius: 999px;
+  font-weight: 700;
+  font-size: 14px;
+}
+
+.direct--heure .direct__puce { background: #DDF3E6; color: #1B6B3E; }
+.direct--retard .direct__puce { background: #F28C38; color: var(--nuit); }
+.direct--supprime .direct__puce { background: var(--nuit); color: #FFFFFF; }
+
+/* Un train supprimé reste visible, mais estompé et barré */
+.trajet-carte--supprime { opacity: 0.7; }
+.trajet-carte--supprime .trajet-carte__heure { text-decoration: line-through; }
+
+/* ---------- Correspondances ---------- */
+.resultats__detail {
+  display: block;
+  font-family: var(--police-texte);
+  font-weight: 500;
+  font-size: 16px;
+  color: var(--texte-doux);
+  margin-top: 2px;
+}
+
+.trajet-carte__train { display: inline-flex; align-items: center; gap: 6px; }
+.trajet-carte__chevron { font-weight: 700; font-size: 18px; color: var(--texte-doux); }
+
+.alerte-correspondance {
+  margin: 12px 0 0;
+  padding: 10px 14px;
+  border-radius: 6px;
+  background: #FFF4E5;
+  color: #6B3A10;
+  font-size: 15px;
+}
+
+.arrets__troncon { list-style: none; }
+.arrets__liste { list-style: none; margin: 0; padding: 0; }
+.arrets__train { margin-left: auto; font-size: 13px; color: var(--texte-doux); }
+
+.arrets__changement {
+  margin: 8px 0 8px -6px;
+  padding: 6px 12px;
+  border-radius: 6px;
+  background: var(--nuit);
+  color: #FFFFFF;
+  font-size: 14px;
+  font-weight: 600;
+}
+
+/* Les tronçons eux-mêmes ne sont pas des arrêts : pas de trait ni de puce */
+.arrets > .arrets__troncon { display: block; padding: 0; border-left: 0; }
+.arrets > .arrets__troncon::before { display: none; }

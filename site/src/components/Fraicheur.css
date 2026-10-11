@@ -1,0 +1,43 @@
+.fraicheur { font-size: 14px; color: #4A5468; }
+.fraicheur--sombre { color: #C9D3E3; }
+
+.fraicheur__liste {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px 18px;
+}
+
+.fraicheur__liste li { display: inline-flex; align-items: center; gap: 6px; }
+
+.fraicheur__point {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: #8C96A6;
+}
+
+/* Le point « en direct » clignote doucement */
+.fraicheur__point--direct { background: #2E9E5B; animation: pulsation 2s ease-in-out infinite; }
+.fraicheur__direct { color: var(--nuit); font-weight: 600; }
+.fraicheur--sombre .fraicheur__direct { color: #FFFFFF; }
+
+@keyframes pulsation {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.35; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .fraicheur__point--direct { animation: none; }
+}
+
+.fraicheur__alerte {
+  margin: 0 0 8px;
+  padding: 10px 14px;
+  border-radius: 6px;
+  background: #FFF4E5;
+  color: #8A3B07;
+  font-weight: 600;
+}

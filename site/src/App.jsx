@@ -1,0 +1,29 @@
+import { Routes, Route } from "react-router-dom";
+import Header from "./components/Header";
+import Footer from "./components/Footer";
+import Accueil from "./pages/Accueil";
+import Carte from "./pages/Carte";
+import Prediction from "./pages/Prediction";
+import Analyses from "./pages/Analyses";
+import Trajet from "./pages/Trajet";
+
+export default function App() {
+  return (
+    <div className="page">
+      <Header />
+
+      <main className="conteneur">
+        {/* Selon l'adresse, React affiche UNE de ces pages */}
+        <Routes>
+          <Route path="/" element={<Accueil />} />
+          <Route path="/carte" element={<Carte />} />
+          <Route path="/prediction" element={<Prediction />} />
+          <Route path="/analyses" element={<Analyses />} />
+          <Route path="/trajet" element={<Trajet />} />
+        </Routes>
+      </main>
+
+      <Footer />
+    </div>
+  );
+}

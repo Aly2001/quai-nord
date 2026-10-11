@@ -1,0 +1,21 @@
+.carte-chiffre {
+  background: #FFFFFF;
+  border: 1px solid var(--filet);
+  border-radius: 8px;
+  padding: 24px;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.carte-chiffre__valeur {
+  font-family: var(--police-titre);
+  font-weight: 700;
+  font-size: 48px;
+  line-height: 1;
+}
+
+.carte-chiffre__texte {
+  font-size: 16px;
+  color: var(--texte-doux);
+}

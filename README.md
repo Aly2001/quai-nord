@@ -84,4 +84,4 @@ Projet personnel, sans lien avec la SNCF.
 
 ---
 
-**Aly Keita**, étudiant en Master 2 Ingénierie des Systèmes Complexes (EILCO, Calais), à la recherche d'un stage de 6 mois en Data Science / Data Engineering.
+**Aly Keita**, étudiant en Master 2 Ingénierie des Systèmes Complexes (EILCO, Calais).

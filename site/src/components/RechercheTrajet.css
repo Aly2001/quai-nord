@@ -120,3 +120,7 @@
   .choix-jour { flex-direction: row; justify-content: space-between; align-items: center; }
   .recherche__bouton { width: 100%; }
 }
+
+/* Safari (iPhone) centre l'heure dans son champ : on l'aligne à gauche comme les autres */
+.boite__contenu input[type="time"] { text-align: left; }
+.boite__contenu input[type="time"]::-webkit-date-and-time-value { text-align: left; }

@@ -24,6 +24,9 @@ export default function Trajet() {
   const meteo = useMeteo();
   const [horaires, setHoraires] = useState(null);          // départs de la gare choisie
   const [fichiersCorresp, setFichiersCorresp] = useState(null);  // départs des gares de correspondance
+  // Sur téléphone, le formulaire est replié derrière le bouton « Modifier la recherche »
+  const [formulaireOuvert, setFormulaireOuvert] = useState(false);
+  const [aProposOuvert, setAProposOuvert] = useState(false);
 
   const gareDepart = index ? trouverGare(index.gares, de) : null;
   const jourValide = index ? joursAVenir(index.jours).includes(jour) : false;
@@ -88,7 +91,7 @@ export default function Trajet() {
       <section className="bandeau-resultats">
         <DecorVoies cadrage="xMidYMid slice" discret />
         <div className="conteneur bandeau-resultats__contenu">
-          <p className="bandeau-resultats__surtitre">Résultats de recherche</p>
+          <p className="bandeau-resultats__surtitre cache-telephone">Résultats de recherche</p>
           <h1 className="bandeau-resultats__titre">
             {gareDepart ? gareDepart.nom : de || "Où allez-vous\u00a0?"}
             {a && <> <span aria-hidden="true">→</span><span className="visuellement-cache"> vers </span> {nomArrivee}</>}
@@ -103,9 +106,18 @@ export default function Trajet() {
       </section>
 
       <div className="trajet__mise-en-page">
-        <aside className="trajet__formulaire" aria-label="Modifier la recherche">
-          <RechercheTrajet key={params.toString()} initial={{ de, a, jour, heure }}
-                           onRechercher={(valeurs) => setParams(valeurs)} texteBouton="Mettre à jour" />
+        {/* Visible seulement sur téléphone : ouvre ou ferme le formulaire, en haut de la page */}
+        <button type="button" className="trajet__bouton-modifier" aria-expanded={formulaireOuvert}
+                aria-controls="formulaire-recherche" onClick={() => setFormulaireOuvert(!formulaireOuvert)}>
+          {formulaireOuvert ? "Fermer la recherche ▴" : "Modifier la recherche ▾"}
+        </button>
+
+        <aside id="formulaire-recherche" aria-label="Modifier la recherche"
+               className={formulaireOuvert ? "trajet__formulaire trajet__formulaire--ouvert" : "trajet__formulaire"}>
+          {/* heure : celle du début des résultats (l'heure actuelle si c'est aujourd'hui) */}
+          <RechercheTrajet key={params.toString()} initial={{ de, a, jour, heure: debut }}
+                           onRechercher={(valeurs) => { setFormulaireOuvert(false); setParams(valeurs); }}
+                           texteBouton="Mettre à jour" />
         </aside>
 
         <section className="resultats" aria-live="polite">
@@ -147,7 +159,13 @@ export default function Trajet() {
                 ))}
               </ol>
 
-              <p className="texte-doux trajet__note">
+              <div className="a-propos">
+                {/* Sur téléphone, le texte est replié ; sur ordinateur, il reste affiché */}
+                <button type="button" className="a-propos__bouton" aria-expanded={aProposOuvert}
+                        onClick={() => setAProposOuvert(!aProposOuvert)}>
+                  À propos des données {aProposOuvert ? "▴" : "▾"}
+                </button>
+                <p className={aProposOuvert ? "texte-doux trajet__note a-propos__texte--ouvert" : "texte-doux trajet__note"}>
                 Horaires théoriques SNCF (GTFS), générés le {index.genere_le}. Une seule correspondance au
                 maximum, de 5 min à 1 h 30, dans la même gare. Le risque de retard est le taux observé dans
                 les données collectées par Quai Nord
@@ -155,6 +173,7 @@ export default function Trajet() {
                 ce n'est pas encore une prédiction. Météo prévue au départ : Open-Meteo (CC BY 4.0).
                 Pour une information officielle, consultez SNCF Connect.
               </p>
+              </div>
             </>
           )}
         </section>
@@ -273,7 +292,7 @@ function CarteTrajet({ trajet: t, jour, risques, meteo, tempsReel }) {
             </div>
             <p className="risque-boite__source">
               Observé sur {risque.n} passage{risque.n > 1 ? "s" : ""} de {risque.source}
-              {t.correspondance ? " (train d'arrivée)" : ""}
+              {t.correspondance ? " (du 2e train)" : ""}
             </p>
           </>
         ) : (

@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { useIndexHoraires, joursAVenir, etiquetteJour, dateCourte } from "../data/horaires";
+import { useIndexHoraires, joursAVenir, etiquetteJour, dateCourte, heureActuelle } from "../data/horaires";
 import "./RechercheTrajet.css";
 
 // Petites icônes dessinées en SVG (aucune image externe)
@@ -26,7 +26,8 @@ export default function RechercheTrajet({ initial = {}, onRechercher, texteBouto
   const [de, setDe] = useState(initial.de || "");
   const [a, setA] = useState(initial.a || "");
   const [jour, setJour] = useState(initial.jour || "");
-  const [heure, setHeure] = useState(initial.heure || "07:00");
+  // Par défaut : l'heure actuelle (on ne cherche pas un train déjà parti)
+  const [heure, setHeure] = useState(initial.heure || heureActuelle());
 
   // Seulement aujourd'hui, demain et après-demain
   const jours = index ? joursAVenir(index.jours) : [];

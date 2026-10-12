@@ -269,8 +269,7 @@
 @media (max-width: 960px) {
   /* minmax(0, 1fr) : la colonne peut rétrécir sous la largeur de son contenu */
   .trajet__mise-en-page { grid-template-columns: minmax(0, 1fr); }
-  /* Sur petit écran, les trains d'abord ; le formulaire pour modifier vient après */
-  .trajet__formulaire { position: static; order: 2; }
+  .trajet__formulaire { position: static; }
 }
 
 @media (max-width: 640px) {
@@ -356,3 +355,70 @@
 /* Les tronçons eux-mêmes ne sont pas des arrêts : pas de trait ni de puce */
 .arrets > .arrets__troncon { display: block; padding: 0; border-left: 0; }
 .arrets > .arrets__troncon::before { display: none; }
+
+
+/* =====================================================================
+   Téléphone et tablette : formulaire en haut, replié par défaut
+   ===================================================================== */
+.trajet__bouton-modifier { display: none; }
+.a-propos__bouton { display: none; }
+
+@media (max-width: 960px) {
+  .trajet__bouton-modifier {
+    display: block;
+    min-height: 50px;
+    font: inherit;
+    font-weight: 600;
+    font-size: 18px;
+    background: var(--nuit);
+    color: #FFFFFF;
+    border: 0;
+    border-radius: 8px;
+    cursor: pointer;
+  }
+
+  .trajet__formulaire { display: none; }
+  .trajet__formulaire--ouvert { display: block; }
+
+  /* Le texte « À propos des données » est replié */
+  .a-propos__bouton {
+    display: block;
+    min-height: 44px;
+    padding: 0;
+    font: inherit;
+    font-size: 15px;
+    font-weight: 600;
+    background: none;
+    border: 0;
+    color: var(--mer);
+    cursor: pointer;
+  }
+  .a-propos { border-top: 1px solid var(--filet); margin-top: 20px; padding-top: 6px; }
+  .a-propos .trajet__note { display: none; margin-top: 4px; }
+  .a-propos .a-propos__texte--ouvert { display: block; }
+}
+
+/* =====================================================================
+   Téléphone : bandeau compact et risque sur une ligne
+   ===================================================================== */
+@media (max-width: 640px) {
+  .cache-telephone { display: none; }
+  .bandeau-resultats__contenu { padding-top: 16px; padding-bottom: 16px; gap: 4px; }
+  .bandeau-resultats__titre { font-size: 26px; }
+  .bandeau-resultats__date { font-size: 15px; }
+
+  /* La même boîte bleu nuit, mais sur une ligne : titre, barre, valeur */
+  .risque-boite {
+    display: grid;
+    grid-template-columns: auto minmax(0, 1fr) auto;
+    grid-template-areas: "titre piste valeur" "source source source";
+    align-items: center;
+    gap: 6px 10px;
+    padding: 10px 14px;
+  }
+  .risque-boite__titre { grid-area: titre; white-space: nowrap; }
+  .risque-boite__piste { grid-area: piste; }
+  .risque-boite__valeur { grid-area: valeur; font-size: 24px; white-space: nowrap; }
+  .risque-boite__source { grid-area: source; font-size: 14px; }
+  .risque-boite__vide { grid-column: 2 / -1; font-size: 14px; }
+}

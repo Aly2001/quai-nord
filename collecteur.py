@@ -244,8 +244,12 @@ def lancer_mise_a_jour_si_besoin():
         log.info("Lancement de la mise à jour quotidienne du site (journal : %s)", JOURNAL_MISE_A_JOUR)
         journal = open(JOURNAL_MISE_A_JOUR, "a", encoding="utf-8")
         # Popen lance le script SANS attendre la fin : la collecte continue pendant ce temps
+        # UTF-8 imposé : sous Windows, l'écriture dans un fichier se ferait sinon en « cp1252 »,
+        # qui ne sait pas écrire certains caractères (comme « ≥ ») et fait planter les scripts.
+        environnement = {**os.environ, "PYTHONUTF8": "1", "PYTHONIOENCODING": "utf-8"}
         mise_a_jour_en_cours = subprocess.Popen(
-            [sys.executable, "mettre_a_jour.py"], stdout=journal, stderr=subprocess.STDOUT)
+            [sys.executable, "mettre_a_jour.py"], stdout=journal, stderr=subprocess.STDOUT,
+            env=environnement)
 
 
 def main():

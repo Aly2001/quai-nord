@@ -14,6 +14,7 @@ On peut aussi le lancer à la main :
     python mettre_a_jour.py
 """
 
+import os
 import subprocess
 import sys
 import time
@@ -30,6 +31,16 @@ ETAPES = [
 FICHIER_SUIVI = Path("derniere_mise_a_jour.txt")   # date de la dernière réussite
 
 
+# Sous Windows, quand l'affichage est redirigé vers un fichier (le journal), Python utilise
+# par défaut l'encodage « cp1252 », qui ne connaît pas des caractères comme « ≥ ».
+# On impose l'UTF-8 à ce script ET aux scripts qu'il lance.
+ENVIRONNEMENT = os.environ.copy()
+ENVIRONNEMENT["PYTHONUTF8"] = "1"
+ENVIRONNEMENT["PYTHONIOENCODING"] = "utf-8"
+if hasattr(sys.stdout, "reconfigure"):
+    sys.stdout.reconfigure(encoding="utf-8")
+
+
 def horodatage():
     return datetime.now().strftime("%Y-%m-%d %H:%M:%S")
 
@@ -42,7 +53,7 @@ def main():
         print(f"\n[{horodatage()}] Étape {numero}/{len(ETAPES)} : {script}", flush=True)
         debut = time.time()
         # sys.executable = le même Python que celui qui lance ce script
-        resultat = subprocess.run([sys.executable, script])
+        resultat = subprocess.run([sys.executable, script], env=ENVIRONNEMENT)
         duree = time.time() - debut
         if resultat.returncode != 0:
             print(f"[{horodatage()}] ÉCHEC de {script} après {duree:.0f} s : mise à jour arrêtée.", flush=True)

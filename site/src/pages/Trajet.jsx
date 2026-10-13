@@ -167,8 +167,8 @@ export default function Trajet() {
                 </button>
                 <p className={aProposOuvert ? "texte-doux trajet__note a-propos__texte--ouvert" : "texte-doux trajet__note"}>
                 Horaires théoriques SNCF (GTFS), générés le {index.genere_le}. Une seule correspondance au
-                maximum, de 5 min à 1 h 30, dans la même gare. Le risque de retard est le taux observé dans
-                les données collectées par Quai Nord
+                maximum, de 5 min à 1 h 30, dans la même gare. Le risque de retard est estimé à partir des retards observés par
+                Quai Nord, ajusté vers la moyenne quand un train a peu d'observations
                 {risques ? ` (${risques.jours_observes} jour${risques.jours_observes > 1 ? "s" : ""} de collecte)` : ""} :
                 ce n'est pas encore une prédiction. Météo prévue au départ : Open-Meteo (CC BY 4.0).
                 Pour une information officielle, consultez SNCF Connect.
@@ -193,6 +193,8 @@ function CarteTrajet({ trajet: t, jour, risques, meteo, tempsReel }) {
   const risque = risqueDuTrain(risques, dernier.train);
   const pourcentage = risque ? Math.round(risque.taux * 100) : null;
   const niveau = pourcentage !== null ? niveauRisque(pourcentage) : null;
+  // Aucun train n'a un risque nul : sous 1 %, on écrit « < 1 % » plutôt que « 0 % »
+  const texteRisque = pourcentage === null ? "" : pourcentage < 1 ? "< 1 %" : `${pourcentage} %`;
 
   // Correspondance : risque que le 1er train arrive avec 5 min de retard ou plus
   const risquePremier = t.correspondance ? risqueDuTrain(risques, premier.train) : null;
@@ -284,14 +286,14 @@ function CarteTrajet({ trajet: t, jour, risques, meteo, tempsReel }) {
         {niveau ? (
           <>
             <p className="risque-boite__valeur">
-              {pourcentage}&nbsp;% <span className="risque-boite__mot">{niveau.mot}</span>
+              {texteRisque.replace(" %", "\u00a0%")} <span className="risque-boite__mot">{niveau.mot}</span>
             </p>
             <div className="risque-boite__piste" role="img"
-                 aria-label={`Risque de retard de 5 minutes ou plus : ${pourcentage} %, niveau ${niveau.mot.toLowerCase()}`}>
+                 aria-label={`Risque de retard de 5 minutes ou plus : ${texteRisque}, niveau ${niveau.mot.toLowerCase()}`}>
               <span className="risque-boite__jauge" style={{ width: `${Math.max(pourcentage, 3)}%` }} />
             </div>
             <p className="risque-boite__source">
-              Observé sur {risque.n} passage{risque.n > 1 ? "s" : ""} de {risque.source}
+              Basé sur {risque.n} passage{risque.n > 1 ? "s" : ""} observé{risque.n > 1 ? "s" : ""} de {risque.source}
               {t.correspondance ? " (du 2e train)" : ""}
             </p>
           </>

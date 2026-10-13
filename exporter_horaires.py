@@ -213,13 +213,27 @@ def main():
     # Toutes les gares de la région ayant au moins un train prévu dans le GTFS
     gares = {slug(nom): nom for nom in passages["stop_name"].unique()}
 
-    # Les gares de CORRESPONDANCE : celles où passent au moins 3 lignes différentes.
-    # (Une ligne = son nom court, ex. « K71 » ; à défaut, son identifiant.)
+    # Les gares de CORRESPONDANCE, selon deux règles :
+    #  1. au moins 3 lignes différentes (une ligne = son nom court, ex. « K71 » ;
+    #     à défaut, son identifiant) ;
+    #  2. OU desservies par des trains grandes lignes (TGV, Intercités, OUIGO...) :
+    #     on y change souvent de train, même quand peu de lignes y passent.
+    #     Dans le GTFS SNCF, le type de train figure dans l'identifiant de l'arrêt,
+    #     ex. « StopPoint:OCETGV INOUI-87317362 ».
     nom_ligne = passages["route_short_name"].fillna("").where(
         passages["route_short_name"].fillna("") != "", passages["route_id"])
     lignes_par_gare = nom_ligne.groupby(passages["stop_name"]).nunique()
-    correspondances = sorted(slug(nom) for nom, nb in lignes_par_gare.items() if nb >= 3)
-    print(f"   {len(correspondances)} gares de correspondance (au moins 3 lignes)")
+    par_lignes = {nom for nom, nb in lignes_par_gare.items() if nb >= 3}
+
+    est_grande_ligne = passages["stop_id"].str.contains(
+        r"TGV|INTERCIT|OUIGO|LYRIA|EUROSTAR", case=False, regex=True, na=False)
+    par_grandes_lignes = set(passages.loc[est_grande_ligne, "stop_name"])
+
+    correspondances = sorted(slug(nom) for nom in par_lignes | par_grandes_lignes)
+    print(f"   {len(correspondances)} gares de correspondance : {len(par_lignes)} par le nombre de lignes, "
+          f"{len(par_grandes_lignes - par_lignes)} de plus grâce aux TGV et Intercités")
+    if par_grandes_lignes - par_lignes:
+        print("   Ajoutées grâce aux grandes lignes :", ", ".join(sorted(par_grandes_lignes - par_lignes)))
 
     for jour in jours:
         du_jour = horaires_du_jour(passages, jour, calendrier, exceptions)

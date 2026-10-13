@@ -1,5 +1,7 @@
 # Quai Nord 🚆
 
+[![Tests](https://github.com/Aly2001/quai-nord/actions/workflows/tests.yml/badge.svg)](https://github.com/Aly2001/quai-nord/actions/workflows/tests.yml)
+
 🇬🇧 [English version](README.en.md)
 
 **Mon TER sera-t-il à l'heure ?** Un projet data de bout en bout sur les trains régionaux (TER) des Hauts-de-France, construit à partir des données ouvertes de la SNCF.
@@ -84,4 +86,4 @@ Projet personnel, sans lien avec la SNCF.
 
 ---
 
-**Aly Keita**, étudiant en Master 2 Ingénierie des Systèmes Complexes (EILCO, Calais).
+**Aly Keita**, étudiant en Master 2 Ingénierie des Systèmes Complexes (EILCO, Calais), à la recherche d'un stage de 6 mois en Data Science / Data Engineering.

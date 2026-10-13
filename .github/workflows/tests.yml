@@ -1,0 +1,54 @@
+# ======================================================================
+#  Vérifications automatiques de Quai Nord (GitHub Actions)
+#
+#  À chaque « git push », GitHub lance ces étapes sur ses propres machines :
+#    1. les tests du site (Vitest) ;
+#    2. la construction du site (détecte un fichier manquant, une erreur de syntaxe...) ;
+#    3. une vérification que tous les scripts Python sont lisibles par Python.
+#  Résultat : une coche verte ✅ ou une croix rouge ❌ à côté de chaque envoi.
+# ======================================================================
+name: Tests
+
+on:
+  push:
+  pull_request:
+
+jobs:
+  site:
+    name: Site (tests et construction)
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: site
+    steps:
+      - name: Récupérer le code
+        uses: actions/checkout@v4
+
+      - name: Installer Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+
+      - name: Installer les librairies du site
+        run: npm ci
+
+      - name: Lancer les tests
+        run: npm test
+
+      - name: Construire le site
+        run: npm run build
+
+  python:
+    name: Scripts Python
+    runs-on: ubuntu-latest
+    steps:
+      - name: Récupérer le code
+        uses: actions/checkout@v4
+
+      - name: Installer Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Vérifier que chaque script est un code Python valide
+        run: python -m py_compile *.py

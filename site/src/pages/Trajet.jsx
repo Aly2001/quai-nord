@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { useSearchParams } from "react-router-dom";
+import { Link, useSearchParams } from "react-router-dom";
 import RechercheTrajet from "../components/RechercheTrajet";
 import Fraicheur from "../components/Fraicheur";
 import DecorVoies from "../components/DecorVoies";
@@ -171,7 +171,8 @@ export default function Trajet() {
                 Quai Nord, ajusté vers la moyenne quand un train a peu d'observations
                 {risques ? ` (${risques.jours_observes} jour${risques.jours_observes > 1 ? "s" : ""} de collecte)` : ""} :
                 ce n'est pas encore une prédiction. Météo prévue au départ : Open-Meteo (CC BY 4.0).
-                Pour une information officielle, consultez SNCF Connect.
+                Pour une information officielle, consultez SNCF Connect.{" "}
+                <Link to="/faq">Questions fréquentes</Link>
               </p>
               </div>
             </>

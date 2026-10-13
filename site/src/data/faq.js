@@ -1,0 +1,144 @@
+// Questions fréquentes de Quai Nord.
+// Ce fichier sert à la page /faq, et servira plus tard de BASE DE CONNAISSANCES
+// au chatbot : il répondra à partir de ces textes, au lieu d'inventer.
+// Règle : des réponses courtes, exactes, qui décrivent le fonctionnement RÉEL du site.
+
+export const SNCF_CONNECT = "https://www.sncf-connect.com";
+
+export const faq = [
+  {
+    theme: "Le service",
+    id: "service",
+    questions: [
+      {
+        question: "À quoi sert Quai Nord ?",
+        reponse: [
+          "Quai Nord vous aide à savoir si votre train risque d'être en retard.",
+          "Recherchez un trajet au départ d'une gare des Hauts-de-France : le site affiche les trains, leur risque de retard estimé à partir des retards réellement observés, la météo prévue au départ et, le jour même, leur état en direct quand il est disponible.",
+        ],
+      },
+      {
+        question: "Puis-je réserver ou acheter un billet ici ?",
+        reponse: [
+          "Non. Quai Nord ne vend pas de billets et ne fait aucune réservation.",
+          "Pour acheter un billet, rendez-vous sur SNCF Connect, le site officiel de la SNCF.",
+        ],
+        lien: { texte: "Aller sur SNCF Connect", url: SNCF_CONNECT },
+      },
+      {
+        question: "Quai Nord est-il un site officiel de la SNCF ?",
+        reponse: [
+          "Non. Quai Nord est un projet personnel et indépendant, réalisé par Aly Keita, étudiant en data science, à partir des données ouvertes publiées par SNCF Voyageurs.",
+          "Pour toute information officielle (horaires, perturbations, billets), consultez SNCF Connect.",
+        ],
+      },
+      {
+        question: "Quels trains et quelles gares sont couverts ?",
+        reponse: [
+          "Le départ doit se faire depuis l'une des 334 gares des Hauts-de-France. L'arrivée peut être n'importe quelle gare desservie, y compris hors de la région, comme Paris Gare du Nord.",
+          "Tous les trains présents dans les données ouvertes de la SNCF sont pris en compte : TER, Intercités et TGV.",
+        ],
+      },
+    ],
+  },
+  {
+    theme: "La recherche",
+    id: "recherche",
+    questions: [
+      {
+        question: "Pourquoi je ne vois pas mon train ?",
+        reponse: [
+          "Plusieurs raisons sont possibles : le trajet demande plus d'une correspondance ; le changement se fait entre deux gares différentes (par exemple Lille Flandres et Lille Europe) ; le temps de changement est inférieur à 5 minutes ou supérieur à 1 h 30 ; le train part avant l'heure choisie ou il est déjà parti ; le jour demandé est au-delà d'après-demain.",
+          "Les horaires sont aussi mis à jour une fois par nuit : un train ajouté ou modifié dans la journée peut ne pas encore apparaître. En cas de doute, vérifiez sur SNCF Connect.",
+        ],
+        lien: { texte: "Vérifier sur SNCF Connect", url: SNCF_CONNECT },
+      },
+      {
+        question: "Pourquoi seulement aujourd'hui, demain et après-demain ?",
+        reponse: [
+          "Les horaires de la SNCF changent souvent au dernier moment (travaux, adaptations). En se limitant aux trois prochains jours, Quai Nord affiche des horaires récents et fiables.",
+        ],
+      },
+      {
+        question: "Pourquoi l'heure de départ change-t-elle toute seule ?",
+        reponse: [
+          "Pour aujourd'hui, Quai Nord n'affiche jamais un train déjà parti. Si l'heure choisie est déjà passée, la recherche commence à l'heure actuelle.",
+        ],
+      },
+    ],
+  },
+  {
+    theme: "Le risque de retard",
+    id: "risque",
+    questions: [
+      {
+        question: "Comment est calculé le risque de retard ?",
+        reponse: [
+          "Toutes les 5 minutes, Quai Nord enregistre les retards annoncés par la SNCF. Pour chaque train, il calcule la part de ses passages arrivés avec 5 minutes de retard ou plus.",
+          "Si un train a encore peu d'observations, le calcul s'appuie aussi sur le comportement habituel de sa ligne à cette heure-là. La source utilisée est indiquée sous chaque risque.",
+        ],
+      },
+      {
+        question: "Pourquoi un retard de « 5 minutes ou plus » ?",
+        reponse: [
+          "C'est un seuil couramment utilisé pour mesurer la ponctualité des trains. De plus, les retards annoncés par la SNCF vont généralement par paliers de 5 minutes : 5, 10, 15 minutes…",
+        ],
+      },
+      {
+        question: "Pourquoi un train jamais en retard n'affiche-t-il pas 0 % ?",
+        reponse: [
+          "Aucun train n'a un risque nul. Quand un train n'a été observé que quelques fois sans retard, on n'a simplement pas encore assez de recul pour l'affirmer.",
+          "Son risque est donc « ajusté » vers celui de sa ligne : c'est un lissage statistique. Plus le train est observé, plus son risque reflète son propre comportement. Sous 1 %, le site affiche « < 1 % ».",
+        ],
+      },
+      {
+        question: "Est-ce une prédiction ?",
+        reponse: [
+          "Pas encore : c'est une estimation fondée sur les retards observés dans le passé. Un modèle de prédiction (heure, ligne, météo, retard en cours) est en préparation.",
+          "Aucun calcul ne peut prévoir un incident soudain, comme une panne ou un obstacle sur la voie.",
+        ],
+      },
+      {
+        question: "Que veulent dire « correspondance courte » et « correspondance compromise » ?",
+        reponse: [
+          "Une correspondance est signalée courte quand le changement dure 10 minutes ou moins et que le premier train arrive souvent en retard.",
+          "Elle est signalée compromise, le jour même, quand le premier train est annoncé avec presque autant de retard, ou plus, que le temps prévu pour changer.",
+        ],
+      },
+    ],
+  },
+  {
+    theme: "Les données",
+    id: "donnees",
+    questions: [
+      {
+        question: "D'où viennent les données ?",
+        reponse: [
+          "Les horaires et les retards viennent des données ouvertes de SNCF Voyageurs (formats GTFS et GTFS-RT), publiées sur transport.data.gouv.fr sous licence ODbL.",
+          "La météo vient d'Open-Meteo, sous licence CC BY 4.0.",
+        ],
+      },
+      {
+        question: "À quelle fréquence les données sont-elles mises à jour ?",
+        reponse: [
+          "Les retards sont collectés toutes les 5 minutes. Les horaires, la météo, les risques et le site sont mis à jour chaque nuit, vers 4 h.",
+          "La date de la dernière mise à jour est toujours indiquée sous le formulaire de recherche.",
+        ],
+      },
+      {
+        question: "Pourquoi l'état en direct n'apparaît-il pas toujours ?",
+        reponse: [
+          "La SNCF ne publie l'état en direct que pour les trains qui circulent dans l'heure qui vient. Quai Nord ne l'affiche que s'il date de moins de 15 minutes, pour ne jamais montrer une information périmée.",
+          "Sur la version en ligne, le site étant mis à jour une fois par nuit, l'état en direct n'est pas encore disponible : il le sera prochainement.",
+        ],
+      },
+      {
+        question: "Mes recherches sont-elles enregistrées ?",
+        reponse: [
+          "Non. Il n'y a pas de compte, vos recherches ne sont pas enregistrées et le site n'utilise pas de cookies.",
+          "Seule une mesure d'audience anonyme compte les visites (nombre de pages vues, provenance), sans jamais identifier les visiteurs.",
+        ],
+      },
+    ],
+  },
+];

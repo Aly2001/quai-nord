@@ -5,6 +5,7 @@ const PAGES = [
   { label: "Carte", lien: "/carte" },
   { label: "Prédiction", lien: "/prediction" },
   { label: "Analyses", lien: "/analyses" },
+  { label: "Questions", lien: "/faq" },
 ];
 
 export default function Header() {

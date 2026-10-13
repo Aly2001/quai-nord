@@ -1,15 +1,18 @@
 import { Routes, Route } from "react-router-dom";
 import Header from "./components/Header";
 import Footer from "./components/Footer";
+import SuiviVisites from "./components/SuiviVisites";
 import Accueil from "./pages/Accueil";
 import Carte from "./pages/Carte";
 import Prediction from "./pages/Prediction";
 import Analyses from "./pages/Analyses";
 import Trajet from "./pages/Trajet";
+import Faq from "./pages/Faq";
 
 export default function App() {
   return (
     <div className="page">
+      <SuiviVisites />
       <Header />
 
       <main className="conteneur">
@@ -20,6 +23,7 @@ export default function App() {
           <Route path="/prediction" element={<Prediction />} />
           <Route path="/analyses" element={<Analyses />} />
           <Route path="/trajet" element={<Trajet />} />
+          <Route path="/faq" element={<Faq />} />
         </Routes>
       </main>
 

@@ -1,15 +1,18 @@
 """
 Mise à jour complète du site, en une seule commande.
 
-Enchaîne les 6 étapes, dans l'ordre :
+Enchaîne les 7 étapes, dans l'ordre :
   1. charger_gtfs.py        -> horaires théoriques SNCF du jour
   2. collecter_meteo.py     -> météo observée et prévue (Open-Meteo)
   3. exporter_horaires.py   -> fichiers d'horaires pour le site
   4. construire_retards.py  -> table propre des retards, avec la météo
   5. exporter_risques.py    -> risque de retard de chaque train
   6. publier_site.py        -> remise en ligne du site (Firebase)
+  7. sauvegarder.py         -> sauvegarde de sncf.db dans Cloud Storage (facultative)
 
-Si une étape échoue, on s'arrête : inutile de continuer avec des données incomplètes.
+Si une étape obligatoire échoue, on s'arrête : inutile de continuer avec des données
+incomplètes. Une étape FACULTATIVE (la sauvegarde) qui échoue est seulement signalée :
+elle ne doit pas faire recommencer toute la mise à jour.
 Le collecteur lance ce script automatiquement une fois par jour.
 On peut aussi le lancer à la main :
     python mettre_a_jour.py
@@ -29,7 +32,9 @@ ETAPES = [
     "construire_retards.py",
     "exporter_risques.py",
     "publier_site.py",
+    "sauvegarder.py",
 ]
+FACULTATIVES = {"sauvegarder.py"}
 FICHIER_SUIVI = Path("derniere_mise_a_jour.txt")   # date de la dernière réussite
 
 
@@ -58,6 +63,10 @@ def main():
         resultat = subprocess.run([sys.executable, script], env=ENVIRONNEMENT)
         duree = time.time() - debut
         if resultat.returncode != 0:
+            if script in FACULTATIVES:
+                print(f"[{horodatage()}] AVERTISSEMENT : {script} a échoué (étape facultative), on continue.",
+                      flush=True)
+                continue
             print(f"[{horodatage()}] ÉCHEC de {script} après {duree:.0f} s : mise à jour arrêtée.", flush=True)
             sys.exit(1)
         print(f"[{horodatage()}] {script} terminé en {duree:.0f} s", flush=True)

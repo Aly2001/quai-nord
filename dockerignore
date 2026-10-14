@@ -1,0 +1,16 @@
+# ======================================================================
+#  Fichiers envoyés à Google pour fabriquer l'image de Nora.
+#  On exclut TOUT, puis on autorise seulement le nécessaire :
+#  surtout pas les bases de données (lourdes) ni d'éventuels secrets.
+# ======================================================================
+*
+!Dockerfile
+!nora/
+!nora/**
+!site/
+!site/src/
+!site/src/data/
+!site/src/data/faq.json
+nora/test_app.py
+nora/diagnostic.py
+nora/__pycache__/

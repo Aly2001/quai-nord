@@ -33,8 +33,11 @@ export default function Accueil() {
           <div className="bandeau__recherche">
             <h1 className="bandeau__titre">Votre TER sera-t-il à l'heure&nbsp;?</h1>
             <RechercheTrajet onRechercher={rechercher} />
-            <Fraicheur sombre />
+            {/* Si les données sont anciennes, l'alerte reste juste sous le formulaire */}
+            <Fraicheur sombre partie="alerte" />
+            {/* Les favoris d'abord : c'est l'action du quotidien */}
             <ListeFavoris sombre />
+            <Fraicheur sombre partie="infos" />
           </div>
 
           <aside className="info-ponctualite" aria-labelledby="titre-ponctualite">

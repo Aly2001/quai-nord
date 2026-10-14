@@ -4,7 +4,11 @@ import "./Fraicheur.css";
 // Indique quand les données ont été mises à jour.
 // Si les horaires ont plus de 36 heures, un avertissement s'affiche :
 // la mise à jour quotidienne n'a sans doute pas eu lieu (PC éteint, par exemple).
-export default function Fraicheur({ tempsReel = null, sombre = false }) {
+//
+// partie : "tout" (par défaut), "alerte" (seulement l'avertissement, s'il y en a un)
+//          ou "infos" (seulement les dates). L'accueil place l'alerte tout en haut,
+//          et les dates plus bas, sous les favoris.
+export default function Fraicheur({ tempsReel = null, sombre = false, partie = "tout" }) {
   const { index } = useIndexHoraires();
   const risques = useRisques();
   const meteo = useMeteo();
@@ -13,15 +17,19 @@ export default function Fraicheur({ tempsReel = null, sombre = false }) {
   const dateHoraires = lireDate(index.genere_le);
   const ancien = Date.now() - dateHoraires.getTime() > 36 * 3600 * 1000;
 
+  const montrerAlerte = ancien && partie !== "infos";
+  const montrerInfos = partie !== "alerte";
+  if (!montrerAlerte && !montrerInfos) return null;
+
   return (
-    <div className={`fraicheur${sombre ? " fraicheur--sombre" : ""}${ancien ? " fraicheur--alerte" : ""}`}
-         role={ancien ? "alert" : undefined}>
-      {ancien && (
+    <div className={`fraicheur${sombre ? " fraicheur--sombre" : ""}${montrerAlerte ? " fraicheur--alerte" : ""}`}
+         role={montrerAlerte ? "alert" : undefined}>
+      {montrerAlerte && (
         <p className="fraicheur__alerte">
           Les données n'ont pas été mises à jour depuis plus d'un jour : certains horaires peuvent avoir changé.
         </p>
       )}
-      <ul className="fraicheur__liste">
+      {montrerInfos && <ul className="fraicheur__liste">
         <li><span className="fraicheur__point" aria-hidden="true" />Horaires : {formatMaj(dateHoraires)}</li>
         {risques && <li><span className="fraicheur__point" aria-hidden="true" />Risques : {formatMaj(lireDate(risques.genere_le))}</li>}
         {meteo && <li><span className="fraicheur__point" aria-hidden="true" />Météo : {formatMaj(lireDate(meteo.maj))}</li>}
@@ -31,7 +39,7 @@ export default function Fraicheur({ tempsReel = null, sombre = false }) {
             En direct : {ilYa(new Date(tempsReel.maj * 1000))}
           </li>
         )}
-      </ul>
+      </ul>}
     </div>
   );
 }

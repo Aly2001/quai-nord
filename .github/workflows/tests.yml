@@ -4,7 +4,8 @@
 #  À chaque « git push », GitHub lance ces étapes sur ses propres machines :
 #    1. les tests du site (Vitest) ;
 #    2. la construction du site (détecte un fichier manquant, une erreur de syntaxe...) ;
-#    3. une vérification que tous les scripts Python sont lisibles par Python.
+#    3. une vérification que tous les scripts Python sont lisibles par Python ;
+#    4. les tests du serveur de Nora.
 #  Résultat : une coche verte ✅ ou une croix rouge ❌ à côté de chaque envoi.
 # ======================================================================
 name: Tests
@@ -52,3 +53,9 @@ jobs:
 
       - name: Vérifier que chaque script est un code Python valide
         run: python -m py_compile *.py
+
+      - name: Installer les librairies de Nora
+        run: pip install -r nora/requirements.txt
+
+      - name: Lancer les tests de Nora (Mistral simulé, aucune clé nécessaire)
+        run: python -m pytest nora -q

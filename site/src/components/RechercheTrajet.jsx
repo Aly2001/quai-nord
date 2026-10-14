@@ -89,7 +89,13 @@ export default function RechercheTrajet({ initial = {}, onRechercher, texteBouto
                     className={j === jour ? "choix-jour choix-jour--actif" : "choix-jour"}
                     aria-pressed={j === jour}
                     onClick={() => setJour(j)}>
-              <span className="choix-jour__nom">{etiquetteJour(j)}</span>
+              <span className="choix-jour__nom">
+                {/* Version courte sur les petits écrans : « Après-dem. » */}
+                <span className="choix-jour__long">{etiquetteJour(j)}</span>
+                <span className="choix-jour__court" aria-hidden="true">
+                  {etiquetteJour(j) === "Après-demain" ? "Après-dem." : etiquetteJour(j)}
+                </span>
+              </span>
               <span className="choix-jour__date">{dateCourte(j)}</span>
             </button>
           ))}

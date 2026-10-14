@@ -10,10 +10,9 @@
     z-index: 20;
     display: grid;
     grid-template-columns: repeat(5, 1fr);
-    background: #FFFFFF;
-    border-top: 1px solid var(--filet);
-    padding: 6px 4px calc(8px + env(safe-area-inset-bottom));
-    box-shadow: 0 -4px 16px rgba(20, 33, 61, 0.08);
+    background: var(--nuit);
+    border-top: 3px solid var(--signal);
+    padding: 4px 4px calc(4px + env(safe-area-inset-bottom));
   }
 
   .onglet {
@@ -22,14 +21,14 @@
     align-items: center;
     justify-content: center;
     gap: 2px;
-    min-height: 52px;
-    color: #3E485C;
+    min-height: 50px;
+    color: #C9D3E3;
     font-size: 12px;
     font-weight: 600;
     text-decoration: none;
   }
 
-  .onglet:hover { color: var(--nuit); }
+  .onglet:hover { color: #FFFFFF; }
 
   .onglet__icone {
     width: 48px;
@@ -40,14 +39,15 @@
     justify-content: center;
   }
 
-  .onglet--actif { color: var(--nuit); font-weight: 700; }
-  .onglet--actif .onglet__icone { background: var(--signal); }
+  /* Onglet actif : l'icône ET le mot passent en jaune, bien lisibles sur le bleu nuit */
+  .onglet--actif { color: var(--signal); font-weight: 700; }
+  .onglet--actif .onglet__icone { background: rgba(242, 194, 48, 0.16); }
 
   /* Sur téléphone, le menu du haut laisse sa place à la barre d'onglets */
   .entete .menu { display: none; }
 
   /* De la place en bas, pour que la barre ne cache pas la fin des pages */
-  .page { padding-bottom: calc(72px + env(safe-area-inset-bottom)); }
+  .page { padding-bottom: calc(64px + env(safe-area-inset-bottom)); }
 }
 
 /* Application installée sur iPhone : le contenu passe sous l'heure et la batterie */

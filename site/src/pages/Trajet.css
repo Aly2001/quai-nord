@@ -279,9 +279,11 @@
   .trajet-carte__heure { font-size: 26px; }
 }
 
-/* Dans la colonne étroite, les jours s'empilent (nom à gauche, date à droite) */
-.trajet__formulaire .recherche__choix-jours { flex-direction: column; }
-.trajet__formulaire .choix-jour { flex-direction: row; justify-content: space-between; align-items: center; }
+/* Dans la colonne étroite (ordinateur), les jours s'empilent (nom à gauche, date à droite) */
+@media (min-width: 961px) {
+  .trajet__formulaire .recherche__choix-jours { flex-direction: column; }
+  .trajet__formulaire .choix-jour { flex-direction: row; justify-content: space-between; align-items: center; }
+}
 .trajet__formulaire .recherche__bouton { width: 100%; }
 
 /* ---------- Météo prévue ---------- */

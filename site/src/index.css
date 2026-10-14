@@ -94,31 +94,15 @@ a:hover { color: var(--nuit); }
   line-height: 0.95;
   margin: 48px 0 16px;
 }
-/* ---------- Pied de page ---------- */
-.pied {
-  background: var(--nuit);
-  color: #C9D3E3;
-  margin-top: 72px;
-  font-size: 15px;
-}
 
-.pied__contenu {
-  display: flex;
-  flex-wrap: wrap;
-  justify-content: space-between;
-  align-items: center;
-  gap: 24px;
-  padding-top: 32px;
-  padding-bottom: 32px;
-}
+/* Application sur iPhone : quand la page « rebondit » en haut, on voit le fond du
+   document. On le met en bleu nuit, dans la continuité de l'en-tête ; les pages,
+   elles, gardent leur fond clair. */
+html { background: var(--nuit); }
+.page { background: var(--quai); }
+body { overscroll-behavior-y: none; }
 
-.pied__contenu p { margin: 0; max-width: 46em; }
-
-/* ---------- Mise en page générale ---------- */
-.page {
-  display: flex;
-  flex-direction: column;
-  min-height: 100vh;
-}
-
-.page main { flex: 1; width: 100%; }
+/* Logo : pastille QN + nom */
+.logo { display: inline-flex; align-items: center; gap: 10px; }
+.logo__pastille { flex: none; }
+.logo .logo__texte { color: #FFFFFF; }

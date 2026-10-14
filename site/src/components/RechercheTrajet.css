@@ -114,10 +114,16 @@
 .recherche__bouton:hover { background: #22325A; }
 .recherche__bouton:disabled { opacity: 0.5; cursor: not-allowed; }
 
+.choix-jour__court { display: none; }
+
 @media (max-width: 480px) {
-  .recherche { padding: 18px; }
-  .recherche__choix-jours { flex-direction: column; }
-  .choix-jour { flex-direction: row; justify-content: space-between; align-items: center; }
+  .recherche { padding: 16px; gap: 12px; }
+  /* Les trois jours sur une seule ligne, nom au-dessus de la date */
+  .recherche__choix-jours { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 6px; }
+  .choix-jour { padding: 8px 10px; }
+  .choix-jour__nom { font-size: 15px; }
+  .choix-jour__long { display: none; }
+  .choix-jour__court { display: inline; }
   .recherche__bouton { width: 100%; }
 }
 

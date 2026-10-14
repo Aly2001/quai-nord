@@ -2,12 +2,14 @@ import { Routes, Route } from "react-router-dom";
 import Header from "./components/Header";
 import Footer from "./components/Footer";
 import SuiviVisites from "./components/SuiviVisites";
+import BarreOnglets from "./components/BarreOnglets";
 import Accueil from "./pages/Accueil";
 import Carte from "./pages/Carte";
 import Prediction from "./pages/Prediction";
 import Analyses from "./pages/Analyses";
 import Trajet from "./pages/Trajet";
 import Faq from "./pages/Faq";
+import Plus from "./pages/Plus";
 
 export default function App() {
   return (
@@ -24,10 +26,12 @@ export default function App() {
           <Route path="/analyses" element={<Analyses />} />
           <Route path="/trajet" element={<Trajet />} />
           <Route path="/faq" element={<Faq />} />
+          <Route path="/plus" element={<Plus />} />
         </Routes>
       </main>
 
       <Footer />
+      <BarreOnglets />
     </div>
   );
 }

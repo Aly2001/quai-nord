@@ -1,0 +1,35 @@
+.plus { max-width: 720px; padding: 28px 0 8px; display: flex; flex-direction: column; gap: 26px; }
+.plus__titre { margin: 0; font-family: var(--police-titre); font-weight: 700; font-size: 44px; line-height: 1; }
+.plus__bloc { display: flex; flex-direction: column; gap: 10px; }
+
+.plus__rubrique {
+  margin: 0;
+  font-size: 14px;
+  font-weight: 600;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--texte-doux);
+}
+
+.plus__aide { margin: -6px 0 0; font-size: 15px; color: var(--texte-doux); }
+
+.plus__details { background: #FFFFFF; border: 1px solid var(--filet); border-radius: 12px; }
+.plus__details summary { min-height: 52px; display: flex; align-items: center; padding: 0 16px; font-weight: 600; cursor: pointer; }
+.plus__details p { margin: 0; padding: 0 16px 14px; color: var(--texte-doux); line-height: 1.5; }
+
+.plus__liens { display: flex; flex-direction: column; background: #FFFFFF; border: 1px solid var(--filet); border-radius: 12px; overflow: hidden; }
+
+.plus__liens a {
+  display: flex;
+  align-items: center;
+  min-height: 52px;
+  padding: 0 16px;
+  color: var(--nuit);
+  font-weight: 600;
+  text-decoration: none;
+  border-bottom: 1px solid var(--filet);
+}
+
+.plus__liens a:last-child { border-bottom: 0; }
+.plus__liens a:hover { background: #F5F7F9; color: var(--nuit); }
+.plus__mention { margin: 0; font-size: 14px; color: var(--texte-doux); }

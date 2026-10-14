@@ -2,17 +2,32 @@
 <html lang="fr">
   <head>
     <meta charset="UTF-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
     <meta name="description" content="Quai Nord : horaires, risque de retard et ponctualité des TER des Hauts-de-France, à partir des données ouvertes de la SNCF." />
     <title>Quai Nord · Votre TER sera-t-il à l'heure ?</title>
 
-    <!-- Petite icône de l'onglet : un emoji train, sans fichier image -->
-    <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🚆</text></svg>" />
+    <!-- Icônes : onglet du navigateur, écran d'accueil de l'iPhone -->
+    <link rel="icon" href="/icons/favicon-32.png" sizes="32x32" type="image/png" />
+    <link rel="apple-touch-icon" href="/icons/apple-touch-icon.png" />
+
+    <!-- Application installable (PWA) -->
+    <link rel="manifest" href="/manifest.webmanifest" />
+    <meta name="theme-color" content="#14213D" />
+    <meta name="apple-mobile-web-app-capable" content="yes" />
+    <meta name="apple-mobile-web-app-title" content="Quai Nord" />
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
 
     <!-- Polices Barlow et Barlow Condensed (Google Fonts) -->
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
     <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@600;700&family=Barlow:wght@400;500;600&display=swap" />
+
+    <!-- Statistiques de visites : GoatCounter (anonyme, sans cookies).
+         Remplace "quai-nord" par ton code GoatCounter s'il est différent.
+         no_onload : c'est l'application React qui compte chaque page (voir SuiviVisites.jsx). -->
+    <script data-goatcounter="https://quai-nord.goatcounter.com/count"
+            data-goatcounter-settings='{"no_onload": true}'
+            async src="//gc.zgo.at/count.js"></script>
   </head>
   <body>
     <div id="root"></div>

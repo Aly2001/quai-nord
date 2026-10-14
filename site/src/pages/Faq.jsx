@@ -1,9 +1,16 @@
-import { Link } from "react-router-dom";
+import { useEffect } from "react";
+import { Link, useLocation } from "react-router-dom";
 import DecorVoies from "../components/DecorVoies";
 import { faq, SNCF_CONNECT } from "../data/faq";
 import "./Faq.css";
 
 export default function Faq() {
+  // Arrivée sur /faq#risque : on fait défiler jusqu'au bon thème
+  const { hash } = useLocation();
+  useEffect(() => {
+    if (hash) document.getElementById(hash.slice(1))?.scrollIntoView();
+  }, [hash]);
+
   return (
     <>
       {/* ---------- Bandeau, dans le style des autres pages ---------- */}

@@ -26,6 +26,13 @@ export const faq = [
         lien: { texte: "Aller sur SNCF Connect", url: SNCF_CONNECT },
       },
       {
+        question: "Comment installer Quai Nord comme une application ?",
+        reponse: [
+          "Sur iPhone, ouvrez le site dans Safari, appuyez sur le bouton Partager, puis sur « Sur l'écran d'accueil ».",
+          "Sur Android, ouvrez le site dans Chrome, puis le menu ⋮ et « Installer l'application ». L'icône Quai Nord apparaît alors parmi vos applications.",
+        ],
+      },
+      {
         question: "Quai Nord est-il un site officiel de la SNCF ?",
         reponse: [
           "Non. Quai Nord est un projet personnel et indépendant, réalisé par Aly Keita, étudiant en data science, à partir des données ouvertes publiées par SNCF Voyageurs.",
@@ -136,6 +143,7 @@ export const faq = [
         question: "Mes recherches sont-elles enregistrées ?",
         reponse: [
           "Non. Il n'y a pas de compte, vos recherches ne sont pas enregistrées et le site n'utilise pas de cookies.",
+          "Vos trajets favoris sont enregistrés uniquement sur votre appareil, jamais sur nos serveurs.",
           "Seule une mesure d'audience anonyme compte les visites (nombre de pages vues, provenance), sans jamais identifier les visiteurs.",
         ],
       },

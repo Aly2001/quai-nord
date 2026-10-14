@@ -3,6 +3,7 @@ import { Link, useSearchParams } from "react-router-dom";
 import RechercheTrajet from "../components/RechercheTrajet";
 import Fraicheur from "../components/Fraicheur";
 import DecorVoies from "../components/DecorVoies";
+import { BoutonFavori } from "../components/Favoris";
 import {
   DOSSIER, useIndexHoraires, useRisques, trouverGare, normaliser, dateLongue, etiquetteJour,
   joursAVenir, aujourdhuiIso, heureActuelle, risqueDuTrain, niveauRisque,
@@ -102,6 +103,7 @@ export default function Trajet() {
             </p>
           )}
           <Fraicheur tempsReel={tempsReel} sombre />
+          {gareDepart && a && <BoutonFavori de={gareDepart.nom} a={nomArrivee} />}
         </div>
       </section>
 

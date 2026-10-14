@@ -1,0 +1,58 @@
+/* ---------- Bouton étoile ---------- */
+.bouton-favori {
+  align-self: flex-start;
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  min-height: 44px;
+  padding: 0 16px;
+  font: inherit;
+  font-weight: 600;
+  background: transparent;
+  color: #FFFFFF;
+  border: 1.5px solid #5FB3CE;
+  border-radius: 999px;
+  cursor: pointer;
+}
+
+.bouton-favori:hover { border-color: var(--signal); }
+.bouton-favori--actif { color: var(--signal); border-color: var(--signal); }
+
+/* ---------- Liste des favoris ---------- */
+.favoris { display: flex; flex-direction: column; gap: 8px; }
+.favoris__titre { margin: 0; font-size: 16px; font-weight: 600; }
+.favoris--sombre .favoris__titre { color: #FFFFFF; }
+.favoris__liste { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 8px; }
+.favoris__element { display: flex; gap: 8px; }
+
+.favoris__lien {
+  flex: 1;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 12px;
+  min-height: 52px;
+  padding: 0 16px;
+  background: #FFFFFF;
+  border: 1px solid var(--filet);
+  border-radius: 12px;
+  color: var(--nuit);
+  font-weight: 600;
+  text-decoration: none;
+}
+
+.favoris__lien:hover { border-color: var(--nuit); color: var(--nuit); }
+
+.favoris__retirer {
+  min-height: 52px;
+  padding: 0 14px;
+  font: inherit;
+  font-weight: 600;
+  background: #FFFFFF;
+  color: var(--retard);
+  border: 1px solid var(--filet);
+  border-radius: 12px;
+  cursor: pointer;
+}
+
+.favoris__vide { margin: 0; color: var(--texte-doux); }

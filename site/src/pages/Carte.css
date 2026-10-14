@@ -1,205 +1,151 @@
-.carte__entete {
-  display: flex;
-  flex-direction: column;
-  gap: 10px;
-  max-width: 760px;
-  padding: 48px 0 32px;
-}
-
-.carte__titre {
-  margin: 0;
-  font-family: var(--police-titre);
-  font-weight: 700;
-  font-size: clamp(44px, 6vw, 68px);
-  line-height: 0.95;
-}
-
-.carte__chapo { font-size: 19px; }
-
-.carte__mise-en-page {
+/* ==========================================================
+   Page Carte : panneau à gauche, carte à droite
+   ========================================================== */
+.carte {
   display: flex;
   flex-wrap: wrap;
-  gap: 24px;
   align-items: flex-start;
+  gap: 24px;
+  padding: 32px 0 8px;
 }
 
-/* ---------- La carte ---------- */
-.carte__cadre {
-  flex: 999 1 560px;
-  min-width: 0;
+/* ---------- Panneau ---------- */
+.carte__panneau { flex: 1 1 300px; max-width: 380px; display: flex; flex-direction: column; gap: 16px; }
+.carte__titre { margin: 0; font-family: var(--police-titre); font-weight: 700; font-size: 44px; line-height: 1; }
+.carte__chapo { margin: 10px 0 0; font-size: 17px; line-height: 1.45; color: var(--texte-doux); }
+
+.carte__recherche {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  min-height: 48px;
+  padding: 0 14px;
   background: #FFFFFF;
   border: 1px solid var(--filet);
-  border-radius: 8px;
-  padding: 32px;
+  border-radius: 10px;
+  color: #3E485C;
+}
+
+.carte__recherche:focus-within { border-color: var(--nuit); }
+.carte__recherche input { flex: 1; min-width: 0; font: inherit; font-size: 16px; border: 0; background: transparent; color: var(--nuit); outline: none; }
+
+.fiche { background: var(--nuit); color: #FFFFFF; border-radius: 14px; padding: 18px 20px; display: flex; flex-direction: column; gap: 4px; }
+.fiche p, .fiche h2 { margin: 0; }
+.fiche__surtitre { font-size: 13px; font-weight: 600; letter-spacing: 0.08em; text-transform: uppercase; color: var(--signal); }
+.fiche__nom { font-family: var(--police-titre); font-weight: 700; font-size: 30px; line-height: 1.1; }
+.fiche__taux { font-family: var(--police-titre); font-weight: 700; font-size: 36px; line-height: 1.1; margin-top: 6px !important; }
+.fiche__taux--bon { color: #4FD1B5; }
+.fiche__taux--moyen { color: var(--signal); }
+.fiche__taux--mauvais { color: #F28C38; }
+.fiche__detail { font-size: 15px; color: #C9D3E3; }
+
+.carte__bloc { background: #FFFFFF; border-radius: 14px; padding: 18px; display: flex; flex-direction: column; gap: 10px; }
+.carte__bloc h2 { margin: 0; font-size: 16px; font-weight: 700; }
+
+.legende__ligne { margin: 0; display: flex; align-items: center; gap: 10px; font-size: 15px; }
+.trait { flex: none; width: 28px; height: 6px; border-radius: 3px; }
+.trait--bon { background: #2A9D8F; }
+.trait--moyen { background: #E0A526; }
+.trait--mauvais { background: #E8743B; }
+.trait--inconnu { height: 0; border-top: 3px dashed #8C96A6; border-radius: 0; }
+.legende__fleche { width: 28px; text-align: center; color: #E0A526; font-size: 14px; }
+
+.carte__classement { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; }
+
+.carte__classement li {
   display: flex;
-  flex-direction: column;
-  gap: 24px;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 8px 0;
+  border-top: 1px solid var(--filet);
+  font-size: 15px;
 }
 
-.carte__zone {
-  position: relative;            /* les gares se placent par rapport à cette zone */
-  width: 100%;
-  max-width: 520px;
-  aspect-ratio: 520 / 634;       /* garde les proportions de la région */
-  margin: 0 auto;
+.carte__classement li:first-child { border-top: 0; }
+.classement__valeur { white-space: nowrap; }
+.classement__valeur--bon { color: #0F766E; }
+.classement__valeur--moyen { color: #8A5A00; }
+.classement__valeur--mauvais { color: #B4410C; }
+.carte__note { margin: 0; font-size: 14px; color: var(--texte-doux); }
+
+/* ---------- Carte ---------- */
+.carte__cadre {
+  flex: 999 1 480px;
+  min-width: 0;
+  background: #FFFFFF;
+  border-radius: 16px;
+  padding: 16px;
+  box-shadow: 0 2px 8px rgba(20, 33, 61, 0.06);
 }
 
-.carte__fond {
-  position: absolute;
-  inset: 0;
-  width: 100%;
-  height: 100%;
-}
+.carte__zone { position: relative; width: 100%; max-width: 620px; margin: 0 auto; aspect-ratio: 520 / 770; }
+.carte__dessin { position: absolute; inset: 0; width: 100%; height: 100%; }
+.carte__region { fill: #EEF1F5; stroke: #C9D3E3; stroke-width: 2; }
 
-.carte__fond path {
-  fill: #E9EEF3;
-  stroke: var(--nuit);
-  stroke-width: 2;
-  stroke-linejoin: round;
-}
+.trace { fill: none; stroke-width: 7; stroke-linecap: round; stroke-linejoin: round; }
+.trace--bon { stroke: #2A9D8F; }
+.trace--moyen { stroke: #E0A526; }
+.trace--mauvais { stroke: #E8743B; }
+.trace--inconnu { stroke: #8C96A6; stroke-width: 4; stroke-dasharray: 8 8; }
+.carte__fleche { fill: #E0A526; }
 
-/* Chaque gare est placée en % (left / top), puis recentrée sur son point */
-.gare { position: absolute; }
+/* Les gares */
+.gare { position: absolute; transform: translate(-50%, -50%); }
 
 .gare__point {
-  position: absolute;
-  left: -11px;
-  top: -11px;
-  width: 22px;
-  height: 22px;
+  display: block;
+  width: 18px;
+  height: 18px;
   padding: 0;
   border-radius: 50%;
-  border: 3px solid #FFFFFF;
+  border: 3px solid var(--nuit);
+  background: #FFFFFF;
   cursor: pointer;
+  position: relative;
 }
 
-/* Zone cliquable de 44 px, plus facile à toucher sur un téléphone */
-.gare__point::before {
-  content: "";
-  position: absolute;
-  inset: -11px;
-}
-
-.gare__point--faible { background: var(--mer); }
-.gare__point--moyen { background: #F2B33D; border-color: var(--nuit); }
-.gare__point--fort { background: var(--retard); }
+/* Zone tactile agrandie (44 px) sans grossir le point */
+.gare__point::before { content: ""; position: absolute; inset: -13px; }
+.gare__point--bon { background: #2A9D8F; }
+.gare__point--moyen { background: #E0A526; }
+.gare__point--mauvais { background: #E8743B; }
 .gare__point--inconnu { background: #FFFFFF; border-color: #8C96A6; }
-.gare__point--choisi { box-shadow: 0 0 0 4px var(--nuit); }
+.gare__point--choisi { box-shadow: 0 0 0 4px var(--signal); }
 
 .gare__nom {
   position: absolute;
-  left: 16px;
+  left: 14px;
   top: -10px;
+  white-space: nowrap;
   font-size: 13px;
   font-weight: 600;
-  white-space: nowrap;
+  color: var(--nuit);
   pointer-events: none;
+  text-shadow: 0 0 3px #FFFFFF, 0 0 3px #FFFFFF;
 }
 
-.legende {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 12px 24px;
-  font-size: 15px;
-  color: var(--texte-doux);
-  border-top: 1px solid var(--filet);
-  padding-top: 20px;
-}
-
-.legende span { display: inline-flex; align-items: center; gap: 8px; }
-
-.pastille {
-  display: inline-block;
-  width: 14px;
-  height: 14px;
-  border-radius: 50%;
-  border: 2px solid transparent;
-}
-
-/* ---------- Le panneau ---------- */
-.carte__panneau {
-  flex: 1 1 360px;
-  min-width: 0;
+/* Le cartouche de Paris */
+.carte__paris {
+  position: absolute;
+  transform: translate(-50%, 0);
   display: flex;
   flex-direction: column;
-  gap: 16px;
-}
-
-.fiche {
+  align-items: center;
+  padding: 6px 14px;
+  border-radius: 10px;
   background: var(--nuit);
   color: #FFFFFF;
-  border-radius: 8px;
-  padding: 32px;
-}
-
-.fiche p, .fiche h2 { margin: 0; }
-
-.fiche__surtitre {
-  font-weight: 600;
-  font-size: 15px;
-  letter-spacing: 0.08em;
-  text-transform: uppercase;
-  color: var(--signal);
-}
-
-.fiche__nom {
-  font-family: var(--police-titre);
-  font-weight: 700;
-  font-size: 44px;
-  line-height: 1;
-  margin-top: 12px !important;
-}
-
-.fiche__taux {
-  font-family: var(--police-titre);
-  font-weight: 700;
-  font-size: 96px;
-  line-height: 0.9;
   white-space: nowrap;
-  margin: 14px 0 !important;
+  font-size: 12px;
 }
 
-.fiche__detail { font-size: 17px; color: #C9D3E3; }
+.carte__paris strong { font-family: var(--police-titre); font-size: 16px; }
+.carte__paris span { color: #C9D3E3; }
 
-.classement {
-  background: #FFFFFF;
-  border: 1px solid var(--filet);
-  border-radius: 8px;
-  padding: 24px 24px 12px;
+@media (max-width: 640px) {
+  .carte { padding-top: 20px; }
+  .carte__panneau { max-width: none; }
+  .carte__titre { font-size: 36px; }
+  .carte__cadre { padding: 8px; }
+  .gare__nom { font-size: 11px; }
 }
-
-.classement h2 { margin: 0 0 8px; font-size: 19px; font-weight: 600; }
-.classement ol { list-style: none; margin: 0; padding: 0; }
-.classement li { border-top: 1px solid #E3E8EE; }
-
-.classement__ligne {
-  width: 100%;
-  min-height: 48px;
-  display: grid;
-  grid-template-columns: 28px minmax(0, 1fr) auto;
-  align-items: center;
-  gap: 12px;
-  padding: 8px 4px;
-  background: none;
-  border: 0;
-  font: inherit;
-  color: var(--nuit);
-  text-align: left;
-  cursor: pointer;
-}
-
-.classement__ligne:hover,
-.classement__ligne--choisie { background: #EEF2F6; }
-
-.classement__rang { font-weight: 600; color: #4A5468; }
-.classement__nom { font-size: 17px; font-weight: 600; }
-
-.classement__taux {
-  font-family: var(--police-titre);
-  font-weight: 700;
-  font-size: 24px;
-}
-
-.classement__taux--fort { color: var(--retard); }
-.classement__taux--moyen { color: #8A5A00; }
-.classement__taux--faible { color: var(--mer); }

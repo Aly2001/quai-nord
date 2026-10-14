@@ -3,26 +3,27 @@
 //        (calculée à partir de la longitude et de la latitude).
 // taux : % de passages avec 5 min de retard ou plus (null = moins de 30 passages)
 // passages : nombre de passages observés
+// sncf : le ou les noms de la gare dans les données SNCF (pour retrouver ses chiffres)
 // Mesures du 9 octobre 2026.
 
 export const gares = [
-  { nom: "Boulogne-sur-Mer", x: 10.4, y: 18.4, taux: null, passages: null },
-  { nom: "Calais", x: 18.4, y: 8.4, taux: null, passages: null },
-  { nom: "Dunkerque", x: 35.6, y: 5.1, taux: null, passages: null },
-  { nom: "Lille Flandres", x: 59.0, y: 21.8, taux: 14.6, passages: 96 },
-  { nom: "Arras", x: 49.4, y: 36.7, taux: 16.7, passages: 36 },
-  { nom: "Douai", x: 59.7, y: 33.2, taux: 18.9, passages: 37 },
-  { nom: "Hazebrouck", x: 41.2, y: 18.2, taux: 18.2, passages: 33 },
-  { nom: "Amiens", x: 33.6, y: 53.6, taux: 12.5, passages: 48 },
-  { nom: "Creil", x: 39.0, y: 80.3, taux: 27.8, passages: 36 },
-  { nom: "Saint-Quentin", x: 66.2, y: 55.7, taux: null, passages: null },
-  { nom: "Beauvais", x: 26.1, y: 73.2, taux: null, passages: null },
-  { nom: "Compiègne", x: 50.9, y: 73.5, taux: null, passages: null },
-  { nom: "Laon", x: 77.2, y: 67.2, taux: null, passages: null },
-  { nom: "Abbeville", x: 17.5, y: 44.6, taux: null, passages: null },
-  { nom: "Étaples", x: 11.3, y: 27.1, taux: null, passages: null },
-  { nom: "Valenciennes", x: 73.9, y: 33.5, taux: null, passages: null },
-  { nom: "Lens", x: 51.1, y: 30.7, taux: null, passages: null },
+  { nom: "Boulogne-sur-Mer", sncf: ["Boulogne sur Mer", "Boulogne Ville", "Boulogne-sur-Mer"], x: 10.4, y: 18.4, taux: null, passages: null },
+  { nom: "Calais", sncf: ["Calais Ville"], x: 18.4, y: 8.4, taux: null, passages: null },
+  { nom: "Dunkerque", sncf: ["Dunkerque"], x: 35.6, y: 5.1, taux: null, passages: null },
+  { nom: "Lille Flandres", sncf: ["Lille Flandres", "Lille-Flandres"], x: 59.0, y: 21.8, taux: 14.6, passages: 96 },
+  { nom: "Arras", sncf: ["Arras"], x: 49.4, y: 36.7, taux: 16.7, passages: 36 },
+  { nom: "Douai", sncf: ["Douai"], x: 59.7, y: 33.2, taux: 18.9, passages: 37 },
+  { nom: "Hazebrouck", sncf: ["Hazebrouck"], x: 41.2, y: 18.2, taux: 18.2, passages: 33 },
+  { nom: "Amiens", sncf: ["Amiens"], x: 33.6, y: 53.6, taux: 12.5, passages: 48 },
+  { nom: "Creil", sncf: ["Creil"], x: 39.0, y: 80.3, taux: 27.8, passages: 36 },
+  { nom: "Saint-Quentin", sncf: ["Saint-Quentin", "St-Quentin"], x: 66.2, y: 55.7, taux: null, passages: null },
+  { nom: "Beauvais", sncf: ["Beauvais"], x: 26.1, y: 73.2, taux: null, passages: null },
+  { nom: "Compiègne", sncf: ["Compiègne"], x: 50.9, y: 73.5, taux: null, passages: null },
+  { nom: "Laon", sncf: ["Laon"], x: 77.2, y: 67.2, taux: null, passages: null },
+  { nom: "Abbeville", sncf: ["Abbeville"], x: 17.5, y: 44.6, taux: null, passages: null },
+  { nom: "Étaples", sncf: ["Étaples - Le Touquet", "Étaples-Le Touquet", "Étaples"], x: 11.3, y: 27.1, taux: null, passages: null },
+  { nom: "Valenciennes", sncf: ["Valenciennes"], x: 73.9, y: 33.5, taux: null, passages: null },
+  { nom: "Lens", sncf: ["Lens"], x: 51.1, y: 30.7, taux: null, passages: null },
 ];
 
 // Contour simplifié des Hauts-de-France (le même que dans charger_gtfs.py),

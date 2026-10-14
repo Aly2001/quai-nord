@@ -42,6 +42,10 @@ TYPES_TRANSPORT = {"2": "Train", "3": "Car"}   # codes GTFS route_type
 # ----------------------------------------------------------------------
 # Outils
 # ----------------------------------------------------------------------
+# Gares hors de la région utilisables comme gare de départ (nom exact dans le GTFS)
+PARIS_NORD = r"Paris[ -]Gare[ -]du[ -]Nord|Paris[ -]Nord"
+
+
 def slug(nom):
     """'Boulogne Tintelleries' -> 'boulogne-tintelleries' (nom de dossier sûr)."""
     sans_accents = unicodedata.normalize("NFKD", nom).encode("ascii", "ignore").decode()
@@ -107,9 +111,15 @@ def charger(conn):
         if isinstance(heure, str):
             arrets_par_trajet.setdefault(trip_id, []).append((ordre, nom, en_secondes(heure), stop_id))
 
-    # On ne garde que les passages dans les gares des Hauts-de-France
+    # On ne garde que les passages dans les gares des Hauts-de-France...
     gares_hdf = stops[stops["hauts_de_france"] == 1][["stop_id", "stop_name"]]
-    passages = stop_times.merge(gares_hdf, on="stop_id")
+    # ... plus Paris Gare du Nord, terminus de nombreux TER de la région : on y garde
+    # SEULEMENT les trains qui desservent aussi les Hauts-de-France (trajets retour).
+    gares_paris = stops[stops["stop_name"].str.fullmatch(PARIS_NORD, case=False, na=False)][["stop_id", "stop_name"]]
+    trains_hdf = set(stop_times.loc[stop_times["stop_id"].isin(gares_hdf["stop_id"]), "trip_id"])
+    passages_paris = stop_times.merge(gares_paris, on="stop_id")
+    passages_paris = passages_paris[passages_paris["trip_id"].isin(trains_hdf)]
+    passages = pd.concat([stop_times.merge(gares_hdf, on="stop_id"), passages_paris], ignore_index=True)
     passages = passages.join(infos, on="trip_id").join(extremites, on="trip_id")
     heure_dep = passages["departure_time"].fillna(passages["arrival_time"])
     heure_arr = passages["arrival_time"].fillna(passages["departure_time"])
@@ -229,11 +239,33 @@ def main():
         r"TGV|INTERCIT|OUIGO|LYRIA|EUROSTAR", case=False, regex=True, na=False)
     par_grandes_lignes = set(passages.loc[est_grande_ligne, "stop_name"])
 
+    # Paris Nord n'est pas une gare de correspondance pour Quai Nord : on ne propose pas
+    # de changement à Paris pour un trajet entre deux gares de la région.
+    hors_region = {nom for nom in gares.values() if re.fullmatch(PARIS_NORD, nom, flags=re.IGNORECASE)}
+    par_lignes -= hors_region
+    par_grandes_lignes -= hors_region
+    if hors_region:
+        print("   Gare hors région ajoutée au départ :", ", ".join(sorted(hors_region)))
     correspondances = sorted(slug(nom) for nom in par_lignes | par_grandes_lignes)
     print(f"   {len(correspondances)} gares de correspondance : {len(par_lignes)} par le nombre de lignes, "
           f"{len(par_grandes_lignes - par_lignes)} de plus grâce aux TGV et Intercités")
     if par_grandes_lignes - par_lignes:
         print("   Ajoutées grâce aux grandes lignes :", ", ".join(sorted(par_grandes_lignes - par_lignes)))
+
+    # ---------- Les lignes, pour la carte ----------
+    # Pour chaque ligne (K12, K71...), la liste de ses gares dans l'ordre, prise sur
+    # son trajet le plus long. La carte s'en sert pour tracer la ligne.
+    avec_nom = passages[passages["route_short_name"].fillna("") != ""]
+    par_trajet = (avec_nom.sort_values(["trip_id", "ordre"])
+                  .groupby("trip_id")
+                  .agg(ligne=("route_short_name", "first"), gares=("stop_name", list)))
+    par_trajet["gares"] = par_trajet["gares"].map(lambda g: list(dict.fromkeys(g)))   # sans doublon
+    par_trajet["nb"] = par_trajet["gares"].map(len)
+    plus_longs = par_trajet.sort_values("nb").groupby("ligne").tail(1)
+    lignes = {ligne: gares_ligne for ligne, gares_ligne in zip(plus_longs["ligne"], plus_longs["gares"])
+              if len(gares_ligne) >= 2}
+    (DOSSIER_SORTIE / "lignes.json").write_text(json.dumps(lignes, ensure_ascii=False), encoding="utf-8")
+    print(f"   lignes.json : {len(lignes)} lignes")
 
     for jour in jours:
         du_jour = horaires_du_jour(passages, jour, calendrier, exceptions)

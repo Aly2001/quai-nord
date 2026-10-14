@@ -54,7 +54,7 @@ def main():
 
     conn = sqlite3.connect(BASE_ANALYSE)
     df = pd.read_sql("""
-        SELECT numero_train, ligne, heure_prevue, date_service, en_retard
+        SELECT numero_train, ligne, gare, heure_prevue, date_service, en_retard
         FROM retards
         WHERE type_observation = 'CONSTATE' AND heure_prevue IS NOT NULL
     """, conn)
@@ -100,6 +100,17 @@ def main():
     t["a_priori"] = t.apply(a_priori_train, axis=1)
     t["taux"] = lisser(t["retards"], t["passages"], t["a_priori"])
 
+    # ---------- Pour la carte : par ligne et par gare (a priori = toute la France) ----------
+    par_l = df.dropna(subset=["ligne"]).groupby("ligne")["en_retard"].agg(["sum", "count"])
+    par_l["taux"] = lisser(par_l["sum"], par_l["count"], taux_global)
+    par_g = df.dropna(subset=["gare"]).groupby("gare")["en_retard"].agg(["sum", "count"])
+    par_g["taux"] = lisser(par_g["sum"], par_g["count"], taux_global)
+    # Seulement les gares du site (région + Paris Nord), pour garder un fichier léger
+    index_gares = SORTIE.parent / "gares.json"
+    if index_gares.exists():
+        noms_site = {g["nom"] for g in json.loads(index_gares.read_text(encoding="utf-8"))["gares"]}
+        par_g = par_g[par_g.index.isin(noms_site)]
+
     # ---------- Export (même format qu'avant, plus le taux brut pour la transparence) ----------
     def entree(taux, n, retards):
         return {"taux": round(float(taux), 3), "n": int(n), "brut": round(float(retards) / n, 3)}
@@ -115,6 +126,8 @@ def main():
                             for (ligne, heure), r in lh.iterrows() if r["count"] >= MIN_PAR_GROUPE},
         "par_heure": {heure: entree(r["taux"], r["count"], r["sum"])
                       for heure, r in h.iterrows() if r["count"] >= MIN_PAR_GROUPE},
+        "par_ligne": {ligne: entree(r["taux"], r["count"], r["sum"]) for ligne, r in par_l.iterrows()},
+        "par_gare": {gare: entree(r["taux"], r["count"], r["sum"]) for gare, r in par_g.iterrows()},
     }
     SORTIE.write_text(json.dumps(resultat, ensure_ascii=False), encoding="utf-8")
 
@@ -123,6 +136,8 @@ def main():
     print(f"Trains avec un risque propre    : {len(resultat['par_train'])}")
     print(f"Couples ligne / heure           : {len(resultat['par_ligne_heure'])}")
     print(f"Heures de la journée            : {len(resultat['par_heure'])}")
+    print(f"Lignes (carte)                  : {len(resultat['par_ligne'])}")
+    print(f"Gares (carte)                   : {len(resultat['par_gare'])}")
     zeros = sum(1 for v in resultat["par_train"].values() if v["brut"] == 0)
     print(f"Trains à 0 % brut, désormais lissés : {zeros}")
     print(f"Fichier créé : {SORTIE}")

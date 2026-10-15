@@ -102,7 +102,10 @@ export function busDirects(reseau, departs, arrivees, nombre = 3) {
         if (!distanceArrivee.has(idArrivee)) continue;
         const marche = distanceDepart.get(idDepart) + distanceArrivee.get(idArrivee);
         const enBus = p.minutes ? p.minutes[j] - p.minutes[i] : (j - i) * 2;   // 2 min par arrêt si inconnu
-        const cout = minutesAPied(marche) + enBus;                            // le temps total estimé
+        // Le temps total estimé ; un parcours peu fréquent (moins de 3 voyages) est pénalisé,
+        // pour qu'un trajet habituel passe toujours devant un trajet occasionnel
+        const penalite = (p.voyages ?? 3) < 3 ? 20 : 0;
+        const cout = minutesAPied(marche) + enBus + penalite;
         const cle = `${p.ligne}|${p.direction}`;
         if (!meilleurs.has(cle) || cout < meilleurs.get(cle).cout) {
           const ligne = reseau.lignes[p.ligne];
@@ -113,6 +116,8 @@ export function busDirects(reseau, departs, arrivees, nombre = 3) {
             arrivee: { id: idArrivee, nom: reseau.arrets[idArrivee][0], marche: distanceArrivee.get(idArrivee) },
             arrets: j - i,
             minutesBus: p.minutes ? enBus : null,
+            minutesTotal: minutesAPied(marche) + enBus,     // ce qu'on affiche (sans la pénalité)
+            occasionnel: penalite > 0,
             cout,
           });
         }
@@ -124,7 +129,7 @@ export function busDirects(reseau, departs, arrivees, nombre = 3) {
 
 // Le bus ne vaut la peine que s'il est plus rapide que d'y aller directement à pied
 export function plusRapideQueAPied(propositions, metresAPied) {
-  return propositions.filter((b) => b.cout < minutesAPied(metresAPied));
+  return propositions.filter((b) => b.minutesTotal < minutesAPied(metresAPied));
 }
 
 // De la gare vers un lieu, et d'un lieu vers la gare
@@ -156,23 +161,25 @@ const MOTS_VIDES = new Set(["le", "la", "les", "l", "un", "une", "des", "du", "d
 // Les catégories reconnues, et leur traduction en filtre OpenStreetMap
 export const CATEGORIES = [
   // filtres : les descriptions OpenStreetMap possibles ; valeurs : les types acceptés en secours (Photon)
-  { mots: ["universite", "fac", "faculte", "campus", "ulco", "iut"], nom: "Université",
+  { mots: ["universite", "fac", "faculte", "campus", "ulco", "iut"], code: "universite", nom: "Université",
     filtres: ['["amenity"~"^(university|college)$"]', '["building"~"^(university|college)$"]'], valeurs: ["university", "college"] },
-  { mots: ["hopital", "clinique", "urgences", "centre hospitalier"], nom: "Hôpital",
+  { mots: ["hopital", "clinique", "urgences", "centre hospitalier"], code: "hopital", nom: "Hôpital",
     filtres: ['["amenity"~"^(hospital|clinic)$"]'], valeurs: ["hospital", "clinic"] },
-  { mots: ["mairie", "hotel ville"], nom: "Mairie", filtres: ['["amenity"="townhall"]'], valeurs: ["townhall"] },
-  { mots: ["plage"], nom: "Plage", filtres: ['["natural"="beach"]'], valeurs: ["beach"] },
-  { mots: ["piscine"], nom: "Piscine", filtres: ['["leisure"="sports_centre"]["sport"="swimming"]', '["leisure"="swimming_pool"]["access"!="private"]["name"]'], valeurs: ["swimming_pool", "sports_centre"] },
-  { mots: ["stade"], nom: "Stade", filtres: ['["leisure"="stadium"]'], valeurs: ["stadium"] },
-  { mots: ["lycee"], nom: "Lycée", filtres: ['["amenity"="school"]["name"~"[Ll]yc"]'], valeurs: ["school"] },
-  { mots: ["college"], nom: "Collège", filtres: ['["amenity"="school"]["name"~"[Cc]oll"]'], valeurs: ["school"] },
-  { mots: ["poste"], nom: "Bureau de poste", filtres: ['["amenity"="post_office"]'], valeurs: ["post_office"] },
-  { mots: ["commissariat", "police"], nom: "Police", filtres: ['["amenity"="police"]'], valeurs: ["police"] },
-  { mots: ["bibliotheque", "mediatheque"], nom: "Médiathèque", filtres: ['["amenity"="library"]'], valeurs: ["library"] },
-  { mots: ["musee"], nom: "Musée", filtres: ['["tourism"="museum"]'], valeurs: ["museum"] },
-  { mots: ["theatre"], nom: "Théâtre", filtres: ['["amenity"="theatre"]'], valeurs: ["theatre"] },
-  { mots: ["cinema"], nom: "Cinéma", filtres: ['["amenity"="cinema"]'], valeurs: ["cinema"] },
-  { mots: ["port", "ferry"], nom: "Terminal ferry", filtres: ['["amenity"="ferry_terminal"]'], valeurs: ["ferry_terminal"] },
+  { mots: ["mairie", "hotel ville"], code: "mairie", nom: "Mairie", filtres: ['["amenity"="townhall"]'], valeurs: ["townhall"] },
+  { mots: ["plage"], code: "plage", nom: "Plage", filtres: ['["natural"="beach"]'], valeurs: ["beach"] },
+  { mots: ["piscine"], code: "piscine", nom: "Piscine", filtres: ['["leisure"="sports_centre"]["sport"="swimming"]', '["leisure"="swimming_pool"]["access"!="private"]["name"]'], valeurs: ["swimming_pool", "sports_centre"] },
+  { mots: ["stade"], code: "stade", nom: "Stade", filtres: ['["leisure"="stadium"]'], valeurs: ["stadium"] },
+  { mots: ["lycee"], code: "lycee", nom: "Lycée", filtres: ['["amenity"="school"]["name"~"[Ll]yc"]'], valeurs: ["school"] },
+  { mots: ["college"], code: "college", nom: "Collège", filtres: ['["amenity"="school"]["name"~"[Cc]oll"]'], valeurs: ["school"] },
+  { mots: ["poste"], code: "poste", nom: "Bureau de poste", filtres: ['["amenity"="post_office"]'], valeurs: ["post_office"] },
+  { mots: ["commissariat", "police"], code: "police", nom: "Police", filtres: ['["amenity"="police"]'], valeurs: ["police"] },
+  { mots: ["bibliotheque", "mediatheque"], code: "mediatheque", nom: "Médiathèque", filtres: ['["amenity"="library"]'], valeurs: ["library"] },
+  { mots: ["musee"], code: "musee", nom: "Musée", filtres: ['["tourism"="museum"]'], valeurs: ["museum"] },
+  { mots: ["theatre"], code: "theatre", nom: "Théâtre", filtres: ['["amenity"="theatre"]'], valeurs: ["theatre"] },
+  { mots: ["cinema"], code: "cinema", nom: "Cinéma", filtres: ['["amenity"="cinema"]'], valeurs: ["cinema"] },
+  { mots: ["port", "ferry"], code: "ferry", nom: "Terminal ferry", filtres: ['["amenity"="ferry_terminal"]'], valeurs: ["ferry_terminal"] },
+  { mots: ["centre commercial", "galerie marchande"], code: "commerce", nom: "Centre commercial", filtres: ['["shop"="mall"]'], valeurs: ["mall"] },
+  { mots: ["aquarium", "zoo"], code: "loisirs", nom: "Loisirs", filtres: ['["tourism"~"^(aquarium|zoo)$"]'], valeurs: ["aquarium", "zoo"] },
 ];
 
 // « l'université de Calais » -> « universite »
@@ -249,7 +256,35 @@ async function parBaseAdresse(texte, gare) {
   }));
 }
 
-export async function chercherLieu(texte, gare, ville) {
+// La recherche dans les LIEUX PRÉPARÉS par charger_bus.py (sans Internet) :
+// par catégorie (« l'université »), sinon par nom (« Cité Europe », « Nausicaá »).
+export function lieuxPrepares(reseau, texte) {
+  const lieux = reseau?.lieux || [];
+  const categorie = categorieDe(texte);
+  if (categorie) return lieux.filter((l) => l.cat === categorie.code);
+  const mots = nettoyerLieu(texte).split(" ").filter((mot) => mot.length > 1);
+  if (mots.length === 0) return [];
+  return lieux.filter((l) => {
+    const nom = normaliser(l.nom);
+    return mots.every((mot) => nom.includes(mot));
+  });
+}
+
+const PRES_DE_LA_GARE = 15_000;   // mètres : au-delà, c'est sans doute un homonyme dans une autre ville
+
+function classer(lieux, gare) {
+  return lieux
+    .map((l) => ({ ...l, distance: Math.round(distance(gare.lat, gare.lon, l.lat, l.lon)) }))
+    .filter((l) => l.distance <= PRES_DE_LA_GARE)
+    .sort((a, b) => a.distance - b.distance);
+}
+
+export async function chercherLieu(texte, gare, ville, reseau = null) {
+  // 1. Les lieux préparés : fiables et instantanés
+  const prepares = classer(lieuxPrepares(reseau, texte), gare);
+  if (prepares.length > 0) return prepares;
+
+  // 2. En secours, la recherche en direct sur Internet
   const categorie = categorieDe(texte);
   const essais = categorie
     ? [() => parCategorie(categorie, gare), () => parPhoton(`${categorie.nom} ${ville}`, gare, categorie)]
@@ -261,10 +296,7 @@ export async function chercherLieu(texte, gare, ville) {
     } catch {
       lieux = [];                                          // service indisponible : on essaie le suivant
     }
-    lieux = lieux
-      .map((l) => ({ ...l, distance: Math.round(distance(gare.lat, gare.lon, l.lat, l.lon)) }))
-      .filter((l) => l.distance <= 15_000)                 // pas un homonyme dans une autre région
-      .sort((a, b) => a.distance - b.distance);
+    lieux = classer(lieux, gare);
     if (lieux.length > 0) break;
   }
   return lieux;

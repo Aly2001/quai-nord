@@ -193,7 +193,7 @@ export default function NoraConversation({ contexte = null }) {
     // 2. Le lieu : retrouvé, ou à choisir s'il y en a plusieurs bien distincts
     let lieu = lieuChoisi;
     if (!lieu) {
-      const lieux = await chercherLieu(action.lieu, couverte.gare, ville);
+      const lieux = await chercherLieu(action.lieu, couverte.gare, ville, reseau);
       if (lieux.length === 0) {
         ajouter({ auteur: "nora", texte: `Je ne trouve pas « ${action.lieu} » près de la gare de ${nomAffiche}. Pouvez-vous préciser, avec une adresse par exemple ?` });
         return;
@@ -378,7 +378,8 @@ export default function NoraConversation({ contexte = null }) {
                 </span>
                 <span className="mini-bus__bas">
                   Direction {b.direction} · {b.arrets} arrêt{b.arrets > 1 ? "s" : ""}
-                  {b.minutesBus !== null ? ` · environ ${b.cout} min` : ""}
+                  {b.minutesBus !== null ? ` · environ ${b.minutesTotal} min` : ""}
+                  {b.occasionnel ? " · service peu fréquent" : ""}
                   {` · ${minutesAPied(b.depart.marche + b.arrivee.marche)} min à pied au total`}
                 </span>
               </a>

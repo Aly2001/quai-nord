@@ -8,7 +8,9 @@ Pour chaque réseau de bus, ce script :
   2. regroupe les voyages en PARCOURS : une ligne fait des centaines de voyages par jour,
      mais suit seulement quelques trajets différents (un par sens, parfois une variante) ;
   3. relie chaque gare SNCF couverte aux arrêts de bus à moins de 400 m ;
-  4. écrit un petit fichier pour le site : site/public/bus/<reseau>.json
+  4. prépare les LIEUX UTILES autour des gares (universités, hôpitaux, mairie, plages...),
+     depuis OpenStreetMap, pour que le site les retrouve sans interroger Internet à chaque question ;
+  5. écrit un petit fichier pour le site : site/public/bus/<reseau>.json
 
 Le site n'a ensuite qu'à lire ce fichier pour répondre à
 « quelle ligne relie la gare à tel endroit ? » : aucun calcul lourd sur le téléphone.
@@ -22,6 +24,7 @@ import json
 import math
 import sqlite3
 import sys
+import time
 import unicodedata
 import zipfile
 from collections import Counter, defaultdict
@@ -35,7 +38,12 @@ DOSSIER_SORTIE = Path("site/public/bus")
 DOSSIER_ZIP = Path("donnees_bus")      # calais.zip et boulogne.zip, téléchargés à la main
 BASE_GTFS_SNCF = "gtfs.db"
 RAYON_GARE = 400            # mètres : arrêts de bus considérés « à la gare »
-MIN_VOYAGES = 3             # un parcours emprunté moins souvent est une exception, on l'ignore
+# On garde TOUS les parcours, avec leur nombre de voyages : le site pénalise les plus rares.
+# (Certains réseaux, comme Marinéo, décrivent un voyage valable de nombreux jours en UNE seule ligne :
+#  un seuil fixe écartait alors des lignes tout à fait normales.)
+
+# OpenStreetMap demande à chaque programme de se présenter (sinon : « 406 Not Acceptable »)
+ENTETES = {"User-Agent": "QuaiNord/1.0 (projet etudiant, https://github.com/Aly2001/quai-nord)"}
 
 # Les réseaux couverts. « gares » : les noms SNCF des gares desservies (comparés sans
 # accents, tirets ni majuscules), pour retrouver leur position dans gtfs.db.
@@ -53,6 +61,115 @@ RESEAUX = {
         "gares": ["boulogne ville", "boulogne sur mer", "boulogne tintelleries"],
     },
 }
+
+
+# ---------- Les lieux utiles (OpenStreetMap) ----------
+SERVEURS_OVERPASS = [
+    "https://overpass-api.de/api/interpreter",
+    "https://overpass.private.coffee/api/interpreter",
+    "https://maps.mail.ru/osm/tools/overpass/api/interpreter",
+]
+RAYON_LIEUX = 10_000        # mètres autour de chaque gare
+
+# Les filtres OpenStreetMap des lieux qu'on garde (« l'un OU l'autre »)
+FILTRES_LIEUX = [
+    '["amenity"~"^(university|college|hospital|clinic|townhall|school|post_office|police|library|theatre|cinema|ferry_terminal)$"]["name"]',
+    '["building"~"^(university|college)$"]["name"]',
+    '["natural"="beach"]["name"]',
+    '["leisure"~"^(stadium|sports_centre|swimming_pool)$"]["name"]',
+    '["tourism"~"^(museum|attraction|aquarium|zoo)$"]["name"]',
+    '["shop"="mall"]["name"]',
+]
+
+
+def categorie_lieu(tags):
+    """La catégorie d'un lieu OpenStreetMap, avec le même vocabulaire que le site (bus.js)."""
+    amenity, nom = tags.get("amenity", ""), tags.get("name", "")
+    nom_simple = normaliser(nom)
+    if amenity in ("university", "college") or tags.get("building") in ("university", "college"):
+        return "universite"
+    if amenity in ("hospital", "clinic"):
+        return "hopital"
+    if amenity == "school":
+        if "lycee" in nom_simple:
+            return "lycee"
+        if "college" in nom_simple:
+            return "college"
+        return None                                   # écoles primaires : trop nombreuses, on les écarte
+    simples = {"townhall": "mairie", "post_office": "poste", "police": "police", "library": "mediatheque",
+               "theatre": "theatre", "cinema": "cinema", "ferry_terminal": "ferry"}
+    if amenity in simples:
+        return simples[amenity]
+    if tags.get("natural") == "beach":
+        return "plage"
+    leisure = tags.get("leisure", "")
+    if leisure == "stadium":
+        return "stade"
+    if leisure == "swimming_pool" or (leisure == "sports_centre" and tags.get("sport") == "swimming"):
+        return "piscine"
+    if tags.get("tourism") == "museum":
+        return "musee"
+    if tags.get("tourism") in ("attraction", "aquarium", "zoo"):
+        return "loisirs"
+    if tags.get("shop") == "mall":
+        return "commerce"
+    return None
+
+
+def demander_overpass(requete):
+    """Une petite demande à OpenStreetMap, avec patience : 3 essais, sur 3 serveurs, en attendant
+    de plus en plus longtemps (les serveurs publics sont gratuits et souvent très sollicités)."""
+    for essai, attente in enumerate([0, 15, 45]):
+        if attente:
+            print(f"      nouvel essai dans {attente} s…", flush=True)
+            time.sleep(attente)
+        for serveur in SERVEURS_OVERPASS:
+            try:
+                reponse = requests.post(serveur, data={"data": requete}, headers=ENTETES, timeout=60)
+                reponse.raise_for_status()
+                return reponse.json()["elements"]
+            except Exception as erreur:
+                print(f"      {serveur.split('/')[2]} : {str(erreur)[:70]}", flush=True)
+    return None
+
+
+def lieux_utiles(gares, anciens):
+    """Les lieux nommés autour des gares, téléchargés depuis OpenStreetMap, une petite demande par type.
+    En cas d'échec, on GARDE les lieux de la dernière préparation réussie."""
+    if not gares:
+        return anciens
+    lats = [lat for lat, _ in gares.values()]
+    lons = [lon for _, lon in gares.values()]
+    # Un rectangle d'environ 10 km autour des gares (sud, ouest, nord, est)
+    rectangle = f"{min(lats) - 0.09},{min(lons) - 0.14},{max(lats) + 0.09},{max(lons) + 0.14}"
+    elements, echecs = [], 0
+    for filtre in FILTRES_LIEUX:
+        resultat = demander_overpass(f"[out:json][timeout:50];nwr{filtre}({rectangle});out center tags;")
+        if resultat is None:
+            echecs += 1
+        else:
+            elements += resultat
+        time.sleep(2)                                      # rester poli avec les serveurs
+    if echecs == len(FILTRES_LIEUX):
+        print(f"   ATTENTION : OpenStreetMap indisponible, on garde les {len(anciens)} lieux de la dernière fois", flush=True)
+        return anciens
+    lieux, vus = [], set()
+    for e in elements:
+        tags = e.get("tags", {})
+        categorie = categorie_lieu(tags)
+        lat = e.get("lat", e.get("center", {}).get("lat"))
+        lon = e.get("lon", e.get("center", {}).get("lon"))
+        cle = (normaliser(tags.get("name", "")), categorie)
+        if not categorie or lat is None or cle in vus:   # un même lieu peut être décrit plusieurs fois
+            continue
+        vus.add(cle)
+        lieux.append({"nom": tags["name"], "cat": categorie, "lat": round(lat, 6), "lon": round(lon, 6)})
+    if echecs:
+        print(f"   ATTENTION : {echecs} types de lieux sur {len(FILTRES_LIEUX)} non téléchargés", flush=True)
+    if not lieux:
+        print(f"   ATTENTION : aucun lieu reçu, on garde les {len(anciens)} lieux de la dernière fois", flush=True)
+        return anciens
+    return lieux
 
 
 def normaliser(texte):
@@ -115,7 +232,7 @@ def preparer(code, reseau):
         print(f"   Fichier local : {fichier_local} ({len(contenu) / 1024 / 1024:.1f} Mo, du {date})", flush=True)
     else:
         print(f"   {fichier_local} absent : téléchargement automatique…", flush=True)
-        reponse = requests.get(reseau["url"], timeout=120)
+        reponse = requests.get(reseau["url"], headers=ENTETES, timeout=120)
         reponse.raise_for_status()
         contenu = reponse.content
         print(f"   Téléchargé : {len(contenu) / 1024 / 1024:.1f} Mo", flush=True)
@@ -168,10 +285,9 @@ def preparer(code, reseau):
 
     parcours = [{"ligne": route_id, "direction": direction, "arrets": list(ordre), "voyages": n,
                  "minutes": temps.get((route_id, direction, ordre))}
-                for (route_id, direction, ordre), n in compte.items()
-                if n >= MIN_VOYAGES and route_id in lignes]
+                for (route_id, direction, ordre), n in compte.items() if route_id in lignes]
     print(f"   {len(suites)} voyages regroupés en {len(parcours)} parcours "
-          f"(ignorés : {sum(1 for n in compte.values() if n < MIN_VOYAGES)} parcours exceptionnels)", flush=True)
+          f"(dont {sum(1 for p in parcours if p['voyages'] < 3)} peu fréquents, pénalisés dans le classement)", flush=True)
 
     # On ne garde que les arrêts et les lignes réellement utilisés
     utilises = {a for p in parcours for a in p["arrets"]}
@@ -190,6 +306,23 @@ def preparer(code, reseau):
     if not gares:
         print("   ATTENTION : aucune gare SNCF retrouvée pour ce réseau", flush=True)
 
+    # ---------- Les lieux utiles autour des gares ----------
+    chemin = DOSSIER_SORTIE / f"{code}.json"
+    anciens = []
+    if chemin.exists():
+        try:
+            anciens = json.loads(chemin.read_text(encoding="utf-8")).get("lieux", [])
+        except ValueError:
+            pass
+    print("   Lieux utiles (OpenStreetMap)…", flush=True)
+    lieux = lieux_utiles({nom: (g["lat"], g["lon"]) for nom, g in gares.items()}, anciens)
+    if lieux:
+        par_categorie = Counter(l["cat"] for l in lieux)
+        print(f"   {len(lieux)} lieux utiles : " + ", ".join(f"{c} {n}" for c, n in par_categorie.most_common()), flush=True)
+        universites = sorted(l["nom"] for l in lieux if l["cat"] == "universite")
+        if universites:
+            print(f"   Universités : {', '.join(universites[:6])}", flush=True)
+
     sortie = {
         "reseau": reseau["nom"],
         "source": reseau["source"],
@@ -198,9 +331,10 @@ def preparer(code, reseau):
         "arrets": arrets,
         "parcours": parcours,
         "gares": gares,
+        "lieux": lieux,
+        "source_lieux": "© les contributeurs d'OpenStreetMap (ODbL)",
     }
     DOSSIER_SORTIE.mkdir(parents=True, exist_ok=True)
-    chemin = DOSSIER_SORTIE / f"{code}.json"
     chemin.write_text(json.dumps(sortie, ensure_ascii=False, separators=(",", ":")), encoding="utf-8")
     print(f"   {len(lignes)} lignes, {len(arrets)} arrêts -> {chemin} "
           f"({chemin.stat().st_size / 1024:.0f} Ko)", flush=True)

@@ -1,8 +1,9 @@
 // Tests de la recherche des bus, sur un petit réseau inventé (aucun accès à Internet)
-import { describe, test, expect } from "vitest";
+import { describe, test, expect, vi } from "vitest";
 import {
   distance, arretsProches, busDirects, busDepuisGare, busVersGare, gareCouverte, lienCarte, plusRapideQueAPied,
   nettoyerLieu, categorieDe, garesCorrespondantes, estUnLieuPrecis, dansLaCategorie, libelleGare,
+  lieuxPrepares, chercherLieu,
 } from "./bus";
 
 const reseau = {
@@ -182,4 +183,50 @@ describe("les vrais noms de gares (test terrain du 15 octobre)", () => {
     expect(libelleGare("Boulogne sur Mer")).toBe("Boulogne Ville (Boulogne-sur-Mer)");
     expect(libelleGare("Calais Ville")).toBe("Calais Ville");
   });
+});
+
+describe("les lieux préparés par charger_bus.py", () => {
+  const boulogne = {
+    lieux: [
+      { nom: "Université du Littoral - Saint-Louis", cat: "universite", lat: 50.7240, lon: 1.6100 },
+      { nom: "IUT Boulogne", cat: "universite", lat: 50.7100, lon: 1.6000 },
+      { nom: "Nausicaá", cat: "loisirs", lat: 50.7300, lon: 1.5950 },
+      { nom: "Basilique Notre-Dame", cat: "musee", lat: 50.7260, lon: 1.6140 },
+      { nom: "Université de Lille", cat: "universite", lat: 50.6300, lon: 3.0700 },
+    ],
+  };
+  const gare = { lat: 50.7180, lon: 1.6100 };
+
+  test("« l'université » : seulement les universités, jamais la basilique", () => {
+    expect(lieuxPrepares(boulogne, "l'université").map((l) => l.nom)).not.toContain("Basilique Notre-Dame");
+  });
+
+  test("un nom propre est trouvé, même sans accent", () => {
+    expect(lieuxPrepares(boulogne, "nausicaa").map((l) => l.nom)).toEqual(["Nausicaá"]);
+  });
+
+  test("la recherche se fait sans Internet, du plus proche au plus loin, et sans homonyme lointain", async () => {
+    const fetchInterdit = vi.fn(() => { throw new Error("aucun appel réseau attendu"); });
+    vi.stubGlobal("fetch", fetchInterdit);
+    const lieux = await chercherLieu("l'université", gare, "Boulogne-sur-Mer", boulogne);
+    expect(fetchInterdit).not.toHaveBeenCalled();
+    expect(lieux.map((l) => l.nom)).toEqual(["Université du Littoral - Saint-Louis", "IUT Boulogne"]);
+    vi.unstubAllGlobals();
+  });
+});
+
+test("un parcours peu fréquent passe derrière un parcours habituel, sans disparaître", () => {
+  const reseauTest = {
+    lignes: { A: { nom: "A", couleur: "#000000", texte: "#FFFFFF" }, B: { nom: "B", couleur: "#000000", texte: "#FFFFFF" } },
+    arrets: { G: ["G", 50, 1], X: ["X", 50.01, 1] },
+    parcours: [
+      { ligne: "A", direction: "X", arrets: ["G", "X"], minutes: [0, 5], voyages: 1 },     // plus rapide, mais rare
+      { ligne: "B", direction: "X", arrets: ["G", "X"], minutes: [0, 8], voyages: 40 },    // habituel
+    ],
+  };
+  const [premier, second] = busDirects(reseauTest, [["G", 0]], [["X", 0]]);
+  expect(premier.ligne.nom).toBe("B");
+  expect(second.ligne.nom).toBe("A");
+  expect(second.occasionnel).toBe(true);
+  expect(second.minutesTotal).toBe(6);       // la durée affichée ne contient pas la pénalité
 });

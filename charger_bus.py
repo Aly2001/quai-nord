@@ -165,7 +165,12 @@ def lieux_utiles(gares, anciens):
         vus.add(cle)
         lieux.append({"nom": tags["name"], "cat": categorie, "lat": round(lat, 6), "lon": round(lon, 6)})
     if echecs:
-        print(f"   ATTENTION : {echecs} types de lieux sur {len(FILTRES_LIEUX)} non téléchargés", flush=True)
+        # Fusion : les catégories absentes cette fois gardent leurs lieux de la dernière préparation
+        presentes = {l["cat"] for l in lieux}
+        recuperes = [l for l in anciens if l["cat"] not in presentes]
+        lieux += recuperes
+        print(f"   ATTENTION : {echecs} types de lieux sur {len(FILTRES_LIEUX)} non téléchargés"
+              f"{f' ({len(recuperes)} lieux de la dernière fois conservés)' if recuperes else ''}", flush=True)
     if not lieux:
         print(f"   ATTENTION : aucun lieu reçu, on garde les {len(anciens)} lieux de la dernière fois", flush=True)
         return anciens

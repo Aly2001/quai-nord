@@ -7,7 +7,7 @@ import {
 import { SNCF_CONNECT } from "../data/faq";
 import {
   useBus, gareCouverte, chercherLieu, busDepuisGare, busVersGare, lienCarte, minutesAPied, distance,
-  plusRapideQueAPied,
+  plusRapideQueAPied, garesCorrespondantes,
 } from "../data/bus";
 import "./Nora.css";
 
@@ -169,18 +169,14 @@ export default function NoraConversation({ contexte = null }) {
 
     // 1. La gare : précisée, déduite, ou à choisir. Deuxième protection : elle doit être couverte.
     let gare = nomGare;
-    if (!gare && action.gare) {
-      const couverte = gareCouverte(reseauxBus, action.gare)
-        || Object.keys(reseau.gares).map((nom) => gareCouverte(reseauxBus, nom))
-          .find((g) => g && normaliser(g.nom).includes(normaliser(action.gare)));
-      if (!couverte) {
-        ajouter({ auteur: "nora", texte: "Pour l'instant, je connais les bus de Calais et de Boulogne, entre la gare et votre destination." });
-        return;
-      }
-      gare = couverte.nom;
+    // « la gare de Boulogne » peut désigner plusieurs gares : on ne choisit jamais à la place du voyageur
+    const candidates = action.gare ? garesCorrespondantes(reseau, action.gare) : Object.keys(reseau.gares);
+    if (!gare && action.gare && candidates.length === 0) {
+      ajouter({ auteur: "nora", texte: "Pour l'instant, je connais les bus de Calais et de Boulogne, entre la gare et votre destination." });
+      return;
     }
     if (!gare) {
-      const gares = Object.keys(reseau.gares);
+      const gares = candidates;
       if (gares.length !== 1) {
         ajouter({
           auteur: "nora",

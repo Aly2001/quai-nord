@@ -2,7 +2,7 @@
 import { describe, test, expect } from "vitest";
 import {
   distance, arretsProches, busDirects, busDepuisGare, busVersGare, gareCouverte, lienCarte, plusRapideQueAPied,
-  nettoyerLieu, categorieDe,
+  nettoyerLieu, categorieDe, garesCorrespondantes, estUnLieuPrecis,
 } from "./bus";
 
 const reseau = {
@@ -129,5 +129,28 @@ describe("comprendre le lieu demandé", () => {
   test("un nom précis ou une adresse n'est pas une catégorie", () => {
     expect(categorieDe("12 rue Royale")).toBeNull();
     expect(categorieDe("Nausicaá")).toBeNull();
+  });
+});
+
+describe("retours du test terrain", () => {
+  const boulogne = { gares: { "Boulogne Ville": {}, "Boulogne - Tintelleries": {} } };
+
+  test("« Boulogne » correspond aux deux gares : il faudra demander laquelle", () => {
+    expect(garesCorrespondantes(boulogne, "Boulogne")).toHaveLength(2);
+    expect(garesCorrespondantes(boulogne, "la gare de Boulogne")).toHaveLength(2);
+  });
+
+  test("le nom exact ne laisse aucun doute", () => {
+    expect(garesCorrespondantes(boulogne, "boulogne-tintelleries")).toEqual(["Boulogne - Tintelleries"]);
+  });
+
+  test("une ville n'est jamais proposée comme destination", () => {
+    expect(estUnLieuPrecis({ properties: { osm_key: "place", osm_value: "city", name: "Boulogne-sur-Mer" } })).toBe(false);
+    expect(estUnLieuPrecis({ properties: { type: "district", name: "Saint-Pierre" } })).toBe(false);
+  });
+
+  test("un vrai lieu est gardé", () => {
+    expect(estUnLieuPrecis({ properties: { osm_key: "amenity", osm_value: "university", name: "Université" } })).toBe(true);
+    expect(estUnLieuPrecis({ properties: { osm_key: "shop", osm_value: "mall", name: "Cité Europe" } })).toBe(true);
   });
 });

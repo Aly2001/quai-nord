@@ -47,6 +47,19 @@ export function gareCouverte(reseaux, nomGare) {
   return null;
 }
 
+// Les gares d'un réseau qui correspondent à un nom approximatif (« Boulogne » -> Boulogne Ville
+// ET Boulogne - Tintelleries) : s'il y en a plusieurs, il faut demander laquelle.
+export function garesCorrespondantes(reseau, texte) {
+  // « la gare SNCF de Boulogne » -> « boulogne »
+  const cherche = normaliser(texte || "").split(" ")
+    .filter((mot) => !["la", "gare", "sncf", "de", "du", "d", "l"].includes(mot)).join(" ");
+  if (!cherche) return Object.keys(reseau.gares);
+  const noms = Object.keys(reseau.gares);
+  const exacte = noms.find((nom) => normaliser(nom) === cherche);
+  if (exacte) return [exacte];
+  return noms.filter((nom) => normaliser(nom).includes(cherche) || cherche.includes(normaliser(nom)));
+}
+
 // ---------- Les distances ----------
 // Distance à vol d'oiseau en mètres (formule de haversine)
 export function distance(lat1, lon1, lat2, lon2) {
@@ -160,12 +173,22 @@ export function categorieDe(texte) {
   return CATEGORIES.find((c) => c.mots.some((mot) => propre.includes(` ${mot} `))) || null;
 }
 
+// Deux serveurs Overpass avec les mêmes données OpenStreetMap : si le premier est surchargé, le second
+const SERVEURS_OVERPASS = ["https://overpass-api.de/api/interpreter", "https://overpass.private.coffee/api/interpreter"];
+
 async function parCategorie(categorie, gare) {
   const requete = `[out:json][timeout:15];nwr${categorie.filtre}(around:8000,${gare.lat},${gare.lon});out center 20;`;
-  const reponse = await fetch(`https://overpass-api.de/api/interpreter?data=${encodeURIComponent(requete)}`);
+  let donnees = null;
+  for (const serveur of SERVEURS_OVERPASS) {
+    try {
+      const reponse = await fetch(`${serveur}?data=${encodeURIComponent(requete)}`);
+      if (reponse.ok) { donnees = await reponse.json(); break; }
+    } catch { /* serveur indisponible : on essaie le suivant */ }
+  }
+  if (!donnees) throw new Error("OpenStreetMap indisponible");
   const vus = new Set();
   const lieux = [];
-  for (const e of (await reponse.json()).elements) {
+  for (const e of donnees.elements) {
     const lat = e.lat ?? e.center?.lat;
     const lon = e.lon ?? e.center?.lon;
     const nom = e.tags?.name || categorie.nom;
@@ -176,10 +199,19 @@ async function parCategorie(categorie, gare) {
   return lieux;
 }
 
+// Une ville, un quartier ou une région n'est pas une destination précise : on l'écarte
+const ZONES = new Set(["city", "town", "village", "hamlet", "suburb", "quarter", "neighbourhood", "district",
+  "county", "state", "region", "country", "municipality", "locality"]);
+
+export function estUnLieuPrecis(resultat) {
+  const p = resultat.properties || {};
+  return !(p.osm_key === "place" || p.osm_key === "boundary" || ZONES.has(p.type) || ZONES.has(p.osm_value));
+}
+
 async function parPhoton(texte, gare) {
   const parametres = new URLSearchParams({ q: texte, lat: gare.lat, lon: gare.lon, limit: "5", lang: "fr" });
   const reponse = await fetch(`https://photon.komoot.io/api/?${parametres}`);
-  return (await reponse.json()).features.map((f) => ({
+  return (await reponse.json()).features.filter(estUnLieuPrecis).map((f) => ({
     nom: f.properties.name || [f.properties.housenumber, f.properties.street].filter(Boolean).join(" ") || texte,
     detail: [f.properties.street, f.properties.city].filter(Boolean).join(", "),
     lat: f.geometry.coordinates[1],

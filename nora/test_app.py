@@ -236,6 +236,8 @@ def action_bus(**valeurs):
     (action_bus(sens="vers_gare", lieu="la plage"), True),                  # lieu -> gare
     (action_bus(gare="", ville="Boulogne-sur-Mer"), True),                  # gare à préciser, ville connue
     (action_bus(gare="Boulogne - Tintelleries", ville=""), True),           # ville déduite de la gare
+    (action_bus(gare="gare Boulogne ville", ville="Boulogne"), True),       # retour du test terrain
+    (action_bus(gare="la gare de Calais Ville", ville=""), True),           # « la gare de » ignoré
     (action_bus(ville="Lille", gare="Lille Flandres"), False),              # autre ville
     (action_bus(gare="Lille Flandres"), False),                             # gare d'une autre ville
     (action_bus(sens="entre_deux_lieux"), False),                           # pas de gare dans le trajet

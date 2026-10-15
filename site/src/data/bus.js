@@ -146,21 +146,24 @@ const MOTS_VIDES = new Set(["le", "la", "les", "l", "un", "une", "des", "du", "d
 
 // Les catégories reconnues, et leur traduction en filtre OpenStreetMap
 export const CATEGORIES = [
-  { mots: ["universite", "fac", "faculte", "campus", "ulco", "iut"], filtre: '["amenity"~"^(university|college)$"]', nom: "Université" },
-  { mots: ["hopital", "clinique", "urgences", "centre hospitalier"], filtre: '["amenity"~"^(hospital|clinic)$"]', nom: "Hôpital" },
-  { mots: ["mairie", "hotel ville"], filtre: '["amenity"="townhall"]', nom: "Mairie" },
-  { mots: ["plage"], filtre: '["natural"="beach"]', nom: "Plage" },
-  { mots: ["piscine"], filtre: '["leisure"~"^(swimming_pool|sports_centre)$"]["sport"="swimming"]', nom: "Piscine" },
-  { mots: ["stade"], filtre: '["leisure"="stadium"]', nom: "Stade" },
-  { mots: ["lycee"], filtre: '["amenity"="school"]["name"~"[Ll]yc"]', nom: "Lycée" },
-  { mots: ["college"], filtre: '["amenity"="school"]["name"~"[Cc]oll"]', nom: "Collège" },
-  { mots: ["poste"], filtre: '["amenity"="post_office"]', nom: "Bureau de poste" },
-  { mots: ["commissariat", "police"], filtre: '["amenity"="police"]', nom: "Police" },
-  { mots: ["bibliotheque", "mediatheque"], filtre: '["amenity"="library"]', nom: "Médiathèque" },
-  { mots: ["musee"], filtre: '["tourism"="museum"]', nom: "Musée" },
-  { mots: ["theatre"], filtre: '["amenity"="theatre"]', nom: "Théâtre" },
-  { mots: ["cinema"], filtre: '["amenity"="cinema"]', nom: "Cinéma" },
-  { mots: ["port", "ferry"], filtre: '["amenity"="ferry_terminal"]', nom: "Terminal ferry" },
+  // filtres : les descriptions OpenStreetMap possibles ; valeurs : les types acceptés en secours (Photon)
+  { mots: ["universite", "fac", "faculte", "campus", "ulco", "iut"], nom: "Université",
+    filtres: ['["amenity"~"^(university|college)$"]', '["building"~"^(university|college)$"]'], valeurs: ["university", "college"] },
+  { mots: ["hopital", "clinique", "urgences", "centre hospitalier"], nom: "Hôpital",
+    filtres: ['["amenity"~"^(hospital|clinic)$"]'], valeurs: ["hospital", "clinic"] },
+  { mots: ["mairie", "hotel ville"], nom: "Mairie", filtres: ['["amenity"="townhall"]'], valeurs: ["townhall"] },
+  { mots: ["plage"], nom: "Plage", filtres: ['["natural"="beach"]'], valeurs: ["beach"] },
+  { mots: ["piscine"], nom: "Piscine", filtres: ['["leisure"="sports_centre"]["sport"="swimming"]', '["leisure"="swimming_pool"]["access"!="private"]["name"]'], valeurs: ["swimming_pool", "sports_centre"] },
+  { mots: ["stade"], nom: "Stade", filtres: ['["leisure"="stadium"]'], valeurs: ["stadium"] },
+  { mots: ["lycee"], nom: "Lycée", filtres: ['["amenity"="school"]["name"~"[Ll]yc"]'], valeurs: ["school"] },
+  { mots: ["college"], nom: "Collège", filtres: ['["amenity"="school"]["name"~"[Cc]oll"]'], valeurs: ["school"] },
+  { mots: ["poste"], nom: "Bureau de poste", filtres: ['["amenity"="post_office"]'], valeurs: ["post_office"] },
+  { mots: ["commissariat", "police"], nom: "Police", filtres: ['["amenity"="police"]'], valeurs: ["police"] },
+  { mots: ["bibliotheque", "mediatheque"], nom: "Médiathèque", filtres: ['["amenity"="library"]'], valeurs: ["library"] },
+  { mots: ["musee"], nom: "Musée", filtres: ['["tourism"="museum"]'], valeurs: ["museum"] },
+  { mots: ["theatre"], nom: "Théâtre", filtres: ['["amenity"="theatre"]'], valeurs: ["theatre"] },
+  { mots: ["cinema"], nom: "Cinéma", filtres: ['["amenity"="cinema"]'], valeurs: ["cinema"] },
+  { mots: ["port", "ferry"], nom: "Terminal ferry", filtres: ['["amenity"="ferry_terminal"]'], valeurs: ["ferry_terminal"] },
 ];
 
 // « l'université de Calais » -> « universite »
@@ -177,7 +180,9 @@ export function categorieDe(texte) {
 const SERVEURS_OVERPASS = ["https://overpass-api.de/api/interpreter", "https://overpass.private.coffee/api/interpreter"];
 
 async function parCategorie(categorie, gare) {
-  const requete = `[out:json][timeout:15];nwr${categorie.filtre}(around:8000,${gare.lat},${gare.lon});out center 20;`;
+  // Toutes les descriptions possibles de la catégorie, autour de la gare (« ( ... ; ... ; ) » = l'une OU l'autre)
+  const autour = `(around:8000,${gare.lat},${gare.lon})`;
+  const requete = `[out:json][timeout:15];(${categorie.filtres.map((f) => `nwr${f}${autour};`).join("")});out center 20;`;
   let donnees = null;
   for (const serveur of SERVEURS_OVERPASS) {
     try {
@@ -208,10 +213,17 @@ export function estUnLieuPrecis(resultat) {
   return !(p.osm_key === "place" || p.osm_key === "boundary" || ZONES.has(p.type) || ZONES.has(p.osm_value));
 }
 
-async function parPhoton(texte, gare) {
-  const parametres = new URLSearchParams({ q: texte, lat: gare.lat, lon: gare.lon, limit: "5", lang: "fr" });
+// Pour une catégorie, la recherche de secours ne garde que les lieux du BON type :
+// si on cherche une université, une basilique au nom ressemblant est écartée.
+export function dansLaCategorie(resultat, categorie) {
+  return !categorie || categorie.valeurs.includes((resultat.properties || {}).osm_value);
+}
+
+async function parPhoton(texte, gare, categorie = null) {
+  const parametres = new URLSearchParams({ q: texte, lat: gare.lat, lon: gare.lon, limit: "10", lang: "fr" });
   const reponse = await fetch(`https://photon.komoot.io/api/?${parametres}`);
-  return (await reponse.json()).features.filter(estUnLieuPrecis).map((f) => ({
+  return (await reponse.json()).features
+    .filter((f) => estUnLieuPrecis(f) && dansLaCategorie(f, categorie)).slice(0, 5).map((f) => ({
     nom: f.properties.name || [f.properties.housenumber, f.properties.street].filter(Boolean).join(" ") || texte,
     detail: [f.properties.street, f.properties.city].filter(Boolean).join(", "),
     lat: f.geometry.coordinates[1],
@@ -231,7 +243,7 @@ async function parBaseAdresse(texte, gare) {
 export async function chercherLieu(texte, gare, ville) {
   const categorie = categorieDe(texte);
   const essais = categorie
-    ? [() => parCategorie(categorie, gare), () => parPhoton(`${texte} ${ville}`, gare)]
+    ? [() => parCategorie(categorie, gare), () => parPhoton(`${categorie.nom} ${ville}`, gare, categorie)]
     : [() => parPhoton(`${texte} ${ville}`, gare), () => parBaseAdresse(`${texte} ${ville}`, gare)];
   let lieux = [];
   for (const essai of essais) {

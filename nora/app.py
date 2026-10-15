@@ -257,7 +257,11 @@ def verifier_bus(action):
     une gare d'un côté du trajet, à Calais ou à Boulogne, et un lieu précis de l'autre."""
     sens = str(action.get("sens", "")).strip()
     lieu = str(action.get("lieu", "")).strip()
-    gare = str(action.get("gare", "")).strip()
+    # « la gare de Boulogne Ville » -> « Boulogne Ville » : l'IA ajoute parfois ces mots
+    mots_gare = str(action.get("gare", "")).strip().split()
+    while mots_gare and sans_accents(mots_gare[0]) in {"la", "gare", "de", "du", "sncf", "l"}:
+        mots_gare.pop(0)
+    gare = " ".join(mots_gare)
     ville_texte = sans_accents(action.get("ville", ""))
     ville = VILLES_BUS.get(ville_texte)
     # La ville peut aussi se déduire de la gare (« Calais Ville », « Boulogne - Tintelleries »)

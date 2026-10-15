@@ -2,7 +2,7 @@
 import { describe, test, expect } from "vitest";
 import {
   distance, arretsProches, busDirects, busDepuisGare, busVersGare, gareCouverte, lienCarte, plusRapideQueAPied,
-  nettoyerLieu, categorieDe, garesCorrespondantes, estUnLieuPrecis,
+  nettoyerLieu, categorieDe, garesCorrespondantes, estUnLieuPrecis, dansLaCategorie,
 } from "./bus";
 
 const reseau = {
@@ -153,4 +153,11 @@ describe("retours du test terrain", () => {
     expect(estUnLieuPrecis({ properties: { osm_key: "amenity", osm_value: "university", name: "Université" } })).toBe(true);
     expect(estUnLieuPrecis({ properties: { osm_key: "shop", osm_value: "mall", name: "Cité Europe" } })).toBe(true);
   });
+});
+
+test("en cherchant une université, une basilique au nom ressemblant est écartée", () => {
+  const universite = categorieDe("l'université");
+  expect(dansLaCategorie({ properties: { osm_key: "amenity", osm_value: "place_of_worship" } }, universite)).toBe(false);
+  expect(dansLaCategorie({ properties: { osm_key: "amenity", osm_value: "university" } }, universite)).toBe(true);
+  expect(dansLaCategorie({ properties: { osm_key: "building", osm_value: "university" } }, universite)).toBe(true);
 });

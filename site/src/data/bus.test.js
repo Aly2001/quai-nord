@@ -2,7 +2,7 @@
 import { describe, test, expect } from "vitest";
 import {
   distance, arretsProches, busDirects, busDepuisGare, busVersGare, gareCouverte, lienCarte, plusRapideQueAPied,
-  nettoyerLieu, categorieDe, garesCorrespondantes, estUnLieuPrecis, dansLaCategorie,
+  nettoyerLieu, categorieDe, garesCorrespondantes, estUnLieuPrecis, dansLaCategorie, libelleGare,
 } from "./bus";
 
 const reseau = {
@@ -160,4 +160,26 @@ test("en cherchant une université, une basilique au nom ressemblant est écart�
   expect(dansLaCategorie({ properties: { osm_key: "amenity", osm_value: "place_of_worship" } }, universite)).toBe(false);
   expect(dansLaCategorie({ properties: { osm_key: "amenity", osm_value: "university" } }, universite)).toBe(true);
   expect(dansLaCategorie({ properties: { osm_key: "building", osm_value: "university" } }, universite)).toBe(true);
+});
+
+describe("les vrais noms de gares (test terrain du 15 octobre)", () => {
+  const boulogne = { gares: { "Boulogne sur Mer": {}, "Boulogne - Tintelleries": {} } };
+  const calais = { gares: { "Calais Ville": {}, "Calais - Fréthun": {} } };
+
+  test("« la gare de Boulogne ville » : les deux gares sont proposées, rien n'est refusé", () => {
+    expect(garesCorrespondantes(boulogne, "la gare de Boulogne ville")).toHaveLength(2);
+  });
+
+  test("« Tintelleries » désigne une seule gare", () => {
+    expect(garesCorrespondantes(boulogne, "gare de Boulogne Tintelleries")).toEqual(["Boulogne - Tintelleries"]);
+  });
+
+  test("« Calais Ville » est reconnu exactement, sans demander", () => {
+    expect(garesCorrespondantes(calais, "Calais Ville")).toEqual(["Calais Ville"]);
+  });
+
+  test("le nom courant est affiché pour Boulogne-sur-Mer", () => {
+    expect(libelleGare("Boulogne sur Mer")).toBe("Boulogne Ville (Boulogne-sur-Mer)");
+    expect(libelleGare("Calais Ville")).toBe("Calais Ville");
+  });
 });

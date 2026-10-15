@@ -47,18 +47,27 @@ export function gareCouverte(reseaux, nomGare) {
   return null;
 }
 
-// Les gares d'un réseau qui correspondent à un nom approximatif (« Boulogne » -> Boulogne Ville
+// Les gares d'un réseau qui correspondent à un nom approximatif (« Boulogne » -> Boulogne-sur-Mer
 // ET Boulogne - Tintelleries) : s'il y en a plusieurs, il faut demander laquelle.
+// On compare les MOTS UTILES : « la gare de Boulogne Ville » -> « boulogne » (« ville » ne distingue rien,
+// et la SNCF appelle « Boulogne sur Mer » la gare que tout le monde appelle « Boulogne Ville »).
+const MOTS_GARE_INUTILES = new Set(["la", "gare", "sncf", "de", "du", "d", "l", "ville", "centre"]);
+
 export function garesCorrespondantes(reseau, texte) {
-  // « la gare SNCF de Boulogne » -> « boulogne »
-  const cherche = normaliser(texte || "").split(" ")
-    .filter((mot) => !["la", "gare", "sncf", "de", "du", "d", "l"].includes(mot)).join(" ");
-  if (!cherche) return Object.keys(reseau.gares);
   const noms = Object.keys(reseau.gares);
-  const exacte = noms.find((nom) => normaliser(nom) === cherche);
+  const exacte = noms.find((nom) => normaliser(nom) === normaliser(texte || ""));
   if (exacte) return [exacte];
-  return noms.filter((nom) => normaliser(nom).includes(cherche) || cherche.includes(normaliser(nom)));
+  const mots = normaliser(texte || "").split(" ").filter((mot) => mot && !MOTS_GARE_INUTILES.has(mot));
+  if (mots.length === 0) return noms;
+  return noms.filter((nom) => {
+    const motsNom = normaliser(nom).split(" ");
+    return mots.every((mot) => motsNom.includes(mot));
+  });
 }
+
+// Le nom affiché : le nom courant d'abord, quand la SNCF utilise un autre nom officiel
+const NOMS_COURANTS = { "boulogne sur mer": "Boulogne Ville (Boulogne-sur-Mer)" };
+export const libelleGare = (nom) => NOMS_COURANTS[normaliser(nom)] || nom;
 
 // ---------- Les distances ----------
 // Distance à vol d'oiseau en mètres (formule de haversine)

@@ -7,7 +7,7 @@ import {
 import { SNCF_CONNECT } from "../data/faq";
 import {
   useBus, gareCouverte, chercherLieu, busDepuisGare, busVersGare, lienCarte, minutesAPied, distance,
-  plusRapideQueAPied, garesCorrespondantes,
+  plusRapideQueAPied, garesCorrespondantes, libelleGare,
 } from "../data/bus";
 import "./Nora.css";
 
@@ -169,19 +169,18 @@ export default function NoraConversation({ contexte = null }) {
 
     // 1. La gare : précisée, déduite, ou à choisir. Deuxième protection : elle doit être couverte.
     let gare = nomGare;
-    // « la gare de Boulogne » peut désigner plusieurs gares : on ne choisit jamais à la place du voyageur
-    const candidates = action.gare ? garesCorrespondantes(reseau, action.gare) : Object.keys(reseau.gares);
-    if (!gare && action.gare && candidates.length === 0) {
-      ajouter({ auteur: "nora", texte: "Pour l'instant, je connais les bus de Calais et de Boulogne, entre la gare et votre destination." });
-      return;
-    }
+    // « la gare de Boulogne » peut désigner plusieurs gares : on ne choisit jamais à la place du voyageur.
+    // Et si le nom n'est pas reconnu, on ne refuse pas : la ville est la bonne (le serveur l'a vérifiée),
+    // on propose donc toutes ses gares.
+    let candidates = action.gare ? garesCorrespondantes(reseau, action.gare) : [];
+    if (candidates.length === 0) candidates = Object.keys(reseau.gares);
     if (!gare) {
       const gares = candidates;
       if (gares.length !== 1) {
         ajouter({
           auteur: "nora",
           texte: action.sens === "vers_gare" ? "Quelle gare voulez-vous rejoindre ?" : "De quelle gare partez-vous ?",
-          choixBus: { type: "gare", options: gares.map((nom) => ({ cle: nom, texte: nom })), action },
+          choixBus: { type: "gare", options: gares.map((nom) => ({ cle: nom, texte: libelleGare(nom) })), action },
         });
         return;
       }
@@ -189,13 +188,14 @@ export default function NoraConversation({ contexte = null }) {
     }
     const couverte = gareCouverte(reseauxBus, gare);
     const ville = code === "boulogne" ? "Boulogne-sur-Mer" : "Calais";
+    const nomAffiche = libelleGare(gare);              // le nom courant, pour les phrases ; « gare » reste le vrai nom
 
     // 2. Le lieu : retrouvé, ou à choisir s'il y en a plusieurs bien distincts
     let lieu = lieuChoisi;
     if (!lieu) {
       const lieux = await chercherLieu(action.lieu, couverte.gare, ville);
       if (lieux.length === 0) {
-        ajouter({ auteur: "nora", texte: `Je ne trouve pas « ${action.lieu} » près de la gare de ${gare}. Pouvez-vous préciser, avec une adresse par exemple ?` });
+        ajouter({ auteur: "nora", texte: `Je ne trouve pas « ${action.lieu} » près de la gare de ${nomAffiche}. Pouvez-vous préciser, avec une adresse par exemple ?` });
         return;
       }
       const distincts = lieux.filter((l, i) => lieux.slice(0, i).every((a) => distance(a.lat, a.lon, l.lat, l.lon) > 300));
@@ -225,7 +225,7 @@ export default function NoraConversation({ contexte = null }) {
     if (bus.length === 0 && metres <= 1200) {
       ajouter({
         auteur: "nora",
-        texte: `${depuis ? lieu.nom : `La gare de ${gare}`} est tout près : ${metres} m, environ ${minutesAPied(metres)} minutes à pied. `
+        texte: `${depuis ? lieu.nom : `La gare de ${nomAffiche}`} est tout près : ${metres} m, environ ${minutesAPied(metres)} minutes à pied. `
           + "Le plus rapide est d'y aller à pied.",
         carte, sourceBus: source,
       });
@@ -234,7 +234,7 @@ export default function NoraConversation({ contexte = null }) {
     if (bus.length === 0) {
       ajouter({
         auteur: "nora",
-        texte: `Aucun bus ne relie directement la gare de ${gare} et ${lieu.nom}. C'est à ${(metres / 1000).toFixed(1).replace(".", ",")} km, `
+        texte: `Aucun bus ne relie directement la gare de ${nomAffiche} et ${lieu.nom}. C'est à ${(metres / 1000).toFixed(1).replace(".", ",")} km, `
           + `environ ${minutesAPied(metres)} minutes à pied. Votre application de cartes peut proposer un trajet avec changement.`,
         carte, sourceBus: source,
       });
@@ -243,8 +243,8 @@ export default function NoraConversation({ contexte = null }) {
     ajouter({
       auteur: "nora",
       texte: depuis
-        ? `Voici comment rejoindre ${lieu.nom} depuis la gare de ${gare} :`
-        : `Voici comment rejoindre la gare de ${gare} depuis ${lieu.nom} :`,
+        ? `Voici comment rejoindre ${lieu.nom} depuis la gare de ${nomAffiche} :`
+        : `Voici comment rejoindre la gare de ${nomAffiche} depuis ${lieu.nom} :`,
       bus, carte, sourceBus: source,
     });
   }

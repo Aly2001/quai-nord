@@ -93,6 +93,13 @@
 }
 
 .nora-lien:hover { background: var(--nuit); color: #FFFFFF; }
+.nora-lien--principal { background: var(--nuit); color: #FFFFFF; }
+.nora-lien--principal:hover { color: var(--signal); }
+
+/* Les étapes à suivre sur le site officiel du réseau */
+.nora-etapes { margin: 0; padding-left: 22px; display: flex; flex-direction: column; gap: 6px; }
+.nora-etapes li { padding-left: 2px; }
+.nora-etapes li::marker { font-weight: 700; }
 
 .nora-choix { display: flex; flex-wrap: wrap; gap: 8px; }
 

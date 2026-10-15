@@ -15,6 +15,22 @@ import { useEffect, useState } from "react";
 import { normaliser } from "./horaires";
 
 export const RESEAUX_BUS = ["calais", "boulogne"];
+
+// Les sites officiels des réseaux, pour guider le voyageur quand Nora ne trouve pas elle-même
+export const SITES_RESEAUX = {
+  calais: { nom: "Imag'in (Calais)", url: "http://www.sitac-calais-opale-bus.fr/" },
+  boulogne: { nom: "Marinéo (Boulogne-sur-Mer)", url: "https://www.marineo.fr/" },
+};
+
+// Les étapes pour chercher soi-même sur le site officiel, déjà remplies avec le départ et l'arrivée
+export function etapesSiteOfficiel(code, depart, arrivee) {
+  return [
+    `Ouvrez le site officiel du réseau ${SITES_RESEAUX[code].nom}, rubrique itinéraire.`,
+    `Indiquez « ${depart} » comme départ.`,
+    `Indiquez « ${arrivee} » comme destination.`,
+    "Choisissez votre heure de départ pour voir les trajets, avec les changements si besoin.",
+  ];
+}
 const DOSSIER_BUS = `${import.meta.env.BASE_URL}bus`;
 const RAYON_DESTINATION = 500;   // mètres à pied, au maximum, entre l'arrêt et la destination
 const VITESSE_MARCHE = 80;       // mètres par minute (environ 5 km/h)
@@ -226,7 +242,9 @@ const ZONES = new Set(["city", "town", "village", "hamlet", "suburb", "quarter",
 
 export function estUnLieuPrecis(resultat) {
   const p = resultat.properties || {};
-  return !(p.osm_key === "place" || p.osm_key === "boundary" || ZONES.has(p.type) || ZONES.has(p.osm_value));
+  // Attention : une ADRESSE (« 293 rue Duguay-Trouin ») est aussi rangée dans la famille « place »
+  // (type « house ») : on n'écarte que les villes, quartiers et régions, pas toute la famille.
+  return !(p.osm_key === "boundary" || ZONES.has(p.type) || ZONES.has(p.osm_value));
 }
 
 // Pour une catégorie, la recherche de secours ne garde que les lieux du BON type :

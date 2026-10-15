@@ -3,7 +3,7 @@ import { describe, test, expect, vi } from "vitest";
 import {
   distance, arretsProches, busDirects, busDepuisGare, busVersGare, gareCouverte, lienCarte, plusRapideQueAPied,
   nettoyerLieu, categorieDe, garesCorrespondantes, estUnLieuPrecis, dansLaCategorie, libelleGare,
-  lieuxPrepares, chercherLieu,
+  lieuxPrepares, chercherLieu, etapesSiteOfficiel, SITES_RESEAUX,
 } from "./bus";
 
 const reseau = {
@@ -229,4 +229,17 @@ test("un parcours peu fréquent passe derrière un parcours habituel, sans dispa
   expect(second.ligne.nom).toBe("A");
   expect(second.occasionnel).toBe(true);
   expect(second.minutesTotal).toBe(6);       // la durée affichée ne contient pas la pénalité
+});
+
+test("une adresse précise est gardée (test terrain : 293 rue Duguay-Trouin)", () => {
+  expect(estUnLieuPrecis({ properties: { osm_key: "place", osm_value: "house", type: "house", housenumber: "293", street: "Rue Duguay-Trouin" } })).toBe(true);
+  expect(estUnLieuPrecis({ properties: { osm_key: "place", osm_value: "city", type: "city", name: "Calais" } })).toBe(false);
+});
+
+test("les étapes vers le site officiel sont remplies avec le départ et l'arrivée", () => {
+  const etapes = etapesSiteOfficiel("calais", "Gare de Calais Ville", "293 rue Duguay-Trouin, Calais");
+  expect(etapes).toHaveLength(4);
+  expect(etapes[0]).toContain(SITES_RESEAUX.calais.nom);
+  expect(etapes[1]).toContain("Gare de Calais Ville");
+  expect(etapes[2]).toContain("293 rue Duguay-Trouin");
 });

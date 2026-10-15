@@ -7,7 +7,7 @@ import {
 import { SNCF_CONNECT } from "../data/faq";
 import {
   useBus, gareCouverte, chercherLieu, busDepuisGare, busVersGare, lienCarte, minutesAPied, distance,
-  plusRapideQueAPied, garesCorrespondantes, libelleGare,
+  plusRapideQueAPied, garesCorrespondantes, libelleGare, SITES_RESEAUX, etapesSiteOfficiel,
 } from "../data/bus";
 import "./Nora.css";
 
@@ -195,7 +195,16 @@ export default function NoraConversation({ contexte = null }) {
     if (!lieu) {
       const lieux = await chercherLieu(action.lieu, couverte.gare, ville, reseau);
       if (lieux.length === 0) {
-        ajouter({ auteur: "nora", texte: `Je ne trouve pas « ${action.lieu} » près de la gare de ${nomAffiche}. Pouvez-vous préciser, avec une adresse par exemple ?` });
+        const lieuTexte = `${action.lieu}, ${ville}`;
+        const garePhrase = `Gare de ${nomAffiche}`;
+        ajouter({
+          auteur: "nora",
+          texte: `Je ne trouve pas « ${action.lieu} » dans mes données. Vous pouvez préciser l'adresse, ou chercher directement sur le site officiel du réseau :`,
+          etapes: action.sens === "vers_gare"
+            ? etapesSiteOfficiel(code, lieuTexte, garePhrase)
+            : etapesSiteOfficiel(code, garePhrase, lieuTexte),
+          site: SITES_RESEAUX[code],
+        });
         return;
       }
       const distincts = lieux.filter((l, i) => lieux.slice(0, i).every((a) => distance(a.lat, a.lon, l.lat, l.lon) > 300));
@@ -232,10 +241,14 @@ export default function NoraConversation({ contexte = null }) {
       return;
     }
     if (bus.length === 0) {
+      const lieuTexte = lieu.detail ? `${lieu.nom}, ${ville}` : lieu.nom;
+      const garePhrase = `Gare de ${nomAffiche}`;
       ajouter({
         auteur: "nora",
-        texte: `Aucun bus ne relie directement la gare de ${nomAffiche} et ${lieu.nom}. C'est à ${(metres / 1000).toFixed(1).replace(".", ",")} km, `
-          + `environ ${minutesAPied(metres)} minutes à pied. Votre application de cartes peut proposer un trajet avec changement.`,
+        texte: `Aucun bus ne relie directement la gare de ${nomAffiche} et ${lieu.nom} (${(metres / 1000).toFixed(1).replace(".", ",")} km, `
+          + `environ ${minutesAPied(metres)} minutes à pied). Pour un trajet avec changement, le plus simple :`,
+        etapes: depuis ? etapesSiteOfficiel(code, garePhrase, lieuTexte) : etapesSiteOfficiel(code, lieuTexte, garePhrase),
+        site: SITES_RESEAUX[code],
         carte, sourceBus: source,
       });
       return;
@@ -406,6 +419,16 @@ export default function NoraConversation({ contexte = null }) {
               );
             })}
 
+            {m.etapes && (
+              <ol className="nora-etapes">
+                {m.etapes.map((etape) => <li key={etape}>{etape}</li>)}
+              </ol>
+            )}
+            {m.site && (
+              <a href={m.site.url} target="_blank" rel="noopener noreferrer" className="nora-lien nora-lien--principal">
+                Site officiel {m.site.nom} ↗
+              </a>
+            )}
             {m.lienTous && <Link to={m.lienTous} className="nora-lien">Voir tous les trains</Link>}
             {m.carte && (
               <a href={m.carte} target="_blank" rel="noopener noreferrer" className="nora-lien">Voir sur la carte ↗</a>

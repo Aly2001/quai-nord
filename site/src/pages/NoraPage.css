@@ -67,5 +67,26 @@
   .nora-page__nom { margin: 0; font-family: var(--police-titre); font-weight: 700; font-size: 24px; line-height: 1; }
   .nora-page__signature { margin: 2px 0 0; font-size: 13px; color: #E3E8EE; }
 
-  .nora-page__conversation { min-height: calc(100dvh - 140px); border-radius: 0; box-shadow: none; }
+  .nora-page__conversation { border-radius: 0; box-shadow: none; }
+
+  /* ---------- La conversation occupe EXACTEMENT l'écran ----------
+     Les messages défilent au milieu, la saisie reste collée en bas,
+     et ni la page ni le pied de page ne défilent derrière. */
+  .page:has(.nora-page) {
+    height: 100dvh;
+    min-height: 0;
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+    padding-bottom: 0;
+  }
+
+  .page:has(.nora-page) > main { flex: 1; min-height: 0; display: flex; flex-direction: column; }
+  .page:has(.nora-page) > footer { display: none; }
+
+  .nora-page { flex: 1; min-height: 0; display: flex; flex-direction: column; align-items: stretch; gap: 0; }
+  .nora-page__conversation { flex: 1; min-height: 0; }
+  .nora-page__conversation .nora-conversation { flex: 1; min-height: 0; }
+  .nora-page__conversation .nora-fil { min-height: 0; overflow-y: auto; overscroll-behavior: contain; }
+  .nora-page__conversation .nora-bas { position: static; }
 }

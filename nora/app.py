@@ -49,6 +49,9 @@ URL_MISTRAL = "https://api.mistral.ai/v1/chat/completions"
 URL_GEMINI = "https://generativelanguage.googleapis.com/v1beta/models/{modele}:generateContent"
 DELAI = float(os.environ.get("NORA_DELAI", "45"))                         # secondes avant d'abandonner
 NIVEAU_REFLEXION = os.environ.get("NORA_REFLEXION", "low")                 # réflexion de Gemini 3 : low ou high
+# Modèle de secours, utilisé si le modèle principal est saturé (erreurs 503 ou 429)
+MODELE_SECOURS = os.environ.get("NORA_MODELE_SECOURS", "gemini-flash-lite-latest")
+CODES_SATURATION = {429, 503}
 QUESTIONS_PAR_JOUR = int(os.environ.get("NORA_QUESTIONS_PAR_JOUR", "10"))
 ORIGINES = os.environ.get("NORA_ORIGINES", "http://localhost:5173").split(",")
 FUSEAU = ZoneInfo("Europe/Paris")
@@ -138,15 +141,16 @@ EXPLICATIONS = {
     404: "modèle introuvable : vérifie le nom du modèle (réglage NORA_MODELE)",
     422: "requête refusée (paramètre invalide)",
     429: "trop de requêtes : limite de l'offre gratuite atteinte, réessaie dans une minute",
+    503: "modèle saturé chez le fournisseur (forte demande, temporaire), même après les nouveaux essais",
 }
 
 
-def appeler_mistral(messages, cle):
+def appeler_mistral(messages, cle, modele):
     reponse = httpx.post(
         URL_MISTRAL,
         headers={"Authorization": f"Bearer {cle}"},
         json={
-            "model": MODELE,
+            "model": modele,
             "messages": messages,
             "temperature": 0.2,          # des réponses stables, peu « créatives »
             "max_tokens": 400,           # des réponses courtes : coûts maîtrisés
@@ -158,7 +162,7 @@ def appeler_mistral(messages, cle):
     return reponse.json()["choices"][0]["message"]["content"]
 
 
-def appeler_gemini(messages, cle):
+def appeler_gemini(messages, cle, modele):
     # Gemini range les règles à part (« systemInstruction ») et appelle l'assistant « model »
     systeme = "\n\n".join(m["content"] for m in messages if m["role"] == "system")
     contenus = [{"role": "model" if m["role"] == "assistant" else "user", "parts": [{"text": m["content"]}]}
@@ -170,14 +174,14 @@ def appeler_gemini(messages, cle):
         "maxOutputTokens": 2048,
         "responseMimeType": "application/json",   # Gemini répond directement en JSON
     }
-    if MODELE.startswith("gemini-2.5"):
+    if modele.startswith("gemini-2.5"):
         # Pas de « réflexion » avant de répondre : plus rapide, et la réponse n'est jamais coupée
         configuration["thinkingConfig"] = {"thinkingBudget": 0}
-    elif MODELE.startswith("gemini-3"):
+    elif modele.startswith("gemini-3"):
         # Réflexion légère : Nora répond à partir de la FAQ, inutile de réfléchir longtemps
         configuration["thinkingConfig"] = {"thinkingLevel": NIVEAU_REFLEXION}
     reponse = httpx.post(
-        URL_GEMINI.format(modele=MODELE),
+        URL_GEMINI.format(modele=modele),
         headers={"x-goog-api-key": cle},
         json={"systemInstruction": {"parts": [{"text": systeme}]}, "contents": contenus,
               "generationConfig": configuration},
@@ -196,8 +200,22 @@ def appeler_modele(messages):
     if not cle:
         print(f"Nora : ERREUR : la variable {nom_cle} n'est pas définie dans ce terminal", flush=True)
         raise HTTPException(500, "Nora n'est pas configurée (clé absente).")
+    appeler = appeler_gemini if FOURNISSEUR == "gemini" else appeler_mistral
+    # Les essais successifs : le modèle principal deux fois, puis le modèle de secours (Gemini)
+    essais = [MODELE, MODELE]
+    if FOURNISSEUR == "gemini" and MODELE_SECOURS and MODELE_SECOURS != MODELE:
+        essais.append(MODELE_SECOURS)
     try:
-        return (appeler_gemini if FOURNISSEUR == "gemini" else appeler_mistral)(messages, cle)
+        for numero, modele in enumerate(essais):
+            try:
+                return appeler(messages, cle, modele)
+            except httpx.HTTPStatusError as erreur:
+                dernier = numero == len(essais) - 1
+                if erreur.response.status_code in CODES_SATURATION and not dernier:
+                    print(f"Nora : {modele} saturé (code {erreur.response.status_code}), nouvel essai…", flush=True)
+                    time.sleep(1)
+                    continue
+                raise
     except httpx.HTTPStatusError as erreur:
         # Diagnostic pour le développeur, dans le terminal du serveur (jamais la clé, jamais pour le visiteur)
         code = erreur.response.status_code

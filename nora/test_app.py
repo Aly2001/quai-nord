@@ -164,3 +164,40 @@ def test_gemini_3_reflexion_legere(monkeypatch):
     envoi, delai = envois[0]
     assert envoi["generationConfig"]["thinkingConfig"] == {"thinkingLevel": "low"}
     assert delai >= 30
+
+
+def test_modele_sature_puis_secours(monkeypatch):
+    """Si le modèle principal est saturé (503), Nora réessaie, puis passe au modèle de secours."""
+    monkeypatch.setenv("GEMINI_API_KEY", "cle-gemini-de-test")
+    monkeypatch.setattr(module, "FOURNISSEUR", "gemini")
+    monkeypatch.setattr(module, "MODELE", "gemini-3.8-flash")
+    monkeypatch.setattr(module, "MODELE_SECOURS", "gemini-flash-lite-latest")
+    monkeypatch.setattr(module.time, "sleep", lambda s: None)
+    adresses = []
+
+    def faux_post(url, headers, json, timeout):
+        adresses.append(url)
+        if "gemini-3.8-flash" in url:
+            return httpx.Response(503, request=httpx.Request("POST", url), json={"error": {"code": 503}})
+        texte = module.json.dumps({"reponse": "Réponse du secours", "sources": [], "lien_sncf": False, "action": None})
+        return httpx.Response(200, request=httpx.Request("POST", url),
+                              json={"candidates": [{"content": {"parts": [{"text": texte}]}}]})
+    monkeypatch.setattr(module.httpx, "post", faux_post)
+
+    corps = client.post("/api/nora", json=UNE_QUESTION).json()
+    assert corps["reponse"] == "Réponse du secours"
+    assert [("lite" in a) for a in adresses] == [False, False, True]   # 2 essais, puis le secours
+
+
+def test_erreur_definitive_sans_nouvel_essai(monkeypatch):
+    """Une clé refusée (401) n'est pas réessayée : inutile d'insister."""
+    monkeypatch.setenv("GEMINI_API_KEY", "cle-gemini-de-test")
+    monkeypatch.setattr(module, "FOURNISSEUR", "gemini")
+    appels = []
+
+    def faux_post(url, headers, json, timeout):
+        appels.append(url)
+        return httpx.Response(401, request=httpx.Request("POST", url), json={"error": {"code": 401}})
+    monkeypatch.setattr(module.httpx, "post", faux_post)
+    assert client.post("/api/nora", json=UNE_QUESTION).status_code == 502
+    assert len(appels) == 1

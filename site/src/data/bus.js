@@ -198,14 +198,47 @@ export const CATEGORIES = [
   { mots: ["aquarium", "zoo"], code: "loisirs", nom: "Loisirs", filtres: ['["tourism"~"^(aquarium|zoo)$"]'], valeurs: ["aquarium", "zoo"] },
 ];
 
+// ---------- Tolérer les fautes de frappe ----------
+// Nombre minimum de modifications (lettre ajoutée, retirée ou changée) pour passer d'un mot à l'autre
+export function ecart(a, b) {
+  const ligne = Array.from({ length: b.length + 1 }, (_, j) => j);
+  for (let i = 1; i <= a.length; i++) {
+    let precedent = ligne[0];
+    ligne[0] = i;
+    for (let j = 1; j <= b.length; j++) {
+      const temporaire = ligne[j];
+      ligne[j] = Math.min(ligne[j] + 1, ligne[j - 1] + 1, precedent + (a[i - 1] === b[j - 1] ? 0 : 1));
+      precedent = temporaire;
+    }
+  }
+  return ligne[b.length];
+}
+
+// Deux mots « se ressemblent » : identiques, ou à une faute près (deux pour les mots longs).
+// Les mots très courts doivent être identiques (« bus » et « but » sont différents).
+export function seRessemblent(a, b) {
+  if (a === b) return true;
+  const longueur = Math.min(a.length, b.length);
+  if (longueur < 4) return false;
+  return ecart(a, b) <= (longueur >= 8 ? 2 : 1);
+}
+
+// Tous les mots demandés se retrouvent (à une faute près) dans le texte
+function contientLesMots(mots, texte) {
+  const motsTexte = normaliser(texte).split(" ");
+  return mots.every((mot) => motsTexte.some((m) => seRessemblent(mot, m) || (mot.length >= 4 && m.startsWith(mot))));
+}
+
 // « l'université de Calais » -> « universite »
 export function nettoyerLieu(texte) {
   return normaliser(texte).split(" ").filter((mot) => mot && !MOTS_VIDES.has(mot)).join(" ");
 }
 
 export function categorieDe(texte) {
-  const propre = ` ${nettoyerLieu(texte)} `;
-  return CATEGORIES.find((c) => c.mots.some((mot) => propre.includes(` ${mot} `))) || null;
+  const propre = nettoyerLieu(texte);
+  if (!propre) return null;
+  // Chaque mot-clé (parfois en plusieurs mots : « hotel ville ») doit se retrouver, à une faute près
+  return CATEGORIES.find((c) => c.mots.some((cle) => contientLesMots(cle.split(" "), propre))) || null;
 }
 
 // Deux serveurs Overpass avec les mêmes données OpenStreetMap : si le premier est surchargé, le second
@@ -282,10 +315,16 @@ export function lieuxPrepares(reseau, texte) {
   if (categorie) return lieux.filter((l) => l.cat === categorie.code);
   const mots = nettoyerLieu(texte).split(" ").filter((mot) => mot.length > 1);
   if (mots.length === 0) return [];
-  return lieux.filter((l) => {
-    const nom = normaliser(l.nom);
-    return mots.every((mot) => nom.includes(mot));
-  });
+  return lieux.filter((l) => contientLesMots(mots, l.nom));
+}
+
+// Un résultat de recherche en direct n'est gardé que s'il partage au moins un mot avec la demande
+// (sinon : « l'ulclo » donnait « Fontaine de Boulogne-sur-Mer »). Les numéros (« 293 ») ne comptent pas.
+export function pertinent(lieu, texte) {
+  const mots = nettoyerLieu(texte).split(" ").filter((mot) => mot.length >= 3 && !/^\d+$/.test(mot));
+  if (mots.length === 0) return true;
+  const motsLieu = normaliser(`${lieu.nom} ${lieu.detail || ""}`).split(" ");
+  return mots.some((mot) => motsLieu.some((m) => seRessemblent(mot, m)));
 }
 
 const PRES_DE_LA_GARE = 15_000;   // mètres : au-delà, c'est sans doute un homonyme dans une autre ville
@@ -315,6 +354,7 @@ export async function chercherLieu(texte, gare, ville, reseau = null) {
       lieux = [];                                          // service indisponible : on essaie le suivant
     }
     lieux = classer(lieux, gare);
+    if (!categorie) lieux = lieux.filter((l) => pertinent(l, texte));
     if (lieux.length > 0) break;
   }
   return lieux;

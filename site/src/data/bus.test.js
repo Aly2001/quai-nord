@@ -3,7 +3,7 @@ import { describe, test, expect, vi } from "vitest";
 import {
   distance, arretsProches, busDirects, busDepuisGare, busVersGare, gareCouverte, lienCarte, plusRapideQueAPied,
   nettoyerLieu, categorieDe, garesCorrespondantes, estUnLieuPrecis, dansLaCategorie, libelleGare,
-  lieuxPrepares, chercherLieu, etapesSiteOfficiel, SITES_RESEAUX,
+  lieuxPrepares, chercherLieu, etapesSiteOfficiel, SITES_RESEAUX, seRessemblent, pertinent,
 } from "./bus";
 
 const reseau = {
@@ -242,4 +242,32 @@ test("les étapes vers le site officiel sont remplies avec le départ et l'arriv
   expect(etapes[0]).toContain(SITES_RESEAUX.calais.nom);
   expect(etapes[1]).toContain("Gare de Calais Ville");
   expect(etapes[2]).toContain("293 rue Duguay-Trouin");
+});
+
+describe("les fautes de frappe (test terrain : « l'ulclo »)", () => {
+  test.each([
+    ["l'ulclo", "Université"],
+    ["l'univercité", "Université"],
+    ["l'hopitale", "Hôpital"],
+    ["la mairi", "Mairie"],
+  ])("« %s » est reconnu comme : %s", (texte, categorie) => {
+    expect(categorieDe(texte)?.nom).toBe(categorie);
+  });
+
+  test("les mots courts doivent être identiques", () => {
+    expect(seRessemblent("bus", "but")).toBe(false);
+    expect(seRessemblent("port", "fort")).toBe(true);     // 4 lettres : une faute tolérée
+  });
+
+  test("un nom propre mal orthographié est retrouvé", () => {
+    const reseau = { lieux: [{ nom: "Nausicaá", cat: "loisirs", lat: 50.73, lon: 1.59 }] };
+    expect(lieuxPrepares(reseau, "nausicaa")).toHaveLength(1);
+    expect(lieuxPrepares(reseau, "nausica")).toHaveLength(1);     // une lettre oubliée
+    expect(lieuxPrepares(reseau, "plage")).toHaveLength(0);       // aucun rapport
+  });
+
+  test("un résultat sans aucun mot commun est écarté", () => {
+    expect(pertinent({ nom: "Fontaine de Boulogne-sur-Mer" }, "l'ulclo")).toBe(false);
+    expect(pertinent({ nom: "293 Rue Duguay-Trouin", detail: "Calais" }, "293 rue Duguay trouin")).toBe(true);
+  });
 });

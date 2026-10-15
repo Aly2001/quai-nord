@@ -47,6 +47,8 @@ MODELES_PAR_DEFAUT = {"gemini": "gemini-3.8-flash", "mistral": "mistral-small-la
 MODELE = os.environ.get("NORA_MODELE", MODELES_PAR_DEFAUT.get(FOURNISSEUR, "mistral-small-latest"))
 URL_MISTRAL = "https://api.mistral.ai/v1/chat/completions"
 URL_GEMINI = "https://generativelanguage.googleapis.com/v1beta/models/{modele}:generateContent"
+DELAI = float(os.environ.get("NORA_DELAI", "45"))                         # secondes avant d'abandonner
+NIVEAU_REFLEXION = os.environ.get("NORA_REFLEXION", "low")                 # réflexion de Gemini 3 : low ou high
 QUESTIONS_PAR_JOUR = int(os.environ.get("NORA_QUESTIONS_PAR_JOUR", "10"))
 ORIGINES = os.environ.get("NORA_ORIGINES", "http://localhost:5173").split(",")
 FUSEAU = ZoneInfo("Europe/Paris")
@@ -150,7 +152,7 @@ def appeler_mistral(messages, cle):
             "max_tokens": 400,           # des réponses courtes : coûts maîtrisés
             "response_format": {"type": "json_object"},
         },
-        timeout=20,
+        timeout=DELAI,
     )
     reponse.raise_for_status()
     return reponse.json()["choices"][0]["message"]["content"]
@@ -171,12 +173,15 @@ def appeler_gemini(messages, cle):
     if MODELE.startswith("gemini-2.5"):
         # Pas de « réflexion » avant de répondre : plus rapide, et la réponse n'est jamais coupée
         configuration["thinkingConfig"] = {"thinkingBudget": 0}
+    elif MODELE.startswith("gemini-3"):
+        # Réflexion légère : Nora répond à partir de la FAQ, inutile de réfléchir longtemps
+        configuration["thinkingConfig"] = {"thinkingLevel": NIVEAU_REFLEXION}
     reponse = httpx.post(
         URL_GEMINI.format(modele=MODELE),
         headers={"x-goog-api-key": cle},
         json={"systemInstruction": {"parts": [{"text": systeme}]}, "contents": contenus,
               "generationConfig": configuration},
-        timeout=20,
+        timeout=DELAI,
     )
     reponse.raise_for_status()
     parties = reponse.json()["candidates"][0]["content"]["parts"]

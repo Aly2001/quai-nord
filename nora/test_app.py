@@ -146,3 +146,21 @@ def test_gemini(monkeypatch):
     assert "Tu es Nora" in envoi["systemInstruction"]["parts"][0]["text"]
     assert [c["role"] for c in envoi["contents"]] == ["user", "model", "user"]
     assert envoi["generationConfig"]["thinkingConfig"] == {"thinkingBudget": 0}
+
+
+def test_gemini_3_reflexion_legere(monkeypatch):
+    monkeypatch.setenv("GEMINI_API_KEY", "cle-gemini-de-test")
+    monkeypatch.setattr(module, "FOURNISSEUR", "gemini")
+    monkeypatch.setattr(module, "MODELE", "gemini-3.8-flash")
+    envois = []
+
+    def faux_post(url, headers, json, timeout):
+        envois.append((json, timeout))
+        texte = module.json.dumps({"reponse": "ok", "sources": [], "lien_sncf": False, "action": None})
+        return httpx.Response(200, request=httpx.Request("POST", url),
+                              json={"candidates": [{"content": {"parts": [{"text": texte}]}}]})
+    monkeypatch.setattr(module.httpx, "post", faux_post)
+    client.post("/api/nora", json=UNE_QUESTION)
+    envoi, delai = envois[0]
+    assert envoi["generationConfig"]["thinkingConfig"] == {"thinkingLevel": "low"}
+    assert delai >= 30

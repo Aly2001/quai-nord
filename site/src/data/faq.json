@@ -50,6 +50,13 @@
             "Nora est l'assistante IA de Quai Nord. Elle répond aux questions sur l'application, explique un risque de retard et peut chercher vos prochains trains.",
             "Pour générer ses réponses, vos questions sont transmises au service Gemini de Google ; Quai Nord ne les conserve pas. Nora peut se tromper : ne lui confiez pas d'informations personnelles."
           ]
+        },
+        {
+          "question": "Nora peut-elle m'aider pour les bus ?",
+          "reponse": [
+            "Oui, à Calais et à Boulogne-sur-Mer, entre une gare et votre destination, dans les deux sens : par exemple « Je suis à la gare de Calais Ville, je vais à la mairie », ou « Je suis à la plage, quel bus pour la gare ? ». Nora indique les bus directs, la ligne, les arrêts et la direction.",
+            "Les lignes viennent des données ouvertes des réseaux Imag'in (Calais) et Marinéo (Boulogne), et les lieux d'OpenStreetMap. Vérifiez les horaires auprès du réseau avant de partir."
+          ]
         }
       ]
     },

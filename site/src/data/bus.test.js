@@ -1,6 +1,8 @@
 // Tests de la recherche des bus, sur un petit réseau inventé (aucun accès à Internet)
 import { describe, test, expect } from "vitest";
-import { distance, arretsProches, busDirects, busDepuisGare, busVersGare, gareCouverte, lienCarte } from "./bus";
+import {
+  distance, arretsProches, busDirects, busDepuisGare, busVersGare, gareCouverte, lienCarte, plusRapideQueAPied,
+} from "./bus";
 
 const reseau = {
   lignes: {
@@ -88,4 +90,19 @@ describe("bus vers la gare", () => {
 
 test("le lien de carte demande un itinéraire en transports en commun", () => {
   expect(lienCarte({ lat: 1, lon: 2 }, { lat: 3, lon: 4 })).toContain("travelmode=transit");
+});
+
+describe("bon sens", () => {
+  const couverte = gareCouverte(reseaux, "Calais Ville");
+
+  test("on ne propose jamais de redescendre à un arrêt proche de la gare", () => {
+    const propositions = busDepuisGare(couverte, HOTEL_DE_VILLE);
+    expect(propositions.every((b) => !["GARE", "THEATRE"].includes(b.arrivee.id))).toBe(true);
+  });
+
+  test("un bus plus lent que la marche n'est pas proposé", () => {
+    const propositions = busDepuisGare(couverte, HOTEL_DE_VILLE);
+    expect(plusRapideQueAPied(propositions, 200)).toEqual([]);              // 200 m à pied : 3 min
+    expect(plusRapideQueAPied(propositions, 3000).length).toBeGreaterThan(0); // 3 km à pied : 38 min
+  });
 });

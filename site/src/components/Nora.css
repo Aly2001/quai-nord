@@ -129,6 +129,38 @@
 .mini-train__risque--modere { color: var(--signal); }
 .mini-train__risque--eleve { color: #F28C38; }
 
+/* Mini-cartes de bus */
+.mini-bus {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  padding: 10px 12px;
+  border-radius: 10px;
+  background: var(--nuit);
+  color: #FFFFFF;
+  text-decoration: none;
+}
+
+.mini-bus:hover { color: #FFFFFF; box-shadow: 0 0 0 3px var(--signal); }
+.mini-bus__haut { display: flex; align-items: center; gap: 8px; font-family: var(--police-titre); font-weight: 700; font-size: 19px; line-height: 1.15; }
+.mini-bus__bas { font-size: 13px; color: #C9D3E3; }
+
+/* Pastille d'une ligne de bus, à sa couleur officielle */
+.ligne-bus {
+  flex: none;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 34px;
+  height: 28px;
+  padding: 0 8px;
+  border-radius: 6px;
+  font-family: var(--police-titre);
+  font-weight: 700;
+  font-size: 17px;
+  box-shadow: 0 0 0 1.5px rgba(255, 255, 255, 0.6);
+}
+
 /* « Nora écrit… » */
 .nora-ecrit { flex-direction: row !important; align-items: center; color: var(--texte-doux); font-size: 14px; }
 .nora-ecrit__points { display: inline-flex; gap: 4px; }

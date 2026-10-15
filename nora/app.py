@@ -242,8 +242,38 @@ def appeler_modele(messages):
 # ----------------------------------------------------------------------
 # La vérification de ce que dit le modèle
 # ----------------------------------------------------------------------
+VILLES_BUS = {"calais": "Calais", "boulogne": "Boulogne", "boulogne sur mer": "Boulogne"}
+SENS_BUS = {"depuis_gare", "vers_gare"}
+
+
+def sans_accents(texte):
+    import unicodedata
+    texte = unicodedata.normalize("NFD", str(texte)).encode("ascii", "ignore").decode().lower()
+    return " ".join("".join(c if c.isalnum() else " " for c in texte).split())
+
+
+def verifier_bus(action):
+    """Le PÉRIMÈTRE des bus, vérifié par le code (et non seulement par les règles de l'IA) :
+    une gare d'un côté du trajet, à Calais ou à Boulogne, et un lieu précis de l'autre."""
+    sens = str(action.get("sens", "")).strip()
+    lieu = str(action.get("lieu", "")).strip()
+    gare = str(action.get("gare", "")).strip()
+    ville_texte = sans_accents(action.get("ville", ""))
+    ville = VILLES_BUS.get(ville_texte)
+    # La ville peut aussi se déduire de la gare (« Calais Ville », « Boulogne - Tintelleries »)
+    if not ville and gare:
+        ville = next((v for cle, v in VILLES_BUS.items() if sans_accents(gare).startswith(cle)), None)
+    if sens not in SENS_BUS or not ville or not lieu or len(lieu) > 80 or len(gare) > 60:
+        return None
+    if gare and not sans_accents(gare).startswith(sans_accents(ville)):
+        return None                       # une gare d'une autre ville : hors périmètre
+    return {"type": "itineraire_bus", "sens": sens, "gare": gare, "ville": ville, "lieu": lieu}
+
+
 def verifier_action(action):
-    """Une recherche de trajet n'est acceptée que si tous ses paramètres sont valides."""
+    """Une action n'est acceptée que si tous ses paramètres sont valides."""
+    if isinstance(action, dict) and action.get("type") == "itineraire_bus":
+        return verifier_bus(action)
     if not isinstance(action, dict) or action.get("type") != "rechercher_trajet":
         return None
     de, a = str(action.get("de", "")).strip(), str(action.get("a", "")).strip()
@@ -263,9 +293,15 @@ def lire_reponse(texte):
     except json.JSONDecodeError:
         # Le modèle n'a pas respecté le format : on garde le texte, sans source ni action
         return {"reponse": texte.strip()[:800], "sources": [], "lien_sncf": False, "action": None}
-    action = verifier_action(donnees.get("action"))
+    action_proposee = donnees.get("action")
+    action = verifier_action(action_proposee)
+    reponse = "" if action else str(donnees.get("reponse", "")).strip()[:800]
+    if action is None and isinstance(action_proposee, dict) and action_proposee.get("type") == "itineraire_bus" and not reponse:
+        # L'IA a proposé un bus hors du périmètre : le code refuse à sa place
+        reponse = ("Je peux vous aider pour les bus entre une gare et votre destination, à Calais et à Boulogne. "
+                   "Par exemple : « Je suis à la gare de Calais Ville, je vais à la mairie ».")
     return {
-        "reponse": "" if action else str(donnees.get("reponse", "")).strip()[:800],
+        "reponse": reponse,
         # Seules les sources qui existent VRAIMENT dans la FAQ sont gardées
         "sources": [s for s in donnees.get("sources", []) if s in QUESTIONS_FAQ][:3],
         "lien_sncf": bool(donnees.get("lien_sncf", False)),

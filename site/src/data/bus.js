@@ -100,13 +100,25 @@ export function busDirects(reseau, departs, arrivees, nombre = 3) {
   return [...meilleurs.values()].sort((a, b) => a.cout - b.cout).slice(0, nombre);
 }
 
+// Le bus ne vaut la peine que s'il est plus rapide que d'y aller directement à pied
+export function plusRapideQueAPied(propositions, metresAPied) {
+  return propositions.filter((b) => b.cout < minutesAPied(metresAPied));
+}
+
 // De la gare vers un lieu, et d'un lieu vers la gare
+// Les arrêts du côté du LIEU, sans ceux qui sont déjà proches de la gare : sinon, quand le lieu
+// est près de la gare, on proposerait de monter près de la gare... pour redescendre près de la gare.
+function arretsDuLieu(couverte, lieu) {
+  const prochesGare = new Set(couverte.gare.arrets_proches.map(([id]) => id));
+  return arretsProches(couverte.reseau, lieu.lat, lieu.lon).filter(([id]) => !prochesGare.has(id));
+}
+
 export function busDepuisGare(couverte, lieu) {
-  return busDirects(couverte.reseau, couverte.gare.arrets_proches, arretsProches(couverte.reseau, lieu.lat, lieu.lon));
+  return busDirects(couverte.reseau, couverte.gare.arrets_proches, arretsDuLieu(couverte, lieu));
 }
 
 export function busVersGare(couverte, lieu) {
-  return busDirects(couverte.reseau, arretsProches(couverte.reseau, lieu.lat, lieu.lon), couverte.gare.arrets_proches);
+  return busDirects(couverte.reseau, arretsDuLieu(couverte, lieu), couverte.gare.arrets_proches);
 }
 
 // ---------- Retrouver un lieu (« mairie », « 12 rue Royale ») ----------

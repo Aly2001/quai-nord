@@ -221,3 +221,44 @@ def test_modele_trop_lent_puis_secours(monkeypatch):
     monkeypatch.setattr(module.httpx, "post", faux_post)
     assert client.post("/api/nora", json=UNE_QUESTION).json()["reponse"] == "Enfin !"
     assert len(adresses) == 3
+
+
+# ---------------------------------------------------------------------
+#  Le périmètre des bus : vérifié par le CODE, même si l'IA se trompe
+# ---------------------------------------------------------------------
+def action_bus(**valeurs):
+    return {"type": "itineraire_bus", "sens": "depuis_gare", "gare": "Calais Ville", "ville": "Calais",
+            "lieu": "la mairie", **valeurs}
+
+
+@pytest.mark.parametrize("action, attendu", [
+    (action_bus(), True),                                                   # gare -> lieu, à Calais
+    (action_bus(sens="vers_gare", lieu="la plage"), True),                  # lieu -> gare
+    (action_bus(gare="", ville="Boulogne-sur-Mer"), True),                  # gare à préciser, ville connue
+    (action_bus(gare="Boulogne - Tintelleries", ville=""), True),           # ville déduite de la gare
+    (action_bus(ville="Lille", gare="Lille Flandres"), False),              # autre ville
+    (action_bus(gare="Lille Flandres"), False),                             # gare d'une autre ville
+    (action_bus(sens="entre_deux_lieux"), False),                           # pas de gare dans le trajet
+    (action_bus(lieu=""), False),                                           # lieu manquant
+    (action_bus(lieu="x" * 81), False),                                     # lieu anormalement long
+])
+def test_perimetre_bus(action, attendu):
+    assert (module.verifier_action(action) is not None) == attendu
+
+
+def test_bus_hors_perimetre_refuse_par_le_code(monkeypatch):
+    """Même si l'IA propose un bus à Lille, le serveur refuse et explique son rôle."""
+    simuler_mistral(monkeypatch, json.dumps({
+        "reponse": "", "sources": [], "lien_sncf": False,
+        "action": action_bus(ville="Lille", gare="Lille Flandres", lieu="le stade"),
+    }))
+    corps = client.post("/api/nora", json=UNE_QUESTION).json()
+    assert corps["action"] is None
+    assert "entre une gare et votre destination" in corps["reponse"]
+
+
+def test_bus_valide_transmis(monkeypatch):
+    simuler_mistral(monkeypatch, json.dumps({"reponse": "", "sources": [], "lien_sncf": False, "action": action_bus()}))
+    corps = client.post("/api/nora", json=UNE_QUESTION).json()
+    assert corps["action"] == {"type": "itineraire_bus", "sens": "depuis_gare", "gare": "Calais Ville",
+                               "ville": "Calais", "lieu": "la mairie"}

@@ -186,7 +186,8 @@ def appeler_gemini(messages, cle):
 
 def appeler_modele(messages):
     nom_cle = "GEMINI_API_KEY" if FOURNISSEUR == "gemini" else "MISTRAL_API_KEY"
-    cle = os.environ.get(nom_cle)
+    # .strip() : retire un éventuel espace ou retour à la ligne invisible autour de la clé
+    cle = (os.environ.get(nom_cle) or "").strip().strip('"')
     if not cle:
         print(f"Nora : ERREUR : la variable {nom_cle} n'est pas définie dans ce terminal", flush=True)
         raise HTTPException(500, "Nora n'est pas configurée (clé absente).")

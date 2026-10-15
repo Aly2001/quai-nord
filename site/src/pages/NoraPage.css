@@ -1,0 +1,71 @@
+.nora-page {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-start;
+  gap: 24px;
+  padding: 28px 0 8px;
+}
+
+/* ---------- Présentation (ordinateur) ---------- */
+.nora-page__presentation { flex: 1 1 280px; max-width: 340px; display: flex; flex-direction: column; gap: 16px; }
+
+.nora-carte-nuit {
+  background: var(--nuit);
+  color: #FFFFFF;
+  border-radius: 16px;
+  padding: 24px;
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+
+.nora-carte-nuit p, .nora-carte-nuit h1 { margin: 0; }
+.nora-carte-nuit p { font-size: 15px; line-height: 1.5; color: #E3E8EE; }
+.nora-carte-nuit__nom { font-family: var(--police-titre); font-weight: 700; font-size: 44px; line-height: 1; }
+.nora-carte-nuit .nora-carte-nuit__signature { margin-top: 6px; font-size: 18px; font-weight: 600; color: var(--signal); }
+
+.nora-carte-blanche { background: #FFFFFF; border-radius: 16px; padding: 20px; display: flex; flex-direction: column; gap: 10px; }
+.nora-carte-blanche h2 { margin: 0; font-size: 16px; }
+.nora-carte-blanche h2 + p { margin-top: 0; }
+.nora-carte-blanche h2:not(:first-child) { margin-top: 8px; }
+.nora-carte-blanche p { margin: 0; display: flex; align-items: center; gap: 10px; font-size: 15px; }
+.nora-oui::before { content: "✓"; font-weight: 700; color: #0F766E; }
+.nora-non::before { content: "✕"; font-weight: 700; color: #B4410C; }
+.nora-page__note { margin: 0; font-size: 14px; line-height: 1.5; color: var(--texte-doux); }
+
+/* ---------- Conversation ---------- */
+.nora-page__conversation {
+  flex: 999 1 520px;
+  min-width: 0;
+  min-height: 620px;
+  display: flex;
+  flex-direction: column;
+  background: #FFFFFF;
+  border-radius: 16px;
+  overflow: hidden;
+  box-shadow: 0 2px 8px rgba(20, 33, 61, 0.06);
+}
+
+.nora-page__conversation .nora-conversation { flex: 1; }
+
+/* ---------- Bandeau compact : seulement sur téléphone ---------- */
+.nora-page__bandeau { display: none; }
+
+@media (max-width: 640px) {
+  .nora-page { display: block; padding: 0; margin: 0 -16px; }
+  .nora-page__presentation { display: none; }
+
+  .nora-page__bandeau {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 12px 16px;
+    background: #1C2E55;
+    color: #FFFFFF;
+  }
+
+  .nora-page__nom { margin: 0; font-family: var(--police-titre); font-weight: 700; font-size: 24px; line-height: 1; }
+  .nora-page__signature { margin: 2px 0 0; font-size: 13px; color: #E3E8EE; }
+
+  .nora-page__conversation { min-height: calc(100dvh - 140px); border-radius: 0; box-shadow: none; }
+}

@@ -16,6 +16,8 @@ export default function BarreOnglets() {
   // l'onglet Accueil reste allumé. Idem pour la FAQ, rangée dans « Plus ».
   const { pathname } = useLocation();
   const parent = pathname.startsWith("/trajet") ? "/" : pathname.startsWith("/faq") ? "/plus" : null;
+  // Sur la page Nora, la zone de saisie occupe le bas de l'écran : pas de barre d'onglets
+  if (pathname.startsWith("/nora")) return null;
 
   return (
     <nav aria-label="Navigation principale" className="onglets">

@@ -1,0 +1,295 @@
+/* ==========================================================
+   Nora : la conversation (page Nora et panneau latéral)
+   ========================================================== */
+.nora-conversation {
+  display: flex;
+  flex-direction: column;
+  min-height: 100%;
+  background: #FFFFFF;
+}
+
+.nora-fil {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  padding: 20px;
+}
+
+/* ---------- Premier message ---------- */
+.nora-accueil { display: flex; flex-direction: column; align-items: center; gap: 8px; text-align: center; padding: 12px 0; }
+.nora-accueil p { margin: 0; }
+.nora-accueil__titre { font-family: var(--police-titre); font-weight: 700; font-size: 32px; line-height: 1; margin-top: 6px !important; }
+.nora-accueil__signature { font-size: 17px; font-weight: 600; color: #8A5A00; }
+.nora-accueil__texte { max-width: 30em; font-size: 15px; line-height: 1.45; color: var(--texte-doux); }
+
+.nora-suggestions { align-self: stretch; display: flex; flex-direction: column; gap: 8px; margin-top: 10px; }
+
+.nora-suggestion {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 10px;
+  min-height: 52px;
+  padding: 0 16px;
+  font: inherit;
+  font-size: 16px;
+  font-weight: 600;
+  text-align: left;
+  background: #FFFFFF;
+  color: var(--nuit);
+  border: 1px solid var(--filet);
+  border-radius: 12px;
+  cursor: pointer;
+}
+
+.nora-suggestion:hover { border-color: var(--nuit); }
+
+/* ---------- Bulles ---------- */
+.bulle { margin: 0; max-width: 88%; padding: 12px 14px; font-size: 15px; line-height: 1.5; }
+.bulle--vous { align-self: flex-end; background: var(--nuit); color: #FFFFFF; border-radius: 16px 4px 16px 16px; }
+
+.bulle--nora {
+  align-self: flex-start;
+  background: #EEF1F5;
+  border-radius: 4px 16px 16px 16px;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.bulle__haut { display: flex; align-items: flex-start; justify-content: space-between; gap: 8px; }
+.bulle__texte { margin: 0; }
+
+.bulle__ecouter {
+  flex: none;
+  width: 36px;
+  height: 36px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: #FFFFFF;
+  border: 0;
+  border-radius: 50%;
+  color: var(--nuit);
+  cursor: pointer;
+}
+
+.bulle__source { margin: 0; font-size: 13px; color: var(--texte-doux); }
+
+/* Boutons dans les bulles */
+.nora-lien {
+  align-self: flex-start;
+  display: inline-flex;
+  align-items: center;
+  min-height: 40px;
+  padding: 0 14px;
+  border-radius: 8px;
+  border: 1.5px solid var(--nuit);
+  background: #FFFFFF;
+  color: var(--nuit);
+  font-weight: 600;
+  text-decoration: none;
+}
+
+.nora-lien:hover { background: var(--nuit); color: #FFFFFF; }
+
+.nora-choix { display: flex; flex-wrap: wrap; gap: 8px; }
+
+.nora-choix__bouton {
+  min-height: 42px;
+  padding: 0 16px;
+  font: inherit;
+  font-weight: 600;
+  background: #FFFFFF;
+  color: var(--nuit);
+  border: 1.5px solid var(--nuit);
+  border-radius: 999px;
+  cursor: pointer;
+}
+
+.nora-choix__bouton:hover { background: var(--nuit); color: #FFFFFF; }
+
+/* Mini-cartes de trains */
+.mini-train {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  padding: 10px 12px;
+  border-radius: 10px;
+  background: var(--nuit);
+  color: #FFFFFF;
+  text-decoration: none;
+}
+
+.mini-train:hover { color: #FFFFFF; box-shadow: 0 0 0 3px var(--signal); }
+.mini-train__haut { display: flex; justify-content: space-between; gap: 12px; font-family: var(--police-titre); font-weight: 700; font-size: 22px; }
+.mini-train__bas { font-size: 13px; color: #C9D3E3; }
+.mini-train__risque--faible { color: #4FD1B5; }
+.mini-train__risque--modere { color: var(--signal); }
+.mini-train__risque--eleve { color: #F28C38; }
+
+/* « Nora écrit… » */
+.nora-ecrit { flex-direction: row !important; align-items: center; color: var(--texte-doux); font-size: 14px; }
+.nora-ecrit__points { display: inline-flex; gap: 4px; }
+.nora-ecrit__points span { width: 7px; height: 7px; border-radius: 50%; background: var(--nuit); animation: nora-point 1.2s infinite ease-in-out; }
+.nora-ecrit__points span:nth-child(2) { animation-delay: 0.2s; }
+.nora-ecrit__points span:nth-child(3) { animation-delay: 0.4s; }
+
+@keyframes nora-point { 0%, 100% { opacity: 0.25; } 50% { opacity: 1; } }
+
+/* Erreur */
+.nora-alerte {
+  align-self: stretch;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  padding: 12px 14px;
+  border-radius: 12px;
+  background: #FFF4E5;
+  border: 1px solid #F2C9A0;
+  color: #6B3A10;
+  font-size: 15px;
+}
+
+.nora-alerte p { margin: 0; }
+
+.nora-bouton {
+  align-self: flex-start;
+  display: inline-flex;
+  align-items: center;
+  min-height: 44px;
+  padding: 0 16px;
+  font: inherit;
+  font-weight: 700;
+  background: var(--nuit);
+  color: #FFFFFF;
+  border: 0;
+  border-radius: 8px;
+  text-decoration: none;
+  cursor: pointer;
+}
+
+.nora-bouton--jaune { background: var(--signal); color: var(--nuit); }
+.nora-bouton--jaune:hover { color: var(--nuit); }
+
+/* ---------- Le bas : saisie ---------- */
+.nora-bas {
+  position: sticky;
+  bottom: 0;
+  padding: 12px 16px calc(14px + env(safe-area-inset-bottom));
+  background: #FFFFFF;
+  border-top: 1px solid var(--filet);
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.nora-saisie { display: flex; gap: 8px; }
+
+.nora-saisie input {
+  flex: 1;
+  min-width: 0;
+  min-height: 50px;
+  padding: 0 18px;
+  font: inherit;
+  font-size: 16px;
+  border: 1.5px solid #C9D3E3;
+  border-radius: 999px;
+  color: var(--nuit);
+  background: #FFFFFF;
+}
+
+.nora-saisie input:focus { outline: none; border-color: var(--nuit); }
+
+.nora-rond {
+  flex: none;
+  width: 50px;
+  height: 50px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border: 0;
+  border-radius: 50%;
+  cursor: pointer;
+}
+
+.nora-rond--micro { background: var(--nuit); color: #FFFFFF; }
+.nora-rond--envoyer { background: var(--signal); color: var(--nuit); }
+.nora-rond:disabled { opacity: 0.5; cursor: not-allowed; }
+.nora-mention { margin: 0; text-align: center; font-size: 12px; color: var(--texte-doux); }
+
+/* ---------- Limite atteinte ---------- */
+.nora-limite {
+  margin: 0 16px 16px;
+  padding: 16px;
+  border: 1.5px solid var(--nuit);
+  border-radius: 14px;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  font-size: 15px;
+  color: var(--texte-doux);
+}
+
+.nora-limite p { margin: 0; }
+.nora-limite__titre { font-size: 16px; font-weight: 700; color: var(--nuit); }
+
+/* ---------- Dictée vocale ---------- */
+.nora-dictee { position: fixed; inset: 0; z-index: 60; }
+.nora-dictee__fond { position: absolute; inset: 0; background: rgba(20, 33, 61, 0.5); }
+
+.nora-dictee__panneau {
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  max-width: 560px;
+  margin: 0 auto;
+  padding: 26px 22px calc(28px + env(safe-area-inset-bottom));
+  background: var(--nuit);
+  color: #FFFFFF;
+  border-top: 4px solid var(--signal);
+  border-radius: 22px 22px 0 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 16px;
+  text-align: center;
+}
+
+.nora-dictee__panneau p { margin: 0; }
+.nora-dictee__titre { font-size: 15px; font-weight: 600; letter-spacing: 0.08em; text-transform: uppercase; color: var(--signal); }
+
+.nora-dictee__micro {
+  width: 72px;
+  height: 72px;
+  border-radius: 50%;
+  background: var(--signal);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  box-shadow: 0 0 0 14px rgba(242, 194, 48, 0.25);
+}
+
+.nora-dictee__texte { min-height: 54px; font-size: 20px; font-weight: 600; line-height: 1.4; }
+.nora-dictee__boutons { display: flex; gap: 10px; width: 100%; }
+
+.nora-dictee__annuler,
+.nora-dictee__envoyer {
+  flex: 1;
+  min-height: 50px;
+  font: inherit;
+  font-weight: 700;
+  font-size: 16px;
+  border-radius: 10px;
+  cursor: pointer;
+}
+
+.nora-dictee__annuler { background: transparent; color: #FFFFFF; border: 1.5px solid #5FB3CE; }
+.nora-dictee__envoyer { background: var(--signal); color: var(--nuit); border: 0; }
+.nora-dictee__note { font-size: 13px; line-height: 1.4; color: #C9D3E3; }
+
+@media (prefers-reduced-motion: reduce) {
+  .nora-ecrit__points span { animation: none; opacity: 0.7; }
+}

@@ -1,4 +1,5 @@
 import { Link, NavLink } from "react-router-dom";
+import { AvatarNora } from "./NoraConversation";
 
 const PAGES = [
   { label: "Accueil", lien: "/" },
@@ -6,6 +7,7 @@ const PAGES = [
   { label: "Prédiction", lien: "/prediction" },
   { label: "Analyses", lien: "/analyses" },
   { label: "Questions", lien: "/faq" },
+  { label: "Nora", lien: "/nora" },
 ];
 
 export default function Header() {
@@ -39,6 +41,12 @@ export default function Header() {
             </NavLink>
           ))}
         </nav>
+
+        {/* Sur téléphone, le menu laisse sa place à la barre d'onglets : Nora reste accessible ici */}
+        <NavLink to="/nora" className="entete__nora" aria-label="Demander à Nora, l'assistante IA">
+          <AvatarNora taille={30} />
+          Nora
+        </NavLink>
       </div>
     </header>
   );

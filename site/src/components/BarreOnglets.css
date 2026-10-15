@@ -52,3 +52,24 @@
 
 /* Application installée sur iPhone : le contenu passe sous l'heure et la batterie */
 .entete { padding-top: env(safe-area-inset-top); }
+
+/* Le bouton Nora de l'en-tête n'existe que sur téléphone */
+.entete__nora { display: none; }
+
+@media (max-width: 640px) {
+  .entete__nora {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    min-height: 44px;
+    padding: 0 14px 0 6px;
+    border: 1.5px solid #5FB3CE;
+    border-radius: 999px;
+    color: #FFFFFF;
+    font-weight: 600;
+    text-decoration: none;
+  }
+
+  .entete__nora:hover,
+  .entete__nora.active { color: #FFFFFF; border-color: var(--signal); }
+}

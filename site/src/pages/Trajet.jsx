@@ -4,6 +4,8 @@ import RechercheTrajet from "../components/RechercheTrajet";
 import Fraicheur from "../components/Fraicheur";
 import DecorVoies from "../components/DecorVoies";
 import { BoutonFavori } from "../components/Favoris";
+import NoraPanneau from "../components/NoraPanneau";
+import { AvatarNora } from "../components/NoraConversation";
 import {
   DOSSIER, useIndexHoraires, useRisques, trouverGare, normaliser, dateLongue, etiquetteJour,
   joursAVenir, aujourdhuiIso, heureActuelle, risqueDuTrain, niveauRisque,
@@ -28,6 +30,8 @@ export default function Trajet() {
   // Sur téléphone, le formulaire est replié derrière le bouton « Modifier la recherche »
   const [formulaireOuvert, setFormulaireOuvert] = useState(false);
   const [aProposOuvert, setAProposOuvert] = useState(false);
+  // Le panneau de Nora, ouvert depuis un train : { titre, contexte } ou null
+  const [nora, setNora] = useState(null);
 
   const gareDepart = index ? trouverGare(index.gares, de) : null;
   const jourValide = index ? joursAVenir(index.jours).includes(jour) : false;
@@ -127,7 +131,7 @@ export default function Trajet() {
 
           {index && de && !gareDepart && (
             <p className="resultats__message">
-              Gare de départ « {de} » introuvable. Quai Nord couvre les gares des Hauts-de-France :
+              Gare de départ « {de} » introuvable. Quai Nord couvre les gares des Hauts-de-France et Paris Gare du Nord :
               choisis une gare dans la liste qui s'affiche pendant la saisie.
             </p>
           )}
@@ -157,7 +161,8 @@ export default function Trajet() {
               <ol className="liste-trajets">
                 {trajets.map((t, i) => (
                   <CarteTrajet key={`${t.heure}-${t.arrivee}-${i}`} trajet={t} jour={jour}
-                               risques={risques} meteo={meteo} tempsReel={tempsReel} />
+                               risques={risques} meteo={meteo} tempsReel={tempsReel}
+                               onDemanderNora={setNora} />
                 ))}
               </ol>
 
@@ -181,6 +186,8 @@ export default function Trajet() {
           )}
         </section>
       </div>
+
+      {nora && <NoraPanneau titre={nora.titre} contexte={nora.contexte} onFermer={() => setNora(null)} />}
     </>
   );
 }
@@ -188,7 +195,23 @@ export default function Trajet() {
 // =====================================================================
 //  Une carte de trajet (direct ou avec correspondance)
 // =====================================================================
-function CarteTrajet({ trajet: t, jour, risques, meteo, tempsReel }) {
+// Le texte envoyé à Nora pour qu'elle réponde sur CE train, avec SES vrais chiffres
+function contexteNora(t, jour, risque, pourcentage, niveau) {
+  const [premier, dernier] = [t.troncons[0], t.troncons[t.troncons.length - 1]];
+  let texte = `${premier.train.transport} ${premier.train.numero}${premier.train.ligne ? ` (ligne ${premier.train.ligne})` : ""}, `
+    + `départ ${t.heure} de ${t.gareDepart}, arrivée ${t.arrivee} à ${t.gareArrivee}, le ${jour}. `;
+  if (t.correspondance) {
+    texte += `Une correspondance à ${t.correspondance.gare} (${t.correspondance.attente} min), `
+      + `puis le train ${dernier.train.transport} ${dernier.train.numero}. `;
+  }
+  texte += risque
+    ? `Risque de retard estimé (5 min ou plus) : ${pourcentage} %, niveau ${niveau.mot.toLowerCase()}, `
+      + `basé sur ${risque.n} passages observés de ${risque.source}.`
+    : "Pas encore assez de données pour estimer son risque de retard.";
+  return texte;
+}
+
+function CarteTrajet({ trajet: t, jour, risques, meteo, tempsReel, onDemanderNora }) {
   const [details, setDetails] = useState(false);
   const [premier, dernier] = [t.troncons[0], t.troncons[t.troncons.length - 1]];
 
@@ -303,6 +326,13 @@ function CarteTrajet({ trajet: t, jour, risques, meteo, tempsReel }) {
         ) : (
           <p className="risque-boite__vide">Pas encore assez de données pour ce train</p>
         )}
+        <button type="button" className="risque-boite__nora" onClick={() => onDemanderNora({
+          titre: `${t.troncons[0].train.transport} ${t.troncons[0].train.numero} · ${t.heure} ${t.gareDepart} → ${t.gareArrivee}`,
+          contexte: contexteNora(t, jour, risque, pourcentage, niveau),
+        })}>
+          <AvatarNora taille={22} />
+          {niveau ? "Pourquoi ? Demander à Nora" : "Une question ? Demander à Nora"}
+        </button>
       </div>
     </li>
   );

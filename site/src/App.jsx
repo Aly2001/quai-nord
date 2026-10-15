@@ -10,6 +10,7 @@ import Analyses from "./pages/Analyses";
 import Trajet from "./pages/Trajet";
 import Faq from "./pages/Faq";
 import Plus from "./pages/Plus";
+import Nora from "./pages/Nora";
 
 export default function App() {
   return (
@@ -27,6 +28,7 @@ export default function App() {
           <Route path="/trajet" element={<Trajet />} />
           <Route path="/faq" element={<Faq />} />
           <Route path="/plus" element={<Plus />} />
+          <Route path="/nora" element={<Nora />} />
         </Routes>
       </main>
 

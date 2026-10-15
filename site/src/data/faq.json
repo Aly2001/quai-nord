@@ -43,6 +43,13 @@
             "Le départ doit se faire depuis l'une des 334 gares des Hauts-de-France, ou depuis Paris Gare du Nord pour les trains qui desservent la région (pratique pour le trajet retour). L'arrivée peut être n'importe quelle gare desservie, y compris hors de la région.",
             "Tous les trains présents dans les données ouvertes de la SNCF sont pris en compte : TER, Intercités et TGV."
           ]
+        },
+        {
+          "question": "Qui est Nora ?",
+          "reponse": [
+            "Nora est l'assistante IA de Quai Nord. Elle répond aux questions sur l'application, explique un risque de retard et peut chercher vos prochains trains.",
+            "Pour générer ses réponses, vos questions sont transmises au service Gemini de Google ; Quai Nord ne les conserve pas. Nora peut se tromper : ne lui confiez pas d'informations personnelles."
+          ]
         }
       ]
     },

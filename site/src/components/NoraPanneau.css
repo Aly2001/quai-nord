@@ -1,0 +1,49 @@
+.nora-panneau { position: fixed; inset: 0; z-index: 50; }
+.nora-panneau__fond { position: absolute; inset: 0; background: rgba(20, 33, 61, 0.45); }
+
+.nora-panneau__boite {
+  position: absolute;
+  top: 0;
+  right: 0;
+  bottom: 0;
+  width: 440px;
+  max-width: 100%;
+  display: flex;
+  flex-direction: column;
+  background: #FFFFFF;
+  box-shadow: -12px 0 32px rgba(20, 33, 61, 0.25);
+}
+
+.nora-panneau__entete {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: calc(14px + env(safe-area-inset-top)) 12px 14px 20px;
+  background: var(--nuit);
+  color: #FFFFFF;
+  border-bottom: 4px solid var(--signal);
+}
+
+.nora-panneau__titre { flex: 1; }
+.nora-panneau__titre h2 { margin: 0; font-family: var(--police-titre); font-weight: 700; font-size: 26px; line-height: 1; }
+.nora-panneau__titre p { margin: 2px 0 0; font-size: 14px; color: #E3E8EE; }
+
+.nora-panneau__fermer {
+  width: 44px;
+  height: 44px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: none;
+  border: 0;
+  color: #FFFFFF;
+  cursor: pointer;
+}
+
+.nora-panneau__contexte { margin: 0; padding: 10px 20px; background: #FFF8E1; font-size: 14px; color: #6B4500; }
+.nora-panneau__conversation { flex: 1; overflow-y: auto; display: flex; flex-direction: column; }
+.nora-panneau__conversation .nora-conversation { flex: 1; }
+
+@media (max-width: 640px) {
+  .nora-panneau__boite { width: 100%; }
+}

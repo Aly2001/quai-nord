@@ -424,3 +424,25 @@
   .risque-boite__source { grid-area: source; font-size: 14px; }
   .risque-boite__vide { grid-column: 2 / -1; font-size: 14px; }
 }
+
+
+/* ---------- « Pourquoi ? Demander à Nora », dans la boîte de risque ---------- */
+.risque-boite__nora {
+  grid-column: 1 / -1;
+  align-self: flex-start;
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  min-height: 40px;
+  padding: 0;
+  font: inherit;
+  font-size: 14px;
+  font-weight: 700;
+  background: none;
+  border: 0;
+  color: var(--signal);
+  cursor: pointer;
+  text-align: left;
+}
+
+.risque-boite__nora:hover { text-decoration: underline; }

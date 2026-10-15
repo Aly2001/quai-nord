@@ -43,14 +43,16 @@ FICHIER_FAQ = RACINE / "site" / "src" / "data" / "faq.json"
 # Par défaut : Gemini si sa clé est présente, sinon Mistral.
 FOURNISSEUR = os.environ.get("NORA_FOURNISSEUR") or ("gemini" if os.environ.get("GEMINI_API_KEY") else "mistral")
 # Les noms de modèles évoluent vite : NORA_MODELE permet d'en changer sans toucher au code
-MODELES_PAR_DEFAUT = {"gemini": "gemini-3.8-flash", "mistral": "mistral-small-latest"}
+MODELES_PAR_DEFAUT = {"gemini": "gemini-flash-lite-latest", "mistral": "mistral-small-latest"}
 MODELE = os.environ.get("NORA_MODELE", MODELES_PAR_DEFAUT.get(FOURNISSEUR, "mistral-small-latest"))
 URL_MISTRAL = "https://api.mistral.ai/v1/chat/completions"
 URL_GEMINI = "https://generativelanguage.googleapis.com/v1beta/models/{modele}:generateContent"
-DELAI = float(os.environ.get("NORA_DELAI", "45"))                         # secondes avant d'abandonner
+# Secondes avant d'abandonner un essai. Firebase coupe les réponses au-delà de 60 s :
+# avec 3 essais au maximum, 15 s par essai garde une marge.
+DELAI = float(os.environ.get("NORA_DELAI", "15"))
 NIVEAU_REFLEXION = os.environ.get("NORA_REFLEXION", "low")                 # réflexion de Gemini 3 : low ou high
 # Modèle de secours, utilisé si le modèle principal est saturé (erreurs 503 ou 429)
-MODELE_SECOURS = os.environ.get("NORA_MODELE_SECOURS", "gemini-flash-lite-latest")
+MODELE_SECOURS = os.environ.get("NORA_MODELE_SECOURS", "gemini-flash-latest")
 CODES_SATURATION = {429, 503}
 QUESTIONS_PAR_JOUR = int(os.environ.get("NORA_QUESTIONS_PAR_JOUR", "10"))
 ORIGINES = os.environ.get("NORA_ORIGINES", "http://localhost:5173").split(",")
@@ -214,6 +216,12 @@ def appeler_modele(messages):
                 if erreur.response.status_code in CODES_SATURATION and not dernier:
                     print(f"Nora : {modele} saturé (code {erreur.response.status_code}), nouvel essai…", flush=True)
                     time.sleep(1)
+                    continue
+                raise
+            except httpx.TimeoutException:
+                # Un modèle trop lent est traité comme saturé : on passe à l'essai suivant
+                if numero < len(essais) - 1:
+                    print(f"Nora : {modele} trop lent (plus de {DELAI:.0f} s), nouvel essai…", flush=True)
                     continue
                 raise
     except httpx.HTTPStatusError as erreur:

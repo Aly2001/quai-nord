@@ -163,7 +163,7 @@ def test_gemini_3_reflexion_legere(monkeypatch):
     client.post("/api/nora", json=UNE_QUESTION)
     envoi, delai = envois[0]
     assert envoi["generationConfig"]["thinkingConfig"] == {"thinkingLevel": "low"}
-    assert delai >= 30
+    assert delai == module.DELAI <= 20   # sous la limite de 60 s de Firebase, même avec 3 essais
 
 
 def test_modele_sature_puis_secours(monkeypatch):
@@ -201,3 +201,23 @@ def test_erreur_definitive_sans_nouvel_essai(monkeypatch):
     monkeypatch.setattr(module.httpx, "post", faux_post)
     assert client.post("/api/nora", json=UNE_QUESTION).status_code == 502
     assert len(appels) == 1
+
+
+def test_modele_trop_lent_puis_secours(monkeypatch):
+    """Un modèle qui ne répond pas à temps déclenche aussi le passage au suivant."""
+    monkeypatch.setenv("GEMINI_API_KEY", "cle-gemini-de-test")
+    monkeypatch.setattr(module, "FOURNISSEUR", "gemini")
+    monkeypatch.setattr(module, "MODELE", "gemini-flash-lite-latest")
+    monkeypatch.setattr(module, "MODELE_SECOURS", "gemini-flash-latest")
+    adresses = []
+
+    def faux_post(url, headers, json, timeout):
+        adresses.append(url)
+        if "lite" in url:
+            raise httpx.ReadTimeout("trop lent", request=httpx.Request("POST", url))
+        texte = module.json.dumps({"reponse": "Enfin !", "sources": [], "lien_sncf": False, "action": None})
+        return httpx.Response(200, request=httpx.Request("POST", url),
+                              json={"candidates": [{"content": {"parts": [{"text": texte}]}}]})
+    monkeypatch.setattr(module.httpx, "post", faux_post)
+    assert client.post("/api/nora", json=UNE_QUESTION).json()["reponse"] == "Enfin !"
+    assert len(adresses) == 3

@@ -1,0 +1,16 @@
+/* Le pied de page : fond bleu nuit, pour que « Quai » (en blanc) reste lisible */
+.pied { margin-top: 56px; background: var(--nuit); color: #C9D3E3; border-top: 4px solid var(--signal); }
+
+.pied__contenu {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px 32px;
+  padding-top: 22px;
+  padding-bottom: 22px;
+}
+
+.pied__logo { font-family: var(--police-titre); font-weight: 700; font-size: 26px; color: #FFFFFF; }
+.pied__logo span { color: var(--signal); }
+.pied__texte { margin: 0; max-width: 46em; font-size: 14px; line-height: 1.5; }

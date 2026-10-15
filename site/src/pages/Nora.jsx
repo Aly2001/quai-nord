@@ -1,9 +1,25 @@
+import { useSearchParams } from "react-router-dom";
 import NoraConversation, { AvatarNora } from "../components/NoraConversation";
+import { libelleGare } from "../data/bus";
 import "./NoraPage.css";
 
 // La page de Nora : présentation à gauche, conversation à droite (ordinateur) ;
 // sur téléphone, un bandeau compact puis la conversation en plein écran.
+const DESTINATIONS = ["au centre-ville", "à l'université", "à l'hôpital", "à la mairie"];
+
 export default function Nora() {
+  // Ouverte depuis la carte « Votre bus depuis la gare » de l'accueil : la gare est déjà connue
+  const [parametres] = useSearchParams();
+  const gare = parametres.get("gare");
+  const depuisGare = gare ? {
+    contexte: `Le voyageur est à la gare de ${gare} et cherche un bus pour continuer.`,
+    accueil: `Depuis la gare de ${libelleGare(gare)}, où allez-vous ?`,
+    suggestions: DESTINATIONS.map((lieu) => ({
+      texte: lieu.charAt(0).toUpperCase() + lieu.slice(1),
+      question: `Je suis à la gare de ${gare}, je vais ${lieu}.`,
+    })),
+  } : {};
+
   return (
     <div className="nora-page">
       {/* ---------- Téléphone : bandeau compact ---------- */}
@@ -43,7 +59,7 @@ export default function Nora() {
       </aside>
 
       <section className="nora-page__conversation" aria-label="Conversation avec Nora">
-        <NoraConversation />
+        <NoraConversation key={gare || "general"} {...depuisGare} />
       </section>
     </div>
   );

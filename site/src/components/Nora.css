@@ -33,20 +33,20 @@
   min-height: 52px;
   padding: 0 16px;
   font: inherit;
-  font-size: 16px;
+  font-size: 17px;
   font-weight: 600;
   text-align: left;
   background: #FFFFFF;
   color: var(--nuit);
-  border: 1px solid var(--filet);
-  border-radius: 12px;
+  border: 1.5px solid #C9D3E3;
+  border-radius: 14px;
   cursor: pointer;
 }
 
 .nora-suggestion:hover { border-color: var(--nuit); }
 
 /* ---------- Bulles ---------- */
-.bulle { margin: 0; max-width: 88%; padding: 12px 14px; font-size: 15px; line-height: 1.5; }
+.bulle { margin: 0; max-width: 90%; padding: 14px 16px; font-size: 17px; line-height: 1.5; }
 .bulle--vous { align-self: flex-end; background: var(--nuit); color: #FFFFFF; border-radius: 16px 4px 16px 16px; }
 
 .bulle--nora {
@@ -168,6 +168,54 @@
   box-shadow: 0 0 0 1.5px rgba(255, 255, 255, 0.6);
 }
 
+/* Accueil adapté au contexte (un train, une gare) */
+.nora-accueil--contexte { align-items: stretch; text-align: left; }
+.nora-accueil__bulle { align-self: flex-start; font-size: 18px; }
+
+/* La meilleure option de bus, mise en avant */
+.bus-meilleur {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  padding: 14px 16px;
+  border-radius: 12px;
+  background: var(--nuit);
+  color: #FFFFFF;
+}
+
+.bus-meilleur__haut { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 8px; }
+
+.bus-meilleur__badge {
+  padding: 4px 12px;
+  border-radius: 999px;
+  background: var(--signal);
+  color: var(--nuit);
+  font-size: 14px;
+  font-weight: 700;
+  white-space: nowrap;
+}
+
+.bus-meilleur__etapes { margin: 0; padding-left: 20px; display: flex; flex-direction: column; gap: 4px; font-size: 16px; color: #E3E8EE; }
+.bus-meilleur__etapes strong { color: #FFFFFF; }
+.bus-autres__titre { margin: 4px 0 0; font-size: 14px; font-weight: 700; color: var(--texte-doux); }
+
+.bus-autre {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 12px;
+  padding: 10px 14px;
+  border-radius: 10px;
+  background: #FFFFFF;
+  border: 1px solid var(--filet);
+  color: var(--nuit);
+  text-decoration: none;
+}
+
+.bus-autre:hover { border-color: var(--nuit); color: var(--nuit); }
+.bus-autre__texte { display: flex; flex-direction: column; font-size: 15px; }
+.bus-autre__texte span { font-size: 13px; color: var(--texte-doux); }
+
 /* « Nora écrit… » */
 .nora-ecrit { flex-direction: row !important; align-items: center; color: var(--texte-doux); font-size: 14px; }
 .nora-ecrit__points { display: inline-flex; gap: 4px; }
@@ -232,7 +280,7 @@
   min-height: 50px;
   padding: 0 18px;
   font: inherit;
-  font-size: 16px;
+  font-size: 17px;
   border: 1.5px solid #C9D3E3;
   border-radius: 999px;
   color: var(--nuit);
@@ -331,4 +379,12 @@
 
 @media (prefers-reduced-motion: reduce) {
   .nora-ecrit__points span { animation: none; opacity: 0.7; }
+}
+
+/* Écran peu haut (clavier ouvert sur téléphone) : les suggestions deviennent des pastilles sur une ligne */
+@media (max-height: 520px) {
+  .nora-accueil > svg, .nora-accueil__titre, .nora-accueil__texte { display: none; }
+  .nora-suggestions { flex-direction: row; overflow-x: auto; }
+  .nora-suggestion { flex: none; min-height: 42px; border-radius: 999px; font-size: 15px; white-space: nowrap; }
+  .nora-suggestion svg { display: none; }
 }

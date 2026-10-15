@@ -5,8 +5,29 @@ import "./NoraPanneau.css";
 // Le panneau latéral de Nora, ouvert depuis un train (« Pourquoi ? Demander à Nora »).
 // Sur téléphone, il occupe tout l'écran.
 // titre : le train concerné (affiché dans le bandeau jaune) ; contexte : le texte envoyé à Nora
-export default function NoraPanneau({ titre, contexte, onFermer }) {
+export default function NoraPanneau({ titre, contexte, accueil = null, suggestions = null, questionInitiale = null, onFermer }) {
   const fermer = useRef(null);
+  const boite = useRef(null);
+
+  // Le clavier du téléphone : quand il s'ouvre, la hauteur VISIBLE de l'écran diminue,
+  // mais la page ne le sait pas toute seule. On écoute cette hauteur (visualViewport)
+  // et on y ajuste le panneau, pour que la saisie reste juste au-dessus du clavier.
+  useEffect(() => {
+    const vue = window.visualViewport;
+    if (!vue) return undefined;
+    const ajuster = () => {
+      if (!boite.current) return;
+      boite.current.style.height = `${vue.height}px`;
+      boite.current.style.top = `${vue.offsetTop}px`;
+    };
+    ajuster();
+    vue.addEventListener("resize", ajuster);
+    vue.addEventListener("scroll", ajuster);
+    return () => {
+      vue.removeEventListener("resize", ajuster);
+      vue.removeEventListener("scroll", ajuster);
+    };
+  }, []);
 
   useEffect(() => {
     fermer.current?.focus();                                    // le clavier arrive dans le panneau
@@ -22,7 +43,7 @@ export default function NoraPanneau({ titre, contexte, onFermer }) {
   return (
     <div className="nora-panneau">
       <div className="nora-panneau__fond" onClick={onFermer} aria-hidden="true" />
-      <aside className="nora-panneau__boite" role="dialog" aria-modal="true" aria-label="Nora, l'assistante">
+      <aside ref={boite} className="nora-panneau__boite" role="dialog" aria-modal="true" aria-label="Nora, l'assistante">
         <header className="nora-panneau__entete">
           <AvatarNora taille={44} />
           <div className="nora-panneau__titre">
@@ -36,7 +57,7 @@ export default function NoraPanneau({ titre, contexte, onFermer }) {
         </header>
         <p className="nora-panneau__contexte">À propos de : <strong>{titre}</strong></p>
         <div className="nora-panneau__conversation">
-          <NoraConversation contexte={contexte} />
+          <NoraConversation contexte={contexte} accueil={accueil} suggestions={suggestions} questionInitiale={questionInitiale} />
         </div>
       </aside>
     </div>

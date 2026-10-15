@@ -41,7 +41,10 @@ const nouvelId = () => ++compteur;
 // =====================================================================
 //  contexte : le train que la personne regarde (texte envoyé à Nora), ou null
 // =====================================================================
-export default function NoraConversation({ contexte = null }) {
+// accueil : la phrase de Nora à l'ouverture (sinon, la présentation habituelle)
+// suggestions : [{ texte, question }] propres au contexte (un train, une gare)
+// questionInitiale : une question envoyée tout de suite (un appui sur « Pourquoi 7 % ? »)
+export default function NoraConversation({ contexte = null, accueil = null, suggestions: proposees = null, questionInitiale = null }) {
   const { index } = useIndexHoraires();
   const risques = useRisques();
   const reseauxBus = useBus();
@@ -56,6 +59,15 @@ export default function NoraConversation({ contexte = null }) {
 
   // À chaque nouveau message, on fait défiler jusqu'en bas
   useEffect(() => { fin.current?.scrollIntoView({ block: "end" }); }, [messages, enAttente]);
+
+  // Une question choisie avant l'ouverture (sous un train) : on l'envoie tout de suite, une seule fois
+  const dejaEnvoyee = useRef(false);
+  useEffect(() => {
+    if (questionInitiale && !dejaEnvoyee.current) {
+      dejaEnvoyee.current = true;
+      envoyer(questionInitiale);
+    }
+  }, [questionInitiale]);   // eslint-disable-line react-hooks/exhaustive-deps
 
   const ajouter = (message) => setMessages((liste) => [...liste, { id: nouvelId(), ...message }]);
 
@@ -311,24 +323,32 @@ export default function NoraConversation({ contexte = null }) {
     window.speechSynthesis.speak(phrase);
   }
 
-  const suggestions = contexte ? SUGGESTIONS_TRAIN : SUGGESTIONS;
+  const suggestions = proposees?.length
+    ? proposees
+    : (contexte ? SUGGESTIONS_TRAIN : SUGGESTIONS).map((texte) => ({ texte, question: texte }));
 
   return (
     <div className="nora-conversation">
       <div className="nora-fil" aria-live="polite">
-        {messages.length === 0 && (
-          <div className="nora-accueil">
-            <AvatarNora taille={76} />
-            <p className="nora-accueil__titre">Bonjour, je suis Nora</p>
-            <p className="nora-accueil__signature">Je suis là pour votre trajet.</p>
-            <p className="nora-accueil__texte">
-              Posez-moi une question sur Quai Nord, un train ou un risque de retard. Vous pouvez aussi me dire
-              d'où vous partez et où vous allez.
-            </p>
+        {messages.length === 0 && !questionInitiale && (
+          <div className={accueil ? "nora-accueil nora-accueil--contexte" : "nora-accueil"}>
+            {accueil ? (
+              <p className="bulle bulle--nora nora-accueil__bulle">{accueil}</p>
+            ) : (
+              <>
+                <AvatarNora taille={76} />
+                <p className="nora-accueil__titre">Bonjour, je suis Nora</p>
+                <p className="nora-accueil__signature">Je suis là pour votre trajet.</p>
+                <p className="nora-accueil__texte">
+                  Posez-moi une question sur Quai Nord, un train ou un risque de retard. Vous pouvez aussi me dire
+                  d'où vous partez et où vous allez.
+                </p>
+              </>
+            )}
             <div className="nora-suggestions">
               {suggestions.map((s) => (
-                <button key={s} type="button" className="nora-suggestion" onClick={() => envoyer(s)}>
-                  {s}
+                <button key={s.texte} type="button" className="nora-suggestion" onClick={() => envoyer(s.question)}>
+                  {s.texte}
                   <svg viewBox="0 0 24 24" width="18" height="18" aria-hidden="true" fill="none" stroke="currentColor"
                        strokeWidth="2" strokeLinecap="round"><path d="M9 6l6 6-6 6" /></svg>
                 </button>
@@ -383,20 +403,41 @@ export default function NoraConversation({ contexte = null }) {
               </div>
             )}
 
-            {m.bus?.map((b) => (
-              <a key={`${b.ligne.nom}-${b.direction}`} href={m.carte} target="_blank" rel="noopener noreferrer" className="mini-bus">
-                <span className="mini-bus__haut">
-                  <span className="ligne-bus" style={{ background: b.ligne.couleur, color: b.ligne.texte }}>{b.ligne.nom}</span>
-                  <span>{b.depart.nom} → {b.arrivee.nom}</span>
-                </span>
-                <span className="mini-bus__bas">
-                  Direction {b.direction} · {b.arrets} arrêt{b.arrets > 1 ? "s" : ""}
-                  {b.minutesBus !== null ? ` · environ ${b.minutesTotal} min` : ""}
-                  {b.occasionnel ? " · service peu fréquent" : ""}
-                  {` · ${minutesAPied(b.depart.marche + b.arrivee.marche)} min à pied au total`}
-                </span>
-              </a>
-            ))}
+            {m.bus?.length > 0 && (() => {
+              const [meilleur, ...autres] = m.bus;
+              return (
+                <>
+                  {/* La meilleure option, mise en avant, avec les étapes */}
+                  <article className="bus-meilleur">
+                    <div className="bus-meilleur__haut">
+                      <span className="mini-bus__haut">
+                        <span className="ligne-bus" style={{ background: meilleur.ligne.couleur, color: meilleur.ligne.texte }}>{meilleur.ligne.nom}</span>
+                        <span>{meilleur.depart.nom} → {meilleur.arrivee.nom}</span>
+                      </span>
+                      <span className="bus-meilleur__badge">
+                        Le plus rapide{meilleur.minutesBus !== null ? ` · ${meilleur.minutesTotal} min` : ""}
+                      </span>
+                    </div>
+                    <ol className="bus-meilleur__etapes">
+                      <li>Marchez <strong>{minutesAPied(meilleur.depart.marche)} min</strong> jusqu'à l'arrêt <strong>{meilleur.depart.nom}</strong></li>
+                      <li>Prenez la ligne <strong>{meilleur.ligne.nom}</strong>, direction <strong>{meilleur.direction}</strong> · {meilleur.arrets} arrêt{meilleur.arrets > 1 ? "s" : ""}{meilleur.occasionnel ? " (service peu fréquent)" : ""}</li>
+                      <li>Descendez à <strong>{meilleur.arrivee.nom}</strong>, puis {minutesAPied(meilleur.arrivee.marche)} min à pied</li>
+                    </ol>
+                  </article>
+                  {autres.length > 0 && <p className="bus-autres__titre">Autres possibilités</p>}
+                  {autres.map((b) => (
+                    <a key={`${b.ligne.nom}-${b.direction}`} href={m.carte} target="_blank" rel="noopener noreferrer" className="bus-autre">
+                      <span className="ligne-bus" style={{ background: b.ligne.couleur, color: b.ligne.texte }}>{b.ligne.nom}</span>
+                      <span className="bus-autre__texte">
+                        <strong>{b.depart.nom} → {b.arrivee.nom}</strong>
+                        <span>Direction {b.direction}{b.occasionnel ? " · peu fréquent" : ""}</span>
+                      </span>
+                      <strong>{b.minutesBus !== null ? `${b.minutesTotal} min` : `${b.arrets} arrêts`}</strong>
+                    </a>
+                  ))}
+                </>
+              );
+            })()}
 
             {m.trains?.map((t) => {
               const risque = risqueDuTrain(risques, t.troncons[t.troncons.length - 1].train);

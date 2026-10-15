@@ -3,6 +3,7 @@ import RechercheTrajet from "../components/RechercheTrajet";
 import Fraicheur from "../components/Fraicheur";
 import DecorVoies from "../components/DecorVoies";
 import { ListeFavoris } from "../components/Favoris";
+import BusDepuisGare from "../components/BusDepuisGare";
 import CarteChiffre from "../components/CarteChiffre";
 import GraphiqueBarres from "../components/GraphiqueBarres";
 import { chiffreVedette, chiffresCles, retardParHeure, decouvertes } from "../data/chiffres";
@@ -37,6 +38,7 @@ export default function Accueil() {
             <Fraicheur sombre partie="alerte" />
             {/* Les favoris d'abord : c'est l'action du quotidien */}
             <ListeFavoris sombre />
+            <BusDepuisGare />
             <Fraicheur sombre partie="infos" />
           </div>
 

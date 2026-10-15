@@ -1,0 +1,36 @@
+.bus-gare {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  padding: 16px;
+  background: #FFFFFF;
+  border-radius: 16px;
+  border-top: 4px solid var(--signal);
+  box-shadow: 0 2px 8px rgba(20, 33, 61, 0.08);
+  color: var(--nuit);
+}
+
+.bus-gare__entete { display: flex; align-items: flex-start; gap: 12px; }
+.bus-gare__entete svg { flex: none; }
+.bus-gare p, .bus-gare h2 { margin: 0; }
+.bus-gare__nouveau { font-size: 12px; font-weight: 700; letter-spacing: 0.08em; text-transform: uppercase; color: #8A5A00; }
+.bus-gare__titre { font-size: 20px; line-height: 1.25; margin-top: 2px !important; }
+.bus-gare__texte { font-size: 15px; line-height: 1.4; color: var(--texte-doux); margin-top: 4px !important; }
+.bus-gare__gares { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 8px; }
+
+.bus-gare__gare {
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  min-height: 58px;
+  padding: 6px 12px;
+  border: 1.5px solid #C9D3E3;
+  border-radius: 12px;
+  color: var(--nuit);
+  text-decoration: none;
+}
+
+.bus-gare__gare:hover { border-color: var(--nuit); color: var(--nuit); }
+.bus-gare__gare strong { font-size: 15px; line-height: 1.2; }
+.bus-gare__gare span { font-size: 13px; color: var(--texte-doux); }
+.bus-gare__exemple { font-size: 14px; color: var(--texte-doux); }

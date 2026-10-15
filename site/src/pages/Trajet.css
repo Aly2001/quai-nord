@@ -426,7 +426,70 @@
 }
 
 
-/* ---------- « Pourquoi ? Demander à Nora », dans la boîte de risque ---------- */
+/* ---------- Nora sous chaque train : questions prêtes ---------- */
+.carte-nora {
+  grid-column: 1 / -1;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  overflow-x: auto;
+  padding-top: 12px;
+  border-top: 1px solid var(--filet);
+}
+
+.carte-nora__avatar {
+  flex: none;
+  width: 44px;
+  height: 44px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0;
+  background: none;
+  border: 0;
+  cursor: pointer;
+}
+
+.carte-nora__question {
+  flex: none;
+  min-height: 40px;
+  padding: 0 14px;
+  font: inherit;
+  font-size: 15px;
+  font-weight: 600;
+  white-space: nowrap;
+  background: #FFFFFF;
+  color: var(--nuit);
+  border: 1.5px solid #C9D3E3;
+  border-radius: 999px;
+  cursor: pointer;
+}
+
+.carte-nora__question:hover { border-color: var(--nuit); }
+
+/* ---------- Bandeau : la gare d'arrivée est couverte par les bus ---------- */
+.bandeau-bus {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  width: 100%;
+  min-height: 56px;
+  margin: 0 0 14px;
+  padding: 10px 14px;
+  font: inherit;
+  font-size: 16px;
+  text-align: left;
+  background: #FFF8E1;
+  color: #6B4500;
+  border: 1px solid #F2D27A;
+  border-radius: 12px;
+  cursor: pointer;
+}
+
+.bandeau-bus strong { color: #4A3000; }
+.bandeau-bus svg { flex: none; }
+
+/* ---------- (ancien) « Pourquoi ? Demander à Nora », dans la boîte de risque ---------- */
 .risque-boite__nora {
   grid-column: 1 / -1;
   align-self: flex-start;

@@ -121,40 +121,100 @@ export function busVersGare(couverte, lieu) {
   return busDirects(couverte.reseau, arretsDuLieu(couverte, lieu), couverte.gare.arrets_proches);
 }
 
-// ---------- Retrouver un lieu (« mairie », « 12 rue Royale ») ----------
-// 1. OpenStreetMap (Nominatim) pour les lieux connus, autour de la gare ;
-// 2. la Base Adresse Nationale pour les adresses, en secours.
-// Renvoie une liste de lieux possibles : [{ nom, detail, lat, lon, distance }]
-export async function chercherLieu(texte, gare, ville) {
-  const autour = 0.12;   // environ 10 km autour de la gare
-  const zone = [gare.lon - autour, gare.lat + autour, gare.lon + autour, gare.lat - autour].join(",");
+// ---------- Retrouver un lieu (« l'université », « la mairie », « 12 rue Royale ») ----------
+// 1. On nettoie la phrase : « l'université de Calais » -> « universite ».
+// 2. Une CATÉGORIE connue (université, hôpital...) : on demande à OpenStreetMap tous les lieux
+//    de ce type autour de la gare, avec leur vrai nom (service Overpass).
+// 3. Sinon (un nom précis, une adresse) : le moteur Photon (OpenStreetMap), puis la Base Adresse Nationale.
+// Renvoie une liste de lieux possibles : [{ nom, detail, lat, lon, distance }], du plus proche au plus loin.
+
+const MOTS_VIDES = new Set(["le", "la", "les", "l", "un", "une", "des", "du", "de", "d", "au", "aux", "a",
+  "en", "vers", "pour", "jusqu", "calais", "boulogne", "sur", "mer"]);
+
+// Les catégories reconnues, et leur traduction en filtre OpenStreetMap
+export const CATEGORIES = [
+  { mots: ["universite", "fac", "faculte", "campus", "ulco", "iut"], filtre: '["amenity"~"^(university|college)$"]', nom: "Université" },
+  { mots: ["hopital", "clinique", "urgences", "centre hospitalier"], filtre: '["amenity"~"^(hospital|clinic)$"]', nom: "Hôpital" },
+  { mots: ["mairie", "hotel ville"], filtre: '["amenity"="townhall"]', nom: "Mairie" },
+  { mots: ["plage"], filtre: '["natural"="beach"]', nom: "Plage" },
+  { mots: ["piscine"], filtre: '["leisure"~"^(swimming_pool|sports_centre)$"]["sport"="swimming"]', nom: "Piscine" },
+  { mots: ["stade"], filtre: '["leisure"="stadium"]', nom: "Stade" },
+  { mots: ["lycee"], filtre: '["amenity"="school"]["name"~"[Ll]yc"]', nom: "Lycée" },
+  { mots: ["college"], filtre: '["amenity"="school"]["name"~"[Cc]oll"]', nom: "Collège" },
+  { mots: ["poste"], filtre: '["amenity"="post_office"]', nom: "Bureau de poste" },
+  { mots: ["commissariat", "police"], filtre: '["amenity"="police"]', nom: "Police" },
+  { mots: ["bibliotheque", "mediatheque"], filtre: '["amenity"="library"]', nom: "Médiathèque" },
+  { mots: ["musee"], filtre: '["tourism"="museum"]', nom: "Musée" },
+  { mots: ["theatre"], filtre: '["amenity"="theatre"]', nom: "Théâtre" },
+  { mots: ["cinema"], filtre: '["amenity"="cinema"]', nom: "Cinéma" },
+  { mots: ["port", "ferry"], filtre: '["amenity"="ferry_terminal"]', nom: "Terminal ferry" },
+];
+
+// « l'université de Calais » -> « universite »
+export function nettoyerLieu(texte) {
+  return normaliser(texte).split(" ").filter((mot) => mot && !MOTS_VIDES.has(mot)).join(" ");
+}
+
+export function categorieDe(texte) {
+  const propre = ` ${nettoyerLieu(texte)} `;
+  return CATEGORIES.find((c) => c.mots.some((mot) => propre.includes(` ${mot} `))) || null;
+}
+
+async function parCategorie(categorie, gare) {
+  const requete = `[out:json][timeout:15];nwr${categorie.filtre}(around:8000,${gare.lat},${gare.lon});out center 20;`;
+  const reponse = await fetch(`https://overpass-api.de/api/interpreter?data=${encodeURIComponent(requete)}`);
+  const vus = new Set();
   const lieux = [];
-  try {
-    const parametres = new URLSearchParams({
-      q: `${texte}, ${ville}`, format: "jsonv2", limit: "5", countrycodes: "fr",
-      viewbox: zone, bounded: "1", "accept-language": "fr",
-    });
-    const reponse = await fetch(`https://nominatim.openstreetmap.org/search?${parametres}`);
-    for (const r of await reponse.json()) {
-      lieux.push({ nom: r.name || r.display_name.split(",")[0], detail: r.display_name, lat: +r.lat, lon: +r.lon });
-    }
-  } catch { /* service indisponible : on essaie le suivant */ }
-
-  if (lieux.length === 0) {
-    try {
-      const parametres = new URLSearchParams({ q: texte, lat: gare.lat, lon: gare.lon, limit: "5" });
-      const reponse = await fetch(`https://api-adresse.data.gouv.fr/search/?${parametres}`);
-      for (const f of (await reponse.json()).features) {
-        lieux.push({ nom: f.properties.label, detail: f.properties.context, lat: f.geometry.coordinates[1], lon: f.geometry.coordinates[0] });
-      }
-    } catch { /* aucun service disponible */ }
+  for (const e of (await reponse.json()).elements) {
+    const lat = e.lat ?? e.center?.lat;
+    const lon = e.lon ?? e.center?.lon;
+    const nom = e.tags?.name || categorie.nom;
+    if (lat == null || vus.has(nom)) continue;            // un même lieu peut être décrit plusieurs fois
+    vus.add(nom);
+    lieux.push({ nom, detail: [e.tags?.["addr:street"], e.tags?.["addr:city"]].filter(Boolean).join(", "), lat, lon });
   }
+  return lieux;
+}
 
-  // On ne garde que les lieux raisonnablement proches de la gare, du plus proche au plus loin
-  return lieux
-    .map((l) => ({ ...l, distance: Math.round(distance(gare.lat, gare.lon, l.lat, l.lon)) }))
-    .filter((l) => l.distance <= 15_000)
-    .sort((a, b) => a.distance - b.distance);
+async function parPhoton(texte, gare) {
+  const parametres = new URLSearchParams({ q: texte, lat: gare.lat, lon: gare.lon, limit: "5", lang: "fr" });
+  const reponse = await fetch(`https://photon.komoot.io/api/?${parametres}`);
+  return (await reponse.json()).features.map((f) => ({
+    nom: f.properties.name || [f.properties.housenumber, f.properties.street].filter(Boolean).join(" ") || texte,
+    detail: [f.properties.street, f.properties.city].filter(Boolean).join(", "),
+    lat: f.geometry.coordinates[1],
+    lon: f.geometry.coordinates[0],
+  }));
+}
+
+async function parBaseAdresse(texte, gare) {
+  const parametres = new URLSearchParams({ q: texte, lat: gare.lat, lon: gare.lon, limit: "5" });
+  const reponse = await fetch(`https://api-adresse.data.gouv.fr/search/?${parametres}`);
+  return (await reponse.json()).features.map((f) => ({
+    nom: f.properties.label, detail: f.properties.context,
+    lat: f.geometry.coordinates[1], lon: f.geometry.coordinates[0],
+  }));
+}
+
+export async function chercherLieu(texte, gare, ville) {
+  const categorie = categorieDe(texte);
+  const essais = categorie
+    ? [() => parCategorie(categorie, gare), () => parPhoton(`${texte} ${ville}`, gare)]
+    : [() => parPhoton(`${texte} ${ville}`, gare), () => parBaseAdresse(`${texte} ${ville}`, gare)];
+  let lieux = [];
+  for (const essai of essais) {
+    try {
+      lieux = await essai();
+    } catch {
+      lieux = [];                                          // service indisponible : on essaie le suivant
+    }
+    lieux = lieux
+      .map((l) => ({ ...l, distance: Math.round(distance(gare.lat, gare.lon, l.lat, l.lon)) }))
+      .filter((l) => l.distance <= 15_000)                 // pas un homonyme dans une autre région
+      .sort((a, b) => a.distance - b.distance);
+    if (lieux.length > 0) break;
+  }
+  return lieux;
 }
 
 // ---------- Le lien vers une application de cartes (itinéraire en transports) ----------

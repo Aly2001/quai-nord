@@ -2,6 +2,7 @@
 import { describe, test, expect } from "vitest";
 import {
   distance, arretsProches, busDirects, busDepuisGare, busVersGare, gareCouverte, lienCarte, plusRapideQueAPied,
+  nettoyerLieu, categorieDe,
 } from "./bus";
 
 const reseau = {
@@ -104,5 +105,29 @@ describe("bon sens", () => {
     const propositions = busDepuisGare(couverte, HOTEL_DE_VILLE);
     expect(plusRapideQueAPied(propositions, 200)).toEqual([]);              // 200 m à pied : 3 min
     expect(plusRapideQueAPied(propositions, 3000).length).toBeGreaterThan(0); // 3 km à pied : 38 min
+  });
+});
+
+describe("comprendre le lieu demandé", () => {
+  test("les articles et le nom de la ville sont retirés", () => {
+    expect(nettoyerLieu("l'université de Calais")).toBe("universite");
+    expect(nettoyerLieu("la plage")).toBe("plage");
+  });
+
+  test.each([
+    ["l'université de calais", "Université"],
+    ["la fac", "Université"],
+    ["l'hôpital", "Hôpital"],
+    ["l'hôtel de ville", "Mairie"],
+    ["la mairie de Boulogne", "Mairie"],
+    ["la plage", "Plage"],
+    ["la piscine", "Piscine"],
+  ])("« %s » est reconnu comme : %s", (texte, categorie) => {
+    expect(categorieDe(texte).nom).toBe(categorie);
+  });
+
+  test("un nom précis ou une adresse n'est pas une catégorie", () => {
+    expect(categorieDe("12 rue Royale")).toBeNull();
+    expect(categorieDe("Nausicaá")).toBeNull();
   });
 });

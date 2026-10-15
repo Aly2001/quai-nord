@@ -76,6 +76,15 @@ def lire_csv(archive, nom):
         return list(csv.DictReader(io.TextIOWrapper(fichier, encoding="utf-8-sig")))
 
 
+def en_minutes(heure):
+    """« 25:10:00 » -> 1510 minutes (le GTFS dépasse 24 h pour les bus après minuit)."""
+    try:
+        h, m, *_ = (heure or "").split(":")
+        return int(h) * 60 + int(m)
+    except ValueError:
+        return None
+
+
 def couleur(valeur, defaut):
     valeur = (valeur or "").strip().lstrip("#")
     return f"#{valeur.upper()}" if len(valeur) == 6 else defaut
@@ -136,20 +145,29 @@ def preparer(code, reseau):
     # ---------- Les voyages, regroupés en parcours ----------
     voyages = {t["trip_id"]: (t["route_id"], (t.get("trip_headsign") or "").strip())
                for t in lire_csv(archive, "trips.txt")}
-    suites = defaultdict(list)                     # trip_id -> [(ordre, stop_id)]
+    suites = defaultdict(list)                     # trip_id -> [(ordre, stop_id, minutes)]
     for st in lire_csv(archive, "stop_times.txt"):
         if st["trip_id"] in voyages and st["stop_id"] in arrets:
-            suites[st["trip_id"]].append((int(st["stop_sequence"]), st["stop_id"]))
+            suites[st["trip_id"]].append((int(st["stop_sequence"]), st["stop_id"],
+                                          en_minutes(st.get("departure_time") or st.get("arrival_time"))))
 
     compte = Counter()
+    temps = {}                                     # parcours -> minutes depuis le 1er arrêt
     for trip_id, suite in suites.items():
         route_id, direction = voyages[trip_id]
-        ordre = tuple(stop_id for _, stop_id in sorted(suite))
+        suite.sort()
+        ordre = tuple(stop_id for _, stop_id, _ in suite)
         if len(ordre) >= 2:
             # Sans direction annoncée, on prend le dernier arrêt comme direction
-            compte[(route_id, direction or arrets[ordre[-1]][0], ordre)] += 1
+            cle = (route_id, direction or arrets[ordre[-1]][0], ordre)
+            compte[cle] += 1
+            # La durée entre arrêts, prise sur un voyage réel de ce parcours
+            minutes = [m for _, _, m in suite]
+            if cle not in temps and None not in minutes:
+                temps[cle] = [m - minutes[0] for m in minutes]
 
-    parcours = [{"ligne": route_id, "direction": direction, "arrets": list(ordre), "voyages": n}
+    parcours = [{"ligne": route_id, "direction": direction, "arrets": list(ordre), "voyages": n,
+                 "minutes": temps.get((route_id, direction, ordre))}
                 for (route_id, direction, ordre), n in compte.items()
                 if n >= MIN_VOYAGES and route_id in lignes]
     print(f"   {len(suites)} voyages regroupés en {len(parcours)} parcours "

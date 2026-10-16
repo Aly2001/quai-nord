@@ -5,7 +5,8 @@
 #    1. les tests du site (Vitest) ;
 #    2. la construction du site (détecte un fichier manquant, une erreur de syntaxe...) ;
 #    3. une vérification que tous les scripts Python sont lisibles par Python ;
-#    4. les tests du serveur de Nora.
+#    4. les tests du serveur de Nora ;
+#    5. les tests de la préparation des bus (charger_bus.py, sur un faux réseau).
 #  Résultat : une coche verte ✅ ou une croix rouge ❌ à côté de chaque envoi.
 # ======================================================================
 name: Tests
@@ -59,3 +60,8 @@ jobs:
 
       - name: Lancer les tests de Nora (Mistral simulé, aucune clé nécessaire)
         run: python -m pytest nora -q
+
+      - name: Lancer les tests de la préparation des bus (faux réseau, aucun téléchargement)
+        run: |
+          pip install requests
+          python -m pytest tests -q

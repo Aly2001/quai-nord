@@ -1,0 +1,82 @@
+{
+  "_explication": "La liste UNIQUE des réseaux de bus, tram et métro. Lue par charger_bus.py (préparation des données), par le site (bus.js) et par le serveur de Nora (app.py). Pour ajouter un réseau : une entrée ici, puis python charger_bus.py <code>.",
+  "_champs": {
+    "code": "nom court, sans espace ni accent : donne le nom du fichier site/public/bus/<code>.json",
+    "nom": "nom du réseau affiché au voyageur",
+    "ville": "ville affichée dans les phrases (« les bus de ... »)",
+    "villes": "les mots qui désignent la ville dans une question (comparés sans accents ni majuscules)",
+    "gares": "les noms SNCF des gares desservies, comme dans gtfs.db (sans accents ni tirets)",
+    "url": "le fichier GTFS (horaires théoriques) à télécharger",
+    "source": "la mention obligatoire de la source et de la licence",
+    "site": "le site officiel, proposé quand Nora ne trouve pas",
+    "exclure": "motifs des lignes à écarter (scolaires...), en plus des règles communes à tous les réseaux"
+  },
+  "reseaux": [
+    {
+      "code": "calais",
+      "nom": "Imag'in (Calais)",
+      "ville": "Calais",
+      "villes": ["calais"],
+      "gares": ["calais ville", "calais frethun"],
+      "url": "https://zenbus.net/gtfs/static/download.zip?dataset=sitac-calais-rt&src=true",
+      "source": "Réseau urbain SITAC, transport.data.gouv.fr, Licence Ouverte",
+      "site": "http://www.sitac-calais-opale-bus.fr/",
+      "exclure": []
+    },
+    {
+      "code": "boulogne",
+      "nom": "Marinéo (Boulogne-sur-Mer)",
+      "ville": "Boulogne-sur-Mer",
+      "villes": ["boulogne", "boulogne sur mer"],
+      "gares": ["boulogne ville", "boulogne sur mer", "boulogne tintelleries"],
+      "url": "https://s3.eu-west-1.amazonaws.com/files.orchestra.ratpdev.com/networks/boulogne/exports/medias.zip",
+      "source": "Réseau urbain Marinéo, transport.data.gouv.fr, Licence Ouverte",
+      "site": "https://www.marineo.fr/",
+      "exclure": []
+    },
+    {
+      "code": "lille",
+      "nom": "ilévia (Lille)",
+      "ville": "Lille",
+      "villes": ["lille", "roubaix", "tourcoing"],
+      "gares": ["lille flandres", "lille europe", "roubaix", "tourcoing"],
+      "url": "https://media.ilevia.fr/opendata/gtfs.zip",
+      "source": "Réseau urbain ilévia, Métropole Européenne de Lille, transport.data.gouv.fr, Licence Ouverte",
+      "site": "https://www.ilevia.fr/",
+      "exclure": []
+    },
+    {
+      "code": "dunkerque",
+      "nom": "DK'Bus (Dunkerque)",
+      "ville": "Dunkerque",
+      "villes": ["dunkerque"],
+      "gares": ["dunkerque"],
+      "url": "https://www.data.gouv.fr/api/1/datasets/r/f51fabfb-9d7a-44b7-bd03-d1032337fb80",
+      "source": "Réseau urbain DK'Bus, Communauté urbaine de Dunkerque, transport.data.gouv.fr, Licence Ouverte",
+      "site": "https://www.dkbus.com/",
+      "exclure": []
+    },
+    {
+      "code": "amiens",
+      "nom": "Ametis (Amiens)",
+      "ville": "Amiens",
+      "villes": ["amiens", "longueau"],
+      "gares": ["amiens", "longueau"],
+      "url": "https://www.data.gouv.fr/api/1/datasets/r/571e3014-066d-4bd6-9f73-fb8065c928c6",
+      "source": "Réseau urbain Ametis, Amiens Métropole, transport.data.gouv.fr, Licence Ouverte",
+      "site": "https://www.ametis.fr/",
+      "exclure": []
+    },
+    {
+      "code": "arras",
+      "nom": "Artis (Arras)",
+      "ville": "Arras",
+      "villes": ["arras"],
+      "gares": ["arras"],
+      "url": "https://www.data.gouv.fr/api/1/datasets/r/4ded8fb3-a38d-45c5-b4a7-a2f6ac17ba4f",
+      "source": "Réseau urbain Artis, Communauté urbaine d'Arras, transport.data.gouv.fr, Licence Ouverte",
+      "site": "https://www.bus-artis.fr/",
+      "exclure": ["^s ?\\d+$"]
+    }
+  ]
+}

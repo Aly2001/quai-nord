@@ -1,21 +1,31 @@
 """
-Les bus à l'arrivée en gare : préparation des données (Calais et Boulogne).
+Les bus, trams et métros à l'arrivée en gare : préparation des données.
 
-Pour chaque réseau de bus, ce script :
+Les réseaux couverts sont décrits dans UNE seule liste, site/src/data/reseaux.json,
+lue aussi par le site et par Nora (comme la FAQ) : ajouter un réseau = ajouter une entrée.
+
+Pour UN réseau à la fois, ce script :
   1. lit ses horaires en données ouvertes (format GTFS, comme la SNCF) :
      le fichier donnees_bus/<reseau>.zip s'il existe (téléchargé à la main),
      sinon il le télécharge lui-même ;
-  2. regroupe les voyages en PARCOURS : une ligne fait des centaines de voyages par jour,
+     puis il CONTRÔLE la période de validité du fichier : un fichier expiré est refusé,
+     et l'ancien fichier du site est gardé ;
+  2. écarte les lignes inutiles au voyageur (scolaires, transport à la demande)
+     et note le type de chaque ligne : bus, tram ou métro ;
+  3. regroupe les voyages en PARCOURS : une ligne fait des centaines de voyages par jour,
      mais suit seulement quelques trajets différents (un par sens, parfois une variante) ;
-  3. relie chaque gare SNCF couverte aux arrêts de bus à moins de 400 m ;
-  4. prépare les LIEUX UTILES autour des gares (universités, hôpitaux, mairie, plages...),
+  4. relie chaque gare SNCF couverte aux arrêts de bus à moins de 400 m ;
+  5. prépare les LIEUX UTILES autour des gares (universités, hôpitaux, mairie, plages...),
      depuis OpenStreetMap, pour que le site les retrouve sans interroger Internet à chaque question ;
-  5. écrit un petit fichier pour le site : site/public/bus/<reseau>.json
+  6. écrit un petit fichier pour le site : site/public/bus/<reseau>.json
 
 Le site n'a ensuite qu'à lire ce fichier pour répondre à
 « quelle ligne relie la gare à tel endroit ? » : aucun calcul lourd sur le téléphone.
 
-Lancement, depuis le dossier projet-sncf : python charger_bus.py
+Lancement, depuis le dossier projet-sncf :
+    python charger_bus.py            -> la liste des réseaux et l'état de leurs fichiers
+    python charger_bus.py lille      -> prépare un seul réseau
+    python charger_bus.py tous       -> prépare tous les réseaux, l'un après l'autre
 """
 
 import csv
@@ -28,9 +38,11 @@ import time
 import unicodedata
 import zipfile
 from collections import Counter, defaultdict
-from datetime import datetime
+from datetime import date, datetime
 from pathlib import Path
 from zoneinfo import ZoneInfo
+
+import re
 
 import requests
 
@@ -45,22 +57,97 @@ RAYON_GARE = 400            # mètres : arrêts de bus considérés « à la gar
 # OpenStreetMap demande à chaque programme de se présenter (sinon : « 406 Not Acceptable »)
 ENTETES = {"User-Agent": "QuaiNord/1.0 (projet etudiant, https://github.com/Aly2001/quai-nord)"}
 
-# Les réseaux couverts. « gares » : les noms SNCF des gares desservies (comparés sans
-# accents, tirets ni majuscules), pour retrouver leur position dans gtfs.db.
-RESEAUX = {
-    "calais": {
-        "nom": "Imag'in (Calais)",
-        "url": "https://zenbus.net/gtfs/static/download.zip?dataset=sitac-calais-rt&src=true",
-        "source": "Réseau urbain SITAC, transport.data.gouv.fr, Licence Ouverte",
-        "gares": ["calais ville", "calais frethun"],
-    },
-    "boulogne": {
-        "nom": "Marinéo (Boulogne-sur-Mer)",
-        "url": "https://s3.eu-west-1.amazonaws.com/files.orchestra.ratpdev.com/networks/boulogne/exports/medias.zip",
-        "source": "Réseau urbain Marinéo, transport.data.gouv.fr, Licence Ouverte",
-        "gares": ["boulogne ville", "boulogne sur mer", "boulogne tintelleries"],
-    },
-}
+# La liste UNIQUE des réseaux (voir l'explication de chaque champ dans le fichier lui-même)
+FICHIER_RESEAUX = Path("site/src/data/reseaux.json")
+JOURS_AVANT_ALERTE = 30     # on prévient quand un fichier expire dans moins d'un mois
+
+
+def lire_reseaux(chemin=FICHIER_RESEAUX):
+    """{code: réseau} depuis reseaux.json."""
+    donnees = json.loads(Path(chemin).read_text(encoding="utf-8"))
+    return {r["code"]: r for r in donnees["reseaux"]}
+
+
+# ---------- La validité du fichier GTFS ----------
+# Un fichier GTFS décrit ses jours de circulation de deux façons, souvent mélangées :
+#   calendar.txt       : « du lundi au vendredi, du 01/09 au 30/06 » (start_date, end_date)
+#   calendar_dates.txt : des jours un par un, ajoutés (exception_type 1) ou retirés (2)
+# La période du fichier va donc du premier au dernier jour cité, dans l'un OU l'autre.
+
+def en_date(texte):
+    """« 20261231 » -> date(2026, 12, 31) ; None si le texte n'est pas une date."""
+    try:
+        return datetime.strptime((texte or "").strip(), "%Y%m%d").date()
+    except ValueError:
+        return None
+
+
+def periode_validite(archive):
+    """(premier jour, dernier jour) de circulation décrits par le fichier, ou (None, None)."""
+    jours = []
+    noms = set(archive.namelist())
+    if "calendar.txt" in noms:
+        for c in lire_csv_flux(archive, "calendar.txt"):
+            jours += [en_date(c.get("start_date")), en_date(c.get("end_date"))]
+    if "calendar_dates.txt" in noms:
+        for c in lire_csv_flux(archive, "calendar_dates.txt"):
+            if (c.get("exception_type") or "").strip() == "1":
+                jours.append(en_date(c.get("date")))
+    jours = [j for j in jours if j]
+    return (min(jours), max(jours)) if jours else (None, None)
+
+
+def controler_validite(debut, fin, aujourd_hui=None):
+    """Refuse un fichier expiré (exception) ; renvoie la liste des avertissements sinon."""
+    aujourd_hui = aujourd_hui or date.today()
+    if fin is None:
+        return ["période de validité introuvable dans le fichier (ni calendar.txt ni calendar_dates.txt)"]
+    if fin < aujourd_hui:
+        raise ValueError(f"fichier EXPIRÉ depuis le {fin:%d/%m/%Y} : télécharge une version à jour "
+                         "(l'ancien fichier du site est conservé)")
+    avertissements = []
+    if debut and debut > aujourd_hui:
+        avertissements.append(f"ce fichier ne commence que le {debut:%d/%m/%Y} : "
+                              "c'est peut-être le futur réseau, pas celui d'aujourd'hui")
+    reste = (fin - aujourd_hui).days
+    if reste < JOURS_AVANT_ALERTE:
+        avertissements.append(f"le fichier expire dans {reste} jours (le {fin:%d/%m/%Y}) : "
+                              "pense à le recharger bientôt")
+    return avertissements
+
+
+# ---------- Le type de transport, et les lignes écartées ----------
+# Le champ route_type du GTFS dit le type de chaque ligne. Deux codifications existent :
+# la simple (0 = tram, 1 = métro, 3 = bus) et l'étendue (900 = tram, 401 = métro, 700 = bus...).
+
+def mode_transport(route_type):
+    try:
+        code = int(route_type)
+    except (TypeError, ValueError):
+        return "bus"
+    if code == 0 or 900 <= code <= 999:
+        return "tram"
+    if code == 1 or 400 <= code <= 499:
+        return "metro"
+    return "bus"
+
+
+# Écartées sur TOUS les réseaux : un voyageur qui sort du train ne peut pas les utiliser
+# (les lignes scolaires sont réservées aux élèves, le transport à la demande se réserve à l'avance)
+MOTIFS_EXCLUS_COMMUNS = [r"\bscolaire", r"\btad\b", r"\ba la demande\b", r"\btransport a la demande\b"]
+TYPE_TRANSPORT_A_LA_DEMANDE = 715          # route_type GTFS : « bus à la demande »
+
+
+def ligne_exclue(route, motifs_reseau=()):
+    """Vrai si la ligne est scolaire ou à la demande (selon ses noms et son type)."""
+    try:
+        if int(route.get("route_type") or 3) == TYPE_TRANSPORT_A_LA_DEMANDE:
+            return True
+    except ValueError:
+        pass
+    noms = [normaliser(route.get("route_short_name") or ""), normaliser(route.get("route_long_name") or "")]
+    motifs = MOTIFS_EXCLUS_COMMUNS + list(motifs_reseau)
+    return any(re.search(motif, nom) for motif in motifs for nom in noms if nom)
 
 
 # ---------- Les lieux utiles (OpenStreetMap) ----------
@@ -153,17 +240,30 @@ def lieux_utiles(gares, anciens):
     if echecs == len(FILTRES_LIEUX):
         print(f"   ATTENTION : OpenStreetMap indisponible, on garde les {len(anciens)} lieux de la dernière fois", flush=True)
         return anciens
-    lieux, vus = [], set()
+    lieux, parties, vus = [], [], set()
     for e in elements:
         tags = e.get("tags", {})
         categorie = categorie_lieu(tags)
         lat = e.get("lat", e.get("center", {}).get("lat"))
         lon = e.get("lon", e.get("center", {}).get("lon"))
-        cle = (normaliser(tags.get("name", "")), categorie)
+        nom = tags.get("name", "")
+        campus_declare = tags.get("amenity") in ("university", "college")
+        if categorie == "universite" and campus_declare:
+            # Une UFR déclarée comme université, avec sa lettre de bâtiment devant (« F - UFR d'Économie ») :
+            # c'est une vraie destination pour un étudiant, on garde son nom sans la lettre
+            nom = PREFIXE_AILE.sub("", nom)
+        cle = (normaliser(nom), categorie)
         if not categorie or lat is None or cle in vus:   # un même lieu peut être décrit plusieurs fois
             continue
         vus.add(cle)
-        lieux.append({"nom": tags["name"], "cat": categorie, "lat": round(lat, 6), "lon": round(lon, 6)})
+        lieu = {"nom": nom, "cat": categorie, "lat": round(lat, 6), "lon": round(lon, 6)}
+        # Un BÂTIMENT universitaire sans campus déclaré (« A - Accueil », « Amphithéâtre ») est peut-être
+        # une simple partie d'un campus : on décide après avoir vu tous les campus (voir plus bas)
+        if categorie == "universite" and not campus_declare:
+            parties.append(lieu)
+        else:
+            lieux.append(lieu)
+    lieux += batiments_utiles(parties, [l for l in lieux if l["cat"] == "universite"])
     if echecs:
         # Fusion : les catégories absentes cette fois gardent leurs lieux de la dernière préparation
         presentes = {l["cat"] for l in lieux}
@@ -175,6 +275,30 @@ def lieux_utiles(gares, anciens):
         print(f"   ATTENTION : aucun lieu reçu, on garde les {len(anciens)} lieux de la dernière fois", flush=True)
         return anciens
     return lieux
+
+
+RAYON_CAMPUS = 400          # mètres : un bâtiment aussi proche d'un campus en fait partie
+# « A - Accueil », « B2 : Amphis », « C1—Lettres » : tous les tirets possibles, espaces ou non
+PARTIE_DE_BATIMENT = re.compile(r"^\w{1,2}\s*[-\u2010-\u2015\u2212:]\s*\S")
+PREFIXE_AILE = re.compile(r"^\w{1,2}\s*[-\u2010-\u2015\u2212:]\s*(?=\S)")   # la lettre seule, à retirer
+# Des noms de PIÈCES ou de services, jamais une destination en soi
+NOMS_DE_PIECES = ("batiment", "amphi", "amphitheatre", "bibliotheque", "accueil", "salle", "hall",
+                  "agence comptable", "scolarite", "restaurant universitaire", "cafeteria")
+
+
+def batiments_utiles(batiments, campus):
+    """Les bâtiments universitaires à garder comme destinations.
+    Sur certains campus, chaque bâtiment est décrit à part (« A - Accueil », « Bibliothèque »...) :
+    proposés au voyageur, ils noieraient le vrai campus. On les écarte s'ils sont près d'un campus,
+    ou si leur nom est celui d'une aile (« A - ... »). Un bâtiment isolé (sans campus déclaré) est gardé."""
+    gardes = []
+    for b in batiments:
+        if PARTIE_DE_BATIMENT.match(b["nom"]) or normaliser(b["nom"]).startswith(NOMS_DE_PIECES):
+            continue
+        if any(distance_m(b["lat"], b["lon"], c["lat"], c["lon"]) <= RAYON_CAMPUS for c in campus):
+            continue
+        gardes.append(b)
+    return gardes
 
 
 def normaliser(texte):
@@ -192,10 +316,16 @@ def distance_m(lat1, lon1, lat2, lon2):
     return 2 * rayon_terre * math.asin(math.sqrt(a))
 
 
-def lire_csv(archive, nom):
-    """Lit un fichier du zip GTFS (gère le BOM « utf-8-sig » que mettent certains réseaux)."""
+def lire_csv_flux(archive, nom):
+    """Lit un fichier du zip GTFS ligne par ligne, sans tout garder en mémoire
+    (gère le BOM « utf-8-sig » que mettent certains réseaux)."""
     with archive.open(nom) as fichier:
-        return list(csv.DictReader(io.TextIOWrapper(fichier, encoding="utf-8-sig")))
+        yield from csv.DictReader(io.TextIOWrapper(fichier, encoding="utf-8-sig"))
+
+
+def lire_csv(archive, nom):
+    """Lit un petit fichier du zip GTFS en entier."""
+    return list(lire_csv_flux(archive, nom))
 
 
 def en_minutes(heure):
@@ -243,15 +373,35 @@ def preparer(code, reseau):
         print(f"   Téléchargé : {len(contenu) / 1024 / 1024:.1f} Mo", flush=True)
     archive = zipfile.ZipFile(io.BytesIO(contenu))
 
+    # ---------- La validité du fichier (avant tout le reste) ----------
+    debut, fin = periode_validite(archive)
+    if fin:
+        print(f"   Valide du {debut:%d/%m/%Y} au {fin:%d/%m/%Y}", flush=True)
+    for avertissement in controler_validite(debut, fin):        # un fichier expiré s'arrête ici
+        print(f"   ATTENTION : {avertissement}", flush=True)
+
     # ---------- Les lignes ----------
-    lignes = {}
+    lignes, exclues = {}, []
     for r in lire_csv(archive, "routes.txt"):
+        nom = (r.get("route_short_name") or r.get("route_long_name") or "?").strip()
+        if ligne_exclue(r, reseau.get("exclure", [])):
+            exclues.append(nom)
+            continue
         lignes[r["route_id"]] = {
-            "nom": (r.get("route_short_name") or r.get("route_long_name") or "?").strip(),
+            "nom": nom,
             "long": (r.get("route_long_name") or "").strip(),
+            "mode": mode_transport(r.get("route_type")),
             "couleur": couleur(r.get("route_color"), "#14213D"),
             "texte": couleur(r.get("route_text_color"), "#FFFFFF"),
         }
+    par_mode = Counter(l["mode"] for l in lignes.values())
+    print(f"   {len(lignes)} lignes gardées (" + ", ".join(f"{m} {n}" for m, n in par_mode.most_common()) + ")",
+          flush=True)
+    if exclues:
+        # La liste COMPLÈTE, triée « naturellement » (S2 avant S10), pour vérifier qu'aucune vraie ligne n'y est
+        tri = sorted(exclues, key=lambda n: [int(t) if t.isdigit() else t.lower() for t in re.split(r"(\d+)", n)])
+        print(f"   {len(exclues)} lignes écartées (scolaires, à la demande) : {', '.join(tri)}", flush=True)
+    print(f"   Lignes gardées : {', '.join(sorted(l['nom'] for l in lignes.values()))}", flush=True)
 
     # ---------- Les arrêts ----------
     arrets = {}
@@ -265,10 +415,11 @@ def preparer(code, reseau):
             continue
 
     # ---------- Les voyages, regroupés en parcours ----------
+    # (seulement les voyages des lignes gardées)
     voyages = {t["trip_id"]: (t["route_id"], (t.get("trip_headsign") or "").strip())
-               for t in lire_csv(archive, "trips.txt")}
+               for t in lire_csv_flux(archive, "trips.txt") if t["route_id"] in lignes}
     suites = defaultdict(list)                     # trip_id -> [(ordre, stop_id, minutes)]
-    for st in lire_csv(archive, "stop_times.txt"):
+    for st in lire_csv_flux(archive, "stop_times.txt"):
         if st["trip_id"] in voyages and st["stop_id"] in arrets:
             suites[st["trip_id"]].append((int(st["stop_sequence"]), st["stop_id"],
                                           en_minutes(st.get("departure_time") or st.get("arrival_time"))))
@@ -301,7 +452,12 @@ def preparer(code, reseau):
 
     # ---------- Les gares et leurs arrêts proches ----------
     gares = {}
-    for nom_gare, (lat, lon) in gares_sncf(set(reseau["gares"])).items():
+    trouvees = gares_sncf(set(reseau["gares"]))
+    manquantes = set(reseau["gares"]) - {normaliser(nom) for nom in trouvees}
+    if manquantes:
+        print(f"   ATTENTION : gares introuvables dans gtfs.db : {', '.join(sorted(manquantes))} "
+              "(vérifie leur nom SNCF dans reseaux.json)", flush=True)
+    for nom_gare, (lat, lon) in trouvees.items():
         proches = sorted((round(distance_m(lat, lon, a[1], a[2])), stop_id) for stop_id, a in arrets.items())
         proches = [[stop_id, d] for d, stop_id in proches if d <= RAYON_GARE]
         gares[nom_gare] = {"lat": round(lat, 6), "lon": round(lon, 6), "arrets_proches": proches}
@@ -326,12 +482,14 @@ def preparer(code, reseau):
         print(f"   {len(lieux)} lieux utiles : " + ", ".join(f"{c} {n}" for c, n in par_categorie.most_common()), flush=True)
         universites = sorted(l["nom"] for l in lieux if l["cat"] == "universite")
         if universites:
-            print(f"   Universités : {', '.join(universites[:6])}", flush=True)
+            print(f"   Universités : {' | '.join(universites)}", flush=True)
 
     sortie = {
         "reseau": reseau["nom"],
         "source": reseau["source"],
         "genere_le": datetime.now(ZoneInfo("Europe/Paris")).strftime("%Y-%m-%d %H:%M"),
+        "valide_du": debut.isoformat() if debut else None,
+        "valide_jusqu_au": fin.isoformat() if fin else None,
         "lignes": lignes,
         "arrets": arrets,
         "parcours": parcours,
@@ -345,16 +503,44 @@ def preparer(code, reseau):
           f"({chemin.stat().st_size / 1024:.0f} Ko)", flush=True)
 
 
-def main():
+def etat_des_reseaux(reseaux):
+    """La liste des réseaux, avec la date de préparation et la validité de leur fichier actuel."""
+    print("Réseaux de reseaux.json :\n")
+    for code, reseau in reseaux.items():
+        chemin = DOSSIER_SORTIE / f"{code}.json"
+        etat = "pas encore préparé"
+        if chemin.exists():
+            try:
+                donnees = json.loads(chemin.read_text(encoding="utf-8"))
+                fin = donnees.get("valide_jusqu_au")
+                etat = f"préparé le {donnees.get('genere_le', '?')}" + (
+                    f", valide jusqu'au {date.fromisoformat(fin):%d/%m/%Y}" if fin else ", validité non contrôlée")
+            except ValueError:
+                etat = "fichier illisible"
+        print(f"   {code:<10} {reseau['nom']:<28} {etat}")
+    print("\nPour préparer un réseau : python charger_bus.py <code>   (ou : python charger_bus.py tous)")
+
+
+def main(arguments=None):
+    arguments = sys.argv[1:] if arguments is None else arguments
+    reseaux = lire_reseaux()
+    if not arguments:
+        etat_des_reseaux(reseaux)
+        return 0
+    codes = list(reseaux) if arguments == ["tous"] else [a.lower() for a in arguments]
+    inconnus = [c for c in codes if c not in reseaux]
+    if inconnus:
+        print(f"Réseau inconnu : {', '.join(inconnus)}. Réseaux possibles : {', '.join(reseaux)}, ou tous")
+        return 1
     erreurs = 0
-    for code, reseau in RESEAUX.items():
+    for code in codes:
         try:
-            preparer(code, reseau)
+            preparer(code, reseaux[code])
         except Exception as erreur:            # un réseau en panne n'empêche pas les autres
             erreurs += 1
-            print(f"   ÉCHEC pour {reseau['nom']} : {erreur}", flush=True)
-    sys.exit(1 if erreurs == len(RESEAUX) else 0)
+            print(f"   ÉCHEC pour {reseaux[code]['nom']} : {erreur}", flush=True)
+    return 1 if erreurs else 0
 
 
 if __name__ == "__main__":
-    main()
+    sys.exit(main())

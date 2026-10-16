@@ -33,8 +33,6 @@ export default function Trajet() {
   const [aProposOuvert, setAProposOuvert] = useState(false);
   // Le panneau de Nora, ouvert depuis un train : { titre, contexte } ou null
   const [nora, setNora] = useState(null);
-  // Le réseau de la gare d'arrivée : connu tout de suite grâce à reseaux.json, sans rien télécharger
-  const reseauArrivee = reseauDeGare(nomArrivee);
 
   const gareDepart = index ? trouverGare(index.gares, de) : null;
   const jourValide = index ? joursAVenir(index.jours).includes(jour) : false;
@@ -91,6 +89,8 @@ export default function Trajet() {
   const trajets = garderMeilleurs(directs, avecCorresp);
   const nbDirects = trajets.filter((t) => !t.correspondance).length;
   const nomArrivee = trajets[0]?.gareArrivee || a;
+  // Le réseau de la gare d'arrivée : connu tout de suite grâce à reseaux.json, sans rien télécharger
+  const reseauArrivee = reseauDeGare(nomArrivee);
   const pret = horaires && fichiersCorresp;
 
   return (

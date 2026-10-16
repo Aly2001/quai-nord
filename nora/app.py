@@ -23,7 +23,7 @@ import os
 import re
 import time
 from collections import defaultdict
-from datetime import datetime
+from datetime import datetime, timedelta
 from pathlib import Path
 from zoneinfo import ZoneInfo
 
@@ -56,6 +56,12 @@ NIVEAU_REFLEXION = os.environ.get("NORA_REFLEXION", "low")                 # ré
 MODELE_SECOURS = os.environ.get("NORA_MODELE_SECOURS", "gemini-flash-latest")
 CODES_SATURATION = {429, 503}
 QUESTIONS_PAR_JOUR = int(os.environ.get("NORA_QUESTIONS_PAR_JOUR", "10"))
+# Le plafond de TOUT le site : une marge sous le quota gratuit de Gemini (environ 500 requêtes par jour
+# pour Flash-Lite, par projet Google, vérifiable dans Google AI Studio)
+QUESTIONS_TOTAL_PAR_JOUR = int(os.environ.get("NORA_QUESTIONS_TOTAL_PAR_JOUR", "400"))
+# Google remet le quota à zéro à minuit, heure de Californie (9 h en France la plupart de l'année) :
+# nos compteurs repartent au même moment
+FUSEAU_QUOTA = ZoneInfo("America/Los_Angeles")
 ORIGINES = os.environ.get("NORA_ORIGINES", "http://localhost:5173").split(",")
 FUSEAU = ZoneInfo("Europe/Paris")
 
@@ -114,9 +120,24 @@ class Reponse(BaseModel):
 
 
 # ----------------------------------------------------------------------
-# Limite de questions par visiteur et par jour (en mémoire)
+# Les limites de questions (en mémoire) : par visiteur, et pour tout le site
 # ----------------------------------------------------------------------
-_compteurs = defaultdict(int)
+_compteurs = defaultdict(int)      # (visiteur, jour) -> questions posées
+_total = defaultdict(int)          # jour -> questions posées sur tout le site
+
+
+def jour_quota(maintenant=None):
+    """Le « jour » au sens du quota de Google : il change à minuit en Californie."""
+    return (maintenant or datetime.now(FUSEAU_QUOTA)).astimezone(FUSEAU_QUOTA).date().isoformat()
+
+
+def reprise(maintenant=None):
+    """Quand les questions reviennent, en heure française : « demain à 9 h » ou « aujourd'hui à 9 h »."""
+    maintenant = (maintenant or datetime.now(FUSEAU_QUOTA)).astimezone(FUSEAU_QUOTA)
+    minuit = datetime.combine(maintenant.date() + timedelta(days=1), datetime.min.time(), FUSEAU_QUOTA)
+    en_france = minuit.astimezone(FUSEAU)
+    jour = "aujourd'hui" if en_france.date() == maintenant.astimezone(FUSEAU).date() else "demain"
+    return f"{jour} à {en_france.hour} h"
 
 
 def adresse_visiteur(requete: Request):
@@ -125,12 +146,31 @@ def adresse_visiteur(requete: Request):
     return transmise.split(",")[0].strip() or (requete.client.host if requete.client else "inconnu")
 
 
+def refuser(code, message, **details):
+    """Un refus 429 que le site sait afficher : « limite_visiteur » ou « plafond_site »."""
+    raise HTTPException(429, {"code": code, "message": message, "reprise": reprise(), **details})
+
+
 def compter_question(visiteur):
-    cle = (visiteur, datetime.now(FUSEAU).date().isoformat())
-    if _compteurs[cle] >= QUESTIONS_PAR_JOUR:
-        raise HTTPException(429, "Vous avez posé vos questions du jour. Nora sera de nouveau disponible demain.")
-    _compteurs[cle] += 1
-    return QUESTIONS_PAR_JOUR - _compteurs[cle]
+    jour = jour_quota()
+    for cle in [c for c in _compteurs if c[1] != jour]:          # on oublie les jours passés
+        del _compteurs[cle]
+    for ancien in [j for j in _total if j != jour]:
+        del _total[ancien]
+    if _total[jour] >= QUESTIONS_TOTAL_PAR_JOUR:
+        refuser("plafond_site", "Nora a reçu beaucoup de questions aujourd'hui.")
+    if _compteurs[(visiteur, jour)] >= QUESTIONS_PAR_JOUR:
+        refuser("limite_visiteur", f"Vous avez posé vos {QUESTIONS_PAR_JOUR} questions du jour.", limite=QUESTIONS_PAR_JOUR)
+    _compteurs[(visiteur, jour)] += 1
+    _total[jour] += 1
+    return QUESTIONS_PAR_JOUR - _compteurs[(visiteur, jour)]
+
+
+def rendre_question(visiteur):
+    """Une question restée sans réponse (panne) n'est pas comptée au visiteur."""
+    cle = (visiteur, jour_quota())
+    if _compteurs[cle] > 0:
+        _compteurs[cle] -= 1
 
 
 # ----------------------------------------------------------------------
@@ -231,6 +271,12 @@ def appeler_modele(messages):
         explication = EXPLICATIONS.get(code, "erreur du côté du fournisseur")
         print(f"Nora : ERREUR {FOURNISSEUR.upper()} {code} : {explication}. Détail : {erreur.response.text[:300]}",
               flush=True)
+        texte = erreur.response.text.lower()
+        if code == 429 and ("perday" in texte or "per day" in texte):
+            # Le quota du JOUR de Google est épuisé (avant notre plafond) : inutile de réessayer avant la remise
+            # à zéro, on ferme Nora pour tout le site jusque-là, avec le message de pause
+            _total[jour_quota()] = QUESTIONS_TOTAL_PAR_JOUR
+            refuser("plafond_site", "Nora a reçu beaucoup de questions aujourd'hui.")
         raise HTTPException(502, ERREUR_VISITEUR)
     except httpx.HTTPError as erreur:
         print(f"Nora : ERREUR DE CONNEXION à {FOURNISSEUR} : {type(erreur).__name__} : {erreur}", flush=True)
@@ -348,19 +394,26 @@ app.add_middleware(CORSMiddleware, allow_origins=ORIGINES, allow_methods=["POST"
 
 @app.get("/api/sante")
 def sante():
-    return {"ok": True, "fournisseur": FOURNISSEUR, "modele": MODELE, "questions_faq": len(QUESTIONS_FAQ)}
+    return {"ok": True, "fournisseur": FOURNISSEUR, "modele": MODELE, "questions_faq": len(QUESTIONS_FAQ),
+            # Pour surveiller le quota : questions posées aujourd'hui sur tout le site, et le plafond
+            "questions_aujourdhui": _total[jour_quota()], "plafond": QUESTIONS_TOTAL_PAR_JOUR}
 
 
 @app.post("/api/nora", response_model=Reponse)
 def nora(question: Question, requete: Request):
     if question.messages[-1].role != "user":
         raise HTTPException(422, "Le dernier message doit venir de la personne.")
-    restantes = compter_question(adresse_visiteur(requete))
+    visiteur = adresse_visiteur(requete)
+    restantes = compter_question(visiteur)
 
     debut = time.time()
     messages = [{"role": "system", "content": message_systeme(question.contexte)}]
     messages += [{"role": m.role, "content": m.content} for m in question.messages[-8:]]
-    resultat = lire_reponse(appeler_modele(messages))
+    try:
+        resultat = lire_reponse(appeler_modele(messages))
+    except HTTPException:
+        rendre_question(visiteur)          # pas de réponse : la question ne compte pas pour le visiteur
+        raise
     # Un journal minimal, sans le contenu des questions (vie privée)
     print(f"Nora : réponse en {time.time() - debut:.1f} s, action={bool(resultat['action'])}", flush=True)
     return {**resultat, "questions_restantes": restantes}

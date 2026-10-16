@@ -27,3 +27,9 @@ test("les six réseaux sont cités dans les sources et le pied de page, avec le 
   expect(pied).toContain("Aly Keita");
   expect(rendre(Plus, "/plus")).toContain("linkedin.com/in/aly-keita-306703340");
 });
+
+test("la page Nora propose des exemples à compléter et cite les six villes", () => {
+  const page = rendre(Nora, "/nora");
+  expect(page).toContain("touchez pour compléter");
+  for (const ville of ["Lille", "Calais", "Boulogne", "Dunkerque", "Amiens", "Arras"]) expect(page).toContain(ville);
+});

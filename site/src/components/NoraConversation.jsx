@@ -8,6 +8,7 @@ import { SNCF_CONNECT } from "../data/faq";
 import {
   chargerReseau, reseauDeVille, infosReseau, chercherLieu, busDepuisGare, busVersGare, lienCarte, minutesAPied,
   distance, plusRapideQueAPied, garesCorrespondantes, libelleGare, SITES_RESEAUX, etapesSiteOfficiel, decrireLigne,
+  RESEAUX,
 } from "../data/bus";
 import "./Nora.css";
 
@@ -46,6 +47,16 @@ const SUGGESTIONS = [
   "Pourquoi je ne vois pas mon train ?",
   "Comment réserver un billet ?",
 ];
+// Sur téléphone, l'accueil propose des EXEMPLES : les toucher remplit la saisie sans rien envoyer,
+// le voyageur adapte la gare ou la destination, puis envoie une seule question complète (quota Gemini)
+const EXEMPLES = [
+  { texte: "Je suis à la gare de Lille Flandres, je vais à l'université", parties: ["Lille Flandres", "l'université"] },
+  { texte: "Je suis au centre-ville d'Arras, comment rejoindre la gare ?", parties: ["centre-ville d'Arras"] },
+  { texte: "Pourquoi mon train de 9 h 10 a-t-il un risque élevé ?", parties: ["9 h 10"] },
+];
+// Les villes couvertes, celles qui ont aussi métro et tram en premier (Lille)
+const VILLES_BUS = [...RESEAUX].sort((a, b) => b.modes.length - a.modes.length)
+  .map((r) => ({ ville: r.ville.replace(/-sur-Mer$/, ""), metro: r.modes.length > 1 }));
 const SUGGESTIONS_TRAIN = ["Pourquoi ce risque ?", "Ce train sera-t-il à l'heure ?", "Comment réserver un billet ?"];
 const NUMERO_JOUR = { "aujourd'hui": 0, demain: 1, "après-demain": 2 };
 
@@ -68,11 +79,21 @@ export default function NoraConversation({ contexte = null, accueil = null, sugg
   const [messages, setMessages] = useState([]);
   const [saisie, setSaisie] = useState("");
   const [enAttente, setEnAttente] = useState(false);
-  const [limiteAtteinte, setLimiteAtteinte] = useState(false);
+  const [limiteAtteinte, setLimiteAtteinte] = useState(null);   // null, ou { code, message, reprise, limite }
+  const [exemple, setExemple] = useState(null);                 // l'exemple touché, tant qu'on le modifie
+  const champ = useRef(null);
   const [restantes, setRestantes] = useState(null);
   const [dictee, setDictee] = useState(null);          // null, ou { texte } pendant l'écoute
   const reconnaissance = useRef(null);
   const fin = useRef(null);
+
+  // La zone de saisie grandit avec le texte (4 lignes au plus), comme dans une messagerie
+  useEffect(() => {
+    const zone = champ.current;
+    if (!zone) return;
+    zone.style.height = "auto";
+    zone.style.height = `${Math.min(zone.scrollHeight, 120)}px`;
+  }, [saisie]);
 
   // À chaque nouveau message, on fait défiler jusqu'en bas
   useEffect(() => { fin.current?.scrollIntoView({ block: "end" }); }, [messages, enAttente]);
@@ -93,6 +114,7 @@ export default function NoraConversation({ contexte = null, accueil = null, sugg
     const question = texte.trim();
     if (!question || enAttente || limiteAtteinte) return;
     setSaisie("");
+    setExemple(null);
     const historique = [...messages, { auteur: "vous", texte: question }]
       .filter((m) => m.texte)
       .slice(-8)
@@ -106,7 +128,9 @@ export default function NoraConversation({ contexte = null, accueil = null, sugg
         body: JSON.stringify({ messages: historique, contexte }),
       });
       if (reponse.status === 429) {
-        setLimiteAtteinte(true);
+        // « limite_visiteur » ou « plafond_site » : le serveur dit lequel, et quand les questions reviennent
+        const detail = (await reponse.json().catch(() => null))?.detail;
+        setLimiteAtteinte(typeof detail === "object" && detail ? detail : { code: "limite_visiteur" });
         return;
       }
       if (!reponse.ok) throw new Error(String(reponse.status));
@@ -340,6 +364,20 @@ export default function NoraConversation({ contexte = null, accueil = null, sugg
     if (envoi && texte.trim()) envoyer(texte);
   }
 
+  // Toucher un exemple : la phrase va dans la saisie, et la première partie à adapter est sélectionnée
+  // (taper la remplace aussitôt). Rien n'est envoyé à Nora.
+  function choisirExemple(e) {
+    setSaisie(e.texte);
+    setExemple(e);
+    requestAnimationFrame(() => {
+      const zone = champ.current;
+      if (!zone) return;
+      zone.focus();
+      const debut = e.texte.indexOf(e.parties[0]);
+      zone.setSelectionRange(debut, debut + e.parties[0].length);
+    });
+  }
+
   function lire(texte) {
     window.speechSynthesis.cancel();
     const phrase = new SpeechSynthesisUtterance(texte);
@@ -356,6 +394,32 @@ export default function NoraConversation({ contexte = null, accueil = null, sugg
       <div className="nora-fil" aria-live="polite">
         {messages.length === 0 && !questionInitiale && (
           <div className={accueil ? "nora-accueil nora-accueil--contexte" : "nora-accueil"}>
+            {!accueil && (
+              // Téléphone : la bulle d'accueil, des exemples à compléter, les villes couvertes (voir Nora.css)
+              <div className="nora-exemples">
+                <div className="bulle bulle--nora nora-exemples__bulle">
+                  <p className="nora-exemples__bonjour">Bonjour ! <span aria-hidden="true">👋</span></p>
+                  <p>Dites-moi où vous allez après le train, ou posez-moi une question sur un risque de retard.</p>
+                </div>
+                <p className="nora-exemples__titre">Par exemple, touchez pour compléter :</p>
+                {EXEMPLES.map((e) => (
+                  <button key={e.texte} type="button" onClick={() => choisirExemple(e)}
+                          className={exemple === e ? "nora-exemple nora-exemple--choisi" : "nora-exemple"}>
+                    <svg viewBox="0 0 24 24" width="18" height="18" aria-hidden="true" fill="none" stroke="currentColor"
+                         strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M12 20h9M16.5 3.5a2.1 2.1 0 0 1 3 3L7 19l-4 1 1-4z" /></svg>
+                    <span>« {e.texte} »</span>
+                  </button>
+                ))}
+                <p className="nora-exemples__villes">
+                  Bus depuis les gares de {VILLES_BUS.map((v, i) => (
+                    <span key={v.ville}>
+                      {i > 0 && (i === VILLES_BUS.length - 1 ? " et " : ", ")}
+                      <strong>{v.ville}</strong>{v.metro && " (aussi métro et tram)"}
+                    </span>
+                  ))}.
+                </p>
+              </div>
+            )}
             {accueil ? (
               <p className="bulle bulle--nora nora-accueil__bulle">{accueil}</p>
             ) : (
@@ -369,7 +433,7 @@ export default function NoraConversation({ contexte = null, accueil = null, sugg
                 </p>
               </>
             )}
-            <div className="nora-suggestions">
+            <div className={accueil ? "nora-suggestions" : "nora-suggestions nora-suggestions--ordinateur"}>
               {suggestions.map((s) => (
                 <button key={s.texte} type="button" className="nora-suggestion" onClick={() => envoyer(s.question)}>
                   {s.texte}
@@ -524,18 +588,43 @@ export default function NoraConversation({ contexte = null, accueil = null, sugg
 
       {/* ---------- Le bas : saisie, ou message de limite ---------- */}
       {limiteAtteinte ? (
-        <section className="nora-limite" aria-label="Limite atteinte">
-          <p className="nora-limite__titre">Vous avez posé vos questions du jour.</p>
-          <p>Nora sera de nouveau disponible demain. En attendant, les réponses aux questions courantes sont dans la FAQ.</p>
-          <Link to="/faq" className="nora-bouton nora-bouton--jaune">Voir les questions fréquentes</Link>
+        <section className="nora-limite" aria-label="Limite atteinte" role="status">
+          <p className="nora-limite__titre">
+            {limiteAtteinte.message || "Vous avez posé vos questions du jour."}
+          </p>
+          <p>
+            {limiteAtteinte.code === "plafond_site"
+              ? <>Elle fait une pause et sera de nouveau disponible <strong>{limiteAtteinte.reprise || "demain"}</strong>.
+                  Les recherches de trains, de bus et de métro fonctionnent toujours.</>
+              : <>Nora sera de nouveau disponible <strong>{limiteAtteinte.reprise || "demain"}</strong>. En attendant,
+                  les trains, les bus et le métro restent consultables sans elle, et les réponses courantes sont dans la FAQ.</>}
+          </p>
+          <div className="nora-limite__boutons">
+            <Link to="/" className="nora-bouton">Rechercher un trajet</Link>
+            <Link to="/faq" className="nora-bouton nora-bouton--jaune">Voir les questions fréquentes</Link>
+          </div>
         </section>
       ) : (
         <div className="nora-bas">
+          {restantes !== null && restantes > 0 && restantes <= 3 && (
+            <p className="nora-reste">
+              <svg viewBox="0 0 24 24" width="18" height="18" aria-hidden="true" fill="none" stroke="currentColor"
+                   strokeWidth="2" strokeLinecap="round"><circle cx="12" cy="12" r="9" /><path d="M12 7v5l3 2" /></svg>
+              <span>Plus que <strong>{restantes} question{restantes > 1 ? "s" : ""}</strong> à Nora aujourd'hui.</span>
+            </p>
+          )}
+          {exemple && saisie && (
+            <p className="nora-aide-exemple">Remplacez la gare ou la destination si besoin, puis envoyez.</p>
+          )}
           <form className="nora-saisie" onSubmit={(e) => { e.preventDefault(); envoyer(saisie); }}>
             <label htmlFor="nora-question" className="visuellement-cache">Votre question</label>
-            <input id="nora-question" type="text" value={saisie} maxLength={500} autoComplete="off"
-                   placeholder={Reconnaissance ? "Écrivez ou parlez…" : "Posez votre question…"}
-                   onChange={(e) => setSaisie(e.target.value)} disabled={enAttente} />
+            <textarea id="nora-question" ref={champ} rows={1} value={saisie} maxLength={500} autoComplete="off"
+                      placeholder={Reconnaissance ? "Écrivez ou parlez…" : "Posez votre question…"}
+                      onChange={(e) => setSaisie(e.target.value)} disabled={enAttente}
+                      onKeyDown={(e) => {
+                        if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); envoyer(saisie); }
+                      }}
+                      />
             {Reconnaissance && (
               <button type="button" className="nora-rond nora-rond--micro" aria-label="Parler à Nora" onClick={ecouter}>
                 <svg viewBox="0 0 24 24" width="22" height="22" aria-hidden="true" fill="none" stroke="currentColor"

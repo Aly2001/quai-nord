@@ -19,6 +19,7 @@ def preparer(monkeypatch):
     monkeypatch.setenv("MISTRAL_API_KEY", "cle-de-test")
     monkeypatch.setattr(module, "FOURNISSEUR", "mistral")
     module._compteurs.clear()
+    module._total.clear()
 
 
 def simuler_mistral(monkeypatch, contenu, statut=200):
@@ -107,6 +108,9 @@ def test_limite_par_jour(monkeypatch):
         assert client.post("/api/nora", json=UNE_QUESTION).status_code == 200
     reponse = client.post("/api/nora", json=UNE_QUESTION)
     assert reponse.status_code == 429
+    detail = reponse.json()["detail"]
+    assert detail["code"] == "limite_visiteur" and detail["limite"] == module.QUESTIONS_PAR_JOUR
+    assert detail["reprise"].endswith(" h")
 
 
 def test_mistral_indisponible(monkeypatch):
@@ -284,3 +288,52 @@ def test_le_reseau_est_transmis_au_site():
 def test_les_regles_citent_les_six_villes():
     for ville in ("Lille", "Calais", "Boulogne", "Dunkerque", "Amiens", "Arras"):
         assert ville in module.REGLES
+
+
+# ---------- Le plafond de tout le site, et le quota de Google ----------
+REPONSE_OK = json.dumps({"reponse": "ok", "sources": [], "lien_sncf": False, "action": None})
+
+
+def test_plafond_du_site(monkeypatch):
+    """Au-delà du plafond, plus personne ne pose de question, même un nouveau visiteur."""
+    simuler_mistral(monkeypatch, REPONSE_OK)
+    monkeypatch.setattr(module, "QUESTIONS_TOTAL_PAR_JOUR", 3)
+    for i in range(3):
+        entetes = {"x-forwarded-for": f"10.0.0.{i}"}
+        assert client.post("/api/nora", json=UNE_QUESTION, headers=entetes).status_code == 200
+    reponse = client.post("/api/nora", json=UNE_QUESTION, headers={"x-forwarded-for": "10.0.0.99"})
+    assert reponse.status_code == 429
+    assert reponse.json()["detail"]["code"] == "plafond_site"
+    assert client.get("/api/sante").json()["questions_aujourdhui"] == 3
+
+
+def test_une_panne_ne_coute_pas_de_question(monkeypatch):
+    simuler_mistral(monkeypatch, "", statut=503)
+    assert client.post("/api/nora", json=UNE_QUESTION).status_code == 502
+    simuler_mistral(monkeypatch, REPONSE_OK)
+    corps = client.post("/api/nora", json=UNE_QUESTION).json()
+    assert corps["questions_restantes"] == module.QUESTIONS_PAR_JOUR - 1      # la panne n'a rien coûté
+
+
+def test_quota_du_jour_de_google_epuise(monkeypatch):
+    """Google répond « quota du jour épuisé » : Nora se met en pause pour tout le site."""
+    def faux_post(url, headers, json, timeout):
+        return httpx.Response(429, request=httpx.Request("POST", url),
+                              text='{"error": {"message": "Quota exceeded ... GenerateRequestsPerDayPerProjectPerModel-FreeTier"}}')
+    monkeypatch.setattr(module.httpx, "post", faux_post)
+    monkeypatch.setattr(module.time, "sleep", lambda s: None)
+    reponse = client.post("/api/nora", json=UNE_QUESTION)
+    assert reponse.status_code == 429 and reponse.json()["detail"]["code"] == "plafond_site"
+    # La question suivante n'appelle même plus Google
+    monkeypatch.setattr(module.httpx, "post", lambda *a, **k: (_ for _ in ()).throw(AssertionError("appel inutile")))
+    assert client.post("/api/nora", json=UNE_QUESTION).json()["detail"]["code"] == "plafond_site"
+
+
+def test_la_journee_change_a_9_h_en_france():
+    from datetime import datetime
+    paris = module.FUSEAU
+    avant = datetime(2026, 10, 16, 8, 30, tzinfo=paris)       # 23 h 30 la veille en Californie
+    apres = datetime(2026, 10, 16, 9, 30, tzinfo=paris)       # 0 h 30 en Californie
+    assert module.jour_quota(avant) != module.jour_quota(apres)
+    assert module.reprise(avant) == "aujourd'hui à 9 h"
+    assert module.reprise(apres) == "demain à 9 h"

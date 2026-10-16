@@ -274,7 +274,7 @@
 
 .nora-saisie { display: flex; gap: 8px; }
 
-.nora-saisie input {
+.nora-saisie input, .nora-saisie textarea {
   flex: 1;
   min-width: 0;
   min-height: 50px;
@@ -287,7 +287,9 @@
   background: #FFFFFF;
 }
 
-.nora-saisie input:focus { outline: none; border-color: var(--nuit); }
+.nora-saisie input:focus, .nora-saisie textarea:focus { outline: none; border-color: var(--nuit); }
+.nora-saisie textarea { padding: 13px 18px; line-height: 1.4; resize: none; border-radius: 24px; max-height: 120px; }
+.nora-saisie { align-items: flex-end; }
 
 .nora-rond {
   flex: none;
@@ -403,4 +405,53 @@
   .bus-meilleur__trajet { display: none; }
   .bus-autre__nuit { padding: 1px 8px; border-radius: 999px; background: #3A2757; color: #FFFFFF; font-size: 12px; font-weight: 700; }
   .bus-autre__nuit::before { content: none; }
+}
+
+/* ---------- Les limites de questions ---------- */
+.nora-limite__boutons { display: flex; flex-wrap: wrap; gap: 8px; }
+.nora-limite strong { color: var(--nuit); }
+.nora-reste {
+  margin: 0;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 12px;
+  border-radius: 10px;
+  background: #FFF8E1;
+  color: #6B4500;
+  font-size: 14px;
+}
+.nora-reste strong { color: #4A3000; }
+.nora-aide-exemple { margin: 0; font-size: 13px; font-weight: 600; color: var(--mer); }
+
+/* ---------- L'accueil : des exemples sur téléphone, les suggestions sur ordinateur ---------- */
+.nora-exemples { display: none; }
+
+@media (max-width: 640px) {
+  .nora-accueil:not(.nora-accueil--contexte) > :not(.nora-exemples) { display: none; }
+  .nora-accueil:not(.nora-accueil--contexte) { align-items: stretch; text-align: left; padding-top: 4px; }
+  .nora-exemples { display: flex; flex-direction: column; gap: 10px; }
+  .nora-exemples p { margin: 0; }
+  .nora-exemples__bulle { align-self: stretch; max-width: none; display: flex; flex-direction: column; gap: 6px; font-size: 16px; line-height: 1.45; }
+  .nora-exemples__bonjour { font-size: 20px; font-weight: 700; }
+  .nora-exemples__titre { font-size: 14px; font-weight: 700; color: var(--texte-doux); }
+  .nora-exemple {
+    display: flex;
+    align-items: flex-start;
+    gap: 10px;
+    width: 100%;
+    padding: 12px 14px;
+    font: inherit;
+    font-size: 16px;
+    line-height: 1.4;
+    text-align: left;
+    background: #FFFFFF;
+    color: var(--nuit);
+    border: 1.5px dashed #C9D3E3;
+    border-radius: 14px;
+    cursor: pointer;
+  }
+  .nora-exemple svg { flex: none; margin-top: 2px; color: var(--mer); }
+  .nora-exemple--choisi { background: #EAF4F8; border: 2px solid var(--mer); }
+  .nora-exemples__villes { padding: 12px 14px; border-radius: 12px; background: #FFF8E1; color: #4A3000; font-size: 14px; line-height: 1.45; }
 }

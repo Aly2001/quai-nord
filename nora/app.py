@@ -38,6 +38,7 @@ from pydantic import BaseModel, Field
 RACINE = Path(__file__).resolve().parent.parent
 FICHIER_REGLES = Path(__file__).resolve().parent / "regles.txt"
 FICHIER_FAQ = RACINE / "site" / "src" / "data" / "faq.json"
+FICHIER_RESEAUX = RACINE / "site" / "src" / "data" / "reseaux.json"     # la liste UNIQUE des réseaux
 
 # Le fournisseur du modèle de langage : "gemini" ou "mistral".
 # Par défaut : Gemini si sa clé est présente, sinon Mistral.
@@ -242,7 +243,6 @@ def appeler_modele(messages):
 # ----------------------------------------------------------------------
 # La vérification de ce que dit le modèle
 # ----------------------------------------------------------------------
-VILLES_BUS = {"calais": "Calais", "boulogne": "Boulogne", "boulogne sur mer": "Boulogne"}
 SENS_BUS = {"depuis_gare", "vers_gare"}
 
 
@@ -252,9 +252,34 @@ def sans_accents(texte):
     return " ".join("".join(c if c.isalnum() else " " for c in texte).split())
 
 
+# Les réseaux couverts, lus dans la même liste que le site et charger_bus.py
+RESEAUX = json.loads(FICHIER_RESEAUX.read_text(encoding="utf-8"))["reseaux"]
+VILLES_COUVERTES = ", ".join(r["ville"] for r in RESEAUX[:-1]) + " et " + RESEAUX[-1]["ville"]
+MOTS_GARE_INUTILES = {"la", "gare", "de", "du", "d", "l", "sncf", "ville", "centre"}
+
+
+def reseau_de_ville(texte):
+    """« Boulogne-sur-Mer », « Roubaix » -> le réseau (boulogne, lille), ou None."""
+    cherche = sans_accents(texte)
+    return next((r for r in RESEAUX if cherche and (cherche in r["villes"] or cherche == sans_accents(r["ville"]))), None)
+
+
+def reseau_de_gare(gare):
+    """Le réseau d'une gare citée (« Lille Flandres », « gare Boulogne ville », « Longueau »), ou None.
+    On compare le premier mot utile au début des noms de gares et aux villes du réseau."""
+    mots = [m for m in sans_accents(gare).split() if m not in MOTS_GARE_INUTILES]
+    if not mots:
+        return None
+    for r in RESEAUX:
+        noms = [sans_accents(g).split() for g in r["gares"]] + [v.split() for v in r["villes"]]
+        if any(n and n[0] == mots[0] for n in noms):
+            return r
+    return None
+
+
 def verifier_bus(action):
-    """Le PÉRIMÈTRE des bus, vérifié par le code (et non seulement par les règles de l'IA) :
-    une gare d'un côté du trajet, à Calais ou à Boulogne, et un lieu précis de l'autre."""
+    """Le PÉRIMÈTRE des transports, vérifié par le code (et non seulement par les règles de l'IA) :
+    une gare d'un côté du trajet, dans une ville couverte, et un lieu précis de l'autre."""
     sens = str(action.get("sens", "")).strip()
     lieu = str(action.get("lieu", "")).strip()
     # « la gare de Boulogne Ville » -> « Boulogne Ville » : l'IA ajoute parfois ces mots
@@ -262,16 +287,17 @@ def verifier_bus(action):
     while mots_gare and sans_accents(mots_gare[0]) in {"la", "gare", "de", "du", "sncf", "l"}:
         mots_gare.pop(0)
     gare = " ".join(mots_gare)
-    ville_texte = sans_accents(action.get("ville", ""))
-    ville = VILLES_BUS.get(ville_texte)
-    # La ville peut aussi se déduire de la gare (« Calais Ville », « Boulogne - Tintelleries »)
-    if not ville and gare:
-        ville = next((v for cle, v in VILLES_BUS.items() if sans_accents(gare).startswith(cle)), None)
-    if sens not in SENS_BUS or not ville or not lieu or len(lieu) > 80 or len(gare) > 60:
+    if sens not in SENS_BUS or not lieu or len(lieu) > 80 or len(gare) > 60:
         return None
-    if gare and not sans_accents(gare).startswith(sans_accents(ville)):
+    par_ville = reseau_de_ville(action.get("ville", ""))
+    par_gare = reseau_de_gare(gare) if gare else None
+    if par_ville and par_gare and par_ville["code"] != par_gare["code"]:
         return None                       # une gare d'une autre ville : hors périmètre
-    return {"type": "itineraire_bus", "sens": sens, "gare": gare, "ville": ville, "lieu": lieu}
+    reseau = par_ville or par_gare
+    if not reseau:
+        return None                       # une ville non couverte
+    return {"type": "itineraire_bus", "sens": sens, "gare": gare, "ville": reseau["ville"],
+            "reseau": reseau["code"], "lieu": lieu}
 
 
 def verifier_action(action):
@@ -302,8 +328,8 @@ def lire_reponse(texte):
     reponse = "" if action else str(donnees.get("reponse", "")).strip()[:800]
     if action is None and isinstance(action_proposee, dict) and action_proposee.get("type") == "itineraire_bus" and not reponse:
         # L'IA a proposé un bus hors du périmètre : le code refuse à sa place
-        reponse = ("Je peux vous aider pour les bus entre une gare et votre destination, à Calais et à Boulogne. "
-                   "Par exemple : « Je suis à la gare de Calais Ville, je vais à la mairie ».")
+        reponse = (f"Je peux vous aider pour les bus, trams et métros entre une gare et votre destination, à {VILLES_COUVERTES}. "
+                   "Par exemple : « Je suis à la gare de Lille Flandres, je vais à l'université ».")
     return {
         "reponse": reponse,
         # Seules les sources qui existent VRAIMENT dans la FAQ sont gardées

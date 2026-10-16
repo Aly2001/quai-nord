@@ -12,7 +12,7 @@ export default function Nora() {
   const [parametres] = useSearchParams();
   const gare = parametres.get("gare");
   const depuisGare = gare ? {
-    contexte: `Le voyageur est à la gare de ${gare} et cherche un bus pour continuer.`,
+    contexte: `Le voyageur est à la gare de ${gare} et cherche un bus, un tram ou un métro pour continuer.`,
     accueil: `Depuis la gare de ${libelleGare(gare)}, où allez-vous ?`,
     suggestions: DESTINATIONS.map((lieu) => ({
       texte: lieu.charAt(0).toUpperCase() + lieu.slice(1),

@@ -6,7 +6,7 @@ import DecorVoies from "../components/DecorVoies";
 import { BoutonFavori } from "../components/Favoris";
 import NoraPanneau from "../components/NoraPanneau";
 import { AvatarNora } from "../components/NoraConversation";
-import { useBus, gareCouverte, libelleGare } from "../data/bus";
+import { reseauDeGare, transportsDuReseau, infosReseau, libelleGare } from "../data/bus";
 import {
   DOSSIER, useIndexHoraires, useRisques, trouverGare, normaliser, dateLongue, etiquetteJour,
   joursAVenir, aujourdhuiIso, heureActuelle, risqueDuTrain, niveauRisque,
@@ -33,7 +33,8 @@ export default function Trajet() {
   const [aProposOuvert, setAProposOuvert] = useState(false);
   // Le panneau de Nora, ouvert depuis un train : { titre, contexte } ou null
   const [nora, setNora] = useState(null);
-  const reseauxBus = useBus();
+  // Le réseau de la gare d'arrivée : connu tout de suite grâce à reseaux.json, sans rien télécharger
+  const reseauArrivee = reseauDeGare(nomArrivee);
 
   const gareDepart = index ? trouverGare(index.gares, de) : null;
   const jourValide = index ? joursAVenir(index.jours).includes(jour) : false;
@@ -154,10 +155,10 @@ export default function Trajet() {
               </h2>
 
               {/* La gare d'arrivée est couverte par les bus : Nora le fait savoir, sans qu'on ait à la chercher */}
-              {trajets.length > 0 && gareCouverte(reseauxBus, nomArrivee) && (
+              {trajets.length > 0 && reseauArrivee && (
                 <button type="button" className="bandeau-bus" onClick={() => setNora({
                   titre: `Arrivée à ${libelleGare(nomArrivee)}`,
-                  contexte: `Le voyageur arrive en train à la gare de ${nomArrivee} et cherche un bus pour continuer.`,
+                  contexte: `Le voyageur arrive en train à la gare de ${nomArrivee} et cherche ${transportsDuReseau(reseauArrivee).replace(/^le /, "un ").replace(/ le /g, " un ")} pour continuer (ville : ${infosReseau(reseauArrivee).ville}).`,
                   accueil: `Depuis la gare de ${libelleGare(nomArrivee)}, où allez-vous ?`,
                   suggestions: ["au centre-ville", "à l'université", "à l'hôpital", "à la mairie"].map((lieu) => ({
                     texte: lieu.charAt(0).toUpperCase() + lieu.slice(1),
@@ -165,7 +166,7 @@ export default function Trajet() {
                   })),
                 })}>
                   <AvatarNora taille={32} />
-                  <span><strong>Vous arrivez à {libelleGare(nomArrivee)} ?</strong> Nora vous trouve le bus jusqu'à votre destination.</span>
+                  <span><strong>Vous arrivez à {libelleGare(nomArrivee)} ?</strong> Nora vous trouve {transportsDuReseau(reseauArrivee)} jusqu'à votre destination.</span>
                 </button>
               )}
 
@@ -181,7 +182,7 @@ export default function Trajet() {
                   <CarteTrajet key={`${t.heure}-${t.arrivee}-${i}`} trajet={t} jour={jour}
                                risques={risques} meteo={meteo} tempsReel={tempsReel}
                                onDemanderNora={setNora}
-                               arriveeBus={Boolean(gareCouverte(reseauxBus, t.gareArrivee))} />
+                               reseauArrivee={reseauDeGare(t.gareArrivee)} />
                 ))}
               </ol>
 
@@ -237,14 +238,34 @@ function contexteNora(t, jour, risque, pourcentage, niveau, meteoDepart = null) 
   return texte;
 }
 
+// Vrai sur un écran de téléphone (même limite que la barre d'onglets : 640 px), et suivi en direct
+const ECRAN_TELEPHONE = "(max-width: 640px)";
+function useTelephone() {
+  const lire = () => typeof window !== "undefined" && window.matchMedia?.(ECRAN_TELEPHONE).matches;
+  const [telephone, setTelephone] = useState(lire);
+  useEffect(() => {
+    const requete = window.matchMedia?.(ECRAN_TELEPHONE);
+    if (!requete) return undefined;
+    const suivre = () => setTelephone(requete.matches);
+    requete.addEventListener("change", suivre);
+    return () => requete.removeEventListener("change", suivre);
+  }, []);
+  return Boolean(telephone);
+}
+
 // Les questions préparées pour un train : seulement celles auxquelles Nora sait répondre
-function questionsDuTrain(t, pourcentage, niveau, meteoDepart, arriveeBus) {
+function questionsDuTrain(t, pourcentage, niveau, meteoDepart, reseauArrivee, telephone = false) {
   const questions = [];
   questions.push(pourcentage !== null
     ? { texte: `Pourquoi ${pourcentage < 1 ? "moins de 1" : pourcentage} % ?`, question: `Pourquoi ce train a-t-il ${pourcentage < 1 ? "moins de 1" : pourcentage} % de risque de retard ?` }
     : { texte: "Sera-t-il à l'heure ?", question: "Ce train sera-t-il à l'heure ?" });
-  if (arriveeBus) {
-    questions.push({ texte: "Bus à l'arrivée ?", question: `Quel bus prendre à l'arrivée à la gare de ${t.gareArrivee} ?` });
+  // Sur téléphone, le bandeau « Vous arrivez à… ? » en haut des résultats suffit : pas de répétition sous chaque train
+  if (reseauArrivee && !telephone) {
+    const plusieurs = infosReseau(reseauArrivee).modes.length > 1;
+    questions.push({
+      texte: plusieurs ? "Bus, tram ou métro à l'arrivée ?" : "Bus à l'arrivée ?",
+      question: `Quel ${plusieurs ? "transport" : "bus"} prendre à l'arrivée à la gare de ${t.gareArrivee} ?`,
+    });
   }
   if (meteoDepart && (meteoDepart.pluie >= 0.5 || meteoDepart.rafales >= 50)) {
     questions.push({ texte: "Pluie au départ ?", question: "Quel temps fera-t-il au départ de ce train ?" });
@@ -255,7 +276,8 @@ function questionsDuTrain(t, pourcentage, niveau, meteoDepart, arriveeBus) {
   return questions;
 }
 
-function CarteTrajet({ trajet: t, jour, risques, meteo, tempsReel, onDemanderNora, arriveeBus = false }) {
+function CarteTrajet({ trajet: t, jour, risques, meteo, tempsReel, onDemanderNora, reseauArrivee = null }) {
+  const telephone = useTelephone();
   const [details, setDetails] = useState(false);
   const [premier, dernier] = [t.troncons[0], t.troncons[t.troncons.length - 1]];
 
@@ -272,7 +294,7 @@ function CarteTrajet({ trajet: t, jour, risques, meteo, tempsReel, onDemanderNor
     && risquePremier.taux >= 0.15;
 
   const meteoDepart = meteoDuTrain(meteo, premier.depart.stop_id, jour, t.heure);
-  const questions = questionsDuTrain(t, pourcentage, niveau, meteoDepart, arriveeBus);
+  const questions = questionsDuTrain(t, pourcentage, niveau, meteoDepart, reseauArrivee, telephone);
   const ouvrirNora = (question = null) => onDemanderNora({
     titre: `${premier.train.transport} ${premier.train.numero} · ${t.heure} ${t.gareDepart} → ${t.gareArrivee}`,
     contexte: contexteNora(t, jour, risque, pourcentage, niveau, meteoDepart),

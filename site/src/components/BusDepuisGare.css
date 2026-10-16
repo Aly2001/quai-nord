@@ -34,3 +34,9 @@
 .bus-gare__gare strong { font-size: 15px; line-height: 1.2; }
 .bus-gare__gare span { font-size: 13px; color: var(--texte-doux); }
 .bus-gare__exemple { font-size: 14px; color: var(--texte-doux); }
+
+/* Sur téléphone, l'accueil reste centré sur la recherche de trains : l'aide aux transports
+   est proposée dans les résultats (« Vous arrivez à… ? »), au moment où elle sert */
+@media (max-width: 640px) {
+  .bus-gare { display: none; }
+}

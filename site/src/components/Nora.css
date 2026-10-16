@@ -388,3 +388,19 @@
   .nora-suggestion { flex: none; min-height: 42px; border-radius: 999px; font-size: 15px; white-space: nowrap; }
   .nora-suggestion svg { display: none; }
 }
+
+/* ---------- Bus, tram ou métro : le pictogramme du mode dans la pastille ----------
+   Affiché sur téléphone seulement (la version ordinateur reste inchangée). */
+.ligne-bus { gap: 5px; }
+.ligne-bus__icone { display: none; flex: none; }
+.bus-autre__nuit { font-weight: 600; }
+.bus-autre__nuit::before { content: "· "; }
+
+@media (max-width: 640px) {
+  .ligne-bus { height: 30px; padding: 0 9px 0 7px; }
+  .ligne-bus__icone { display: block; }
+  /* « Départ → arrivée » à côté de la pastille répétait les étapes juste en dessous */
+  .bus-meilleur__trajet { display: none; }
+  .bus-autre__nuit { padding: 1px 8px; border-radius: 999px; background: #3A2757; color: #FFFFFF; font-size: 12px; font-weight: 700; }
+  .bus-autre__nuit::before { content: none; }
+}

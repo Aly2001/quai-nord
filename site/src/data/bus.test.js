@@ -4,6 +4,7 @@ import {
   distance, arretsProches, busDirects, busDepuisGare, busVersGare, gareCouverte, lienCarte, plusRapideQueAPied,
   nettoyerLieu, categorieDe, garesCorrespondantes, estUnLieuPrecis, dansLaCategorie, libelleGare,
   lieuxPrepares, chercherLieu, etapesSiteOfficiel, SITES_RESEAUX, seRessemblent, pertinent,
+  reseauDeGare, reseauDeVille, transportsDuReseau, decrireLigne, nettoyerDirection, joliNom, RESEAUX_BUS,
 } from "./bus";
 
 const reseau = {
@@ -58,8 +59,9 @@ describe("bus depuis la gare", () => {
   test("la ligne 1, dans le bon sens, mène à l'Hôtel de Ville", () => {
     const [premier] = busDepuisGare(couverte, HOTEL_DE_VILLE);
     expect(premier.ligne.nom).toBe("1");
-    expect(premier.direction).toBe("BEAU MARAIS");
-    expect(premier.arrivee.nom).toBe("HOTEL DE VILLE");
+    // Les noms tout en majuscules du réseau sont rendus lisibles
+    expect(premier.direction).toBe("Beau Marais");
+    expect(premier.arrivee.nom).toBe("Hotel de Ville");
   });
 
   test("le trajet le plus rapide est proposé (départ du Théâtre, plus près de la destination)", () => {
@@ -82,7 +84,7 @@ describe("bus vers la gare", () => {
   test("depuis l'Hôtel de Ville, la ligne 1 en direction de la GARE", () => {
     const [premier] = busVersGare(gareCouverte(reseaux, "Calais Ville"), HOTEL_DE_VILLE);
     expect(premier.ligne.nom).toBe("1");
-    expect(premier.direction).toBe("GARE");
+    expect(premier.direction).toBe("Gare");
   });
 
   test("le sens compte : la ligne 3 ne va que de la gare à la plage, pas l'inverse", () => {
@@ -269,5 +271,129 @@ describe("les fautes de frappe (test terrain : « l'ulclo »)", () => {
   test("un résultat sans aucun mot commun est écarté", () => {
     expect(pertinent({ nom: "Fontaine de Boulogne-sur-Mer" }, "l'ulclo")).toBe(false);
     expect(pertinent({ nom: "293 Rue Duguay-Trouin", detail: "Calais" }, "293 rue Duguay trouin")).toBe(true);
+  });
+});
+
+
+// ---------------------------------------------------------------------
+//  Les six réseaux (liste unique reseaux.json), et bus, tram ou métro
+// ---------------------------------------------------------------------
+describe("la liste unique des réseaux", () => {
+  test("les six réseaux sont connus, avec leur site officiel", () => {
+    expect(RESEAUX_BUS).toEqual(expect.arrayContaining(["lille", "calais", "boulogne", "dunkerque", "amiens", "arras"]));
+    expect(SITES_RESEAUX.lille.url).toContain("ilevia");
+  });
+  test.each([
+    ["Lille Flandres", "lille"], ["Roubaix", "lille"], ["Calais-Fréthun", "calais"], ["Boulogne - Tintelleries", "boulogne"],
+    ["Longueau", "amiens"], ["Arras", "arras"], ["Paris Gare du Nord", null], ["", null],
+  ])("la gare « %s » est desservie par le réseau %s", (gare, code) => {
+    expect(reseauDeGare(gare)).toBe(code);
+  });
+  test.each([["Boulogne-sur-Mer", "boulogne"], ["Tourcoing", "lille"], ["dunkerque", "dunkerque"], ["Valenciennes", null]])(
+    "la ville « %s » correspond au réseau %s", (ville, code) => {
+      expect(reseauDeVille(ville)).toBe(code);
+    });
+  test("les mots annoncent le bon transport", () => {
+    expect(transportsDuReseau("lille")).toBe("le bus, le tram ou le métro");
+    expect(transportsDuReseau("arras")).toBe("le bus");
+  });
+});
+
+describe("parler du bon mode de transport", () => {
+  test("métro : « le métro M1 », « la station », « 9 stations »", () => {
+    const d = decrireLigne({ nom: "M1", mode: "metro" });
+    expect(d.prendre).toBe("le métro M1");
+    expect(d.station).toBe("la station");
+    expect(d.arrets(9)).toBe("9 stations");
+  });
+  test("le tram de Lille s'appelle « TRAM » dans le fichier : on dit « le tram »", () => {
+    const d = decrireLigne({ nom: "TRAM", mode: "tram", long: "TRAMWAY" });
+    expect(d.nom).toBe("Tram");
+    expect(d.prendre).toBe("le tram");
+  });
+  test("bus : « le bus 3 », « l'arrêt », « 1 arrêt » ; sans mode connu, c'est un bus", () => {
+    const d = decrireLigne({ nom: "3" });
+    expect(d.prendre).toBe("le bus 3");
+    expect(d.station).toBe("l'arrêt");
+    expect(d.arrets(1)).toBe("1 arrêt");
+  });
+  test("une ligne de nuit est reconnue à son nom long", () => {
+    expect(decrireLigne({ nom: "N1", long: "LIGNE DE NUIT" }).nuit).toBe(true);
+    expect(decrireLigne({ nom: "N1", long: "NEMO 1" }).nuit).toBe(false);
+  });
+});
+
+describe("des noms lisibles", () => {
+  test("le numéro de la ligne n'est pas répété dans la direction (Artis)", () => {
+    expect(nettoyerDirection("3 Achicourt College Adam de la Halle", "3")).toBe("Achicourt College Adam de la Halle");
+    expect(nettoyerDirection("D2 Beaurains Centre Commercial", "D2")).toBe("Beaurains Centre Commercial");
+    expect(nettoyerDirection("30 Rue Royale", "3")).toBe("30 Rue Royale");           // seulement le numéro EXACT
+    expect(nettoyerDirection("C6a Teteghem Vandermeersch", "C6")).toBe("Teteghem Vandermeersch");  // variante « a »
+  });
+  test("les noms tout en majuscules sont rendus lisibles (DK'Bus), les autres ne changent pas", () => {
+    expect(joliNom("DUNKERQUE GARE")).toBe("Dunkerque Gare");
+    expect(joliNom("PONT DE LA REINE")).toBe("Pont de la Reine");
+    expect(joliNom("Gare Lille Flandres")).toBe("Gare Lille Flandres");
+    expect(joliNom("12E DIM.")).toBe("12e Dim.");
+  });
+});
+
+describe("les cas découverts sur les données de Lille", () => {
+  const lille = {
+    lignes: {
+      M2: { nom: "M2", couleur: "#E30613", texte: "#FFFFFF", mode: "metro", long: "METRO LIGNE 2" },
+      N1: { nom: "N1", couleur: "#3A2757", texte: "#FFFFFF", mode: "bus", long: "LIGNE DE NUIT" },
+      L5: { nom: "L5", couleur: "#307BBF", texte: "#FFFFFF", mode: "bus", long: "LIANE 5" },
+    },
+    arrets: { G: ["Gare Lille Flandres", 50.6365, 3.0705], E: ["Eurotéléport", 50.6925, 3.1770], X: ["Tourcoing", 50.72, 3.16] },
+    parcours: [
+      { ligne: "M2", direction: "Roubaix Grand Place", arrets: ["G", "E"], minutes: [0, 19] },
+      { ligne: "M2", direction: "Tourcoing C.H. Dron", arrets: ["G", "E", "X"], minutes: [0, 19, 30] },
+      { ligne: "N1", direction: "Roubaix", arrets: ["G", "E"], minutes: [0, 20] },
+      { ligne: "L5", direction: "Roubaix", arrets: ["G", "E"], minutes: [0, 26] },
+    ],
+  };
+  const propositions = busDirects(lille, [["G", 100]], [["E", 150]]);
+
+  test("le M2 vers Roubaix OU Tourcoing : un seul trajet proposé, avec les deux directions", () => {
+    const m2 = propositions.filter((b) => b.ligne.nom === "M2");
+    expect(m2).toHaveLength(1);
+    expect(m2[0].direction).toBe("Roubaix Grand Place ou Tourcoing C.H. Dron");
+  });
+  test("au-delà de deux terminus, on cite le principal et le nombre des autres", () => {
+    const r = {
+      lignes: { C6: { nom: "C6", couleur: "#000000", texte: "#FFFFFF" } },
+      arrets: { G: ["Gare", 51.03, 2.37], J: ["Jean Bart", 51.035, 2.38] },
+      parcours: ["Teteghem A", "Teteghem B", "Place d'Uxem"].map((d, i) => ({ ligne: "C6", direction: d, arrets: ["G", "J"], minutes: [0, 4 + i] })),
+    };
+    expect(busDirects(r, [["G", 50]], [["J", 50]])[0].direction).toBe("Teteghem A (ou 2 autres terminus)");
+  });
+
+  test("la ligne de nuit est signalée, et passe derrière une ligne de jour plus lente", () => {
+    const noms = propositions.map((b) => b.ligne.nom);
+    expect(noms.indexOf("L5")).toBeLessThan(noms.indexOf("N1"));
+    expect(propositions.find((b) => b.ligne.nom === "N1").nuit).toBe(true);
+  });
+  test("le mode voyage avec la proposition, pour choisir les mots et le pictogramme", () => {
+    expect(propositions[0].ligne.mode).toBe("metro");
+  });
+});
+
+describe("les grands sites : jusqu'à 800 m à pied", () => {
+  // Un arrêt à environ 700 m au sud du point central du campus
+  const r = {
+    lignes: { B: { nom: "B", couleur: "#000000", texte: "#FFFFFF" } },
+    arrets: { GARE: ["Gare", 50.0, 2.0], CAMPUS: ["Campus", 50.0937, 2.0] },
+    parcours: [{ ligne: "B", direction: "Campus", arrets: ["GARE", "CAMPUS"], minutes: [0, 12] }],
+    gares: { Gare: { lat: 50.0, lon: 2.0, arrets_proches: [["GARE", 0]] } },
+  };
+  const couverte = { code: "test", reseau: r, nom: "Gare", gare: r.gares.Gare };
+  const centre = { lat: 50.1, lon: 2.0 };
+
+  test("une université dont le centre est à 700 m de l'arrêt est desservie", () => {
+    expect(busDepuisGare(couverte, { ...centre, cat: "universite" })).toHaveLength(1);
+  });
+  test("un bureau de poste à 700 m de l'arrêt ne l'est pas (500 m au plus)", () => {
+    expect(busDepuisGare(couverte, { ...centre, cat: "poste" })).toEqual([]);
   });
 });

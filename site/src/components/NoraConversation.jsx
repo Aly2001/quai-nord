@@ -6,10 +6,28 @@ import {
 } from "../data/horaires";
 import { SNCF_CONNECT } from "../data/faq";
 import {
-  useBus, gareCouverte, chercherLieu, busDepuisGare, busVersGare, lienCarte, minutesAPied, distance,
-  plusRapideQueAPied, garesCorrespondantes, libelleGare, SITES_RESEAUX, etapesSiteOfficiel,
+  chargerReseau, reseauDeVille, infosReseau, chercherLieu, busDepuisGare, busVersGare, lienCarte, minutesAPied,
+  distance, plusRapideQueAPied, garesCorrespondantes, libelleGare, SITES_RESEAUX, etapesSiteOfficiel, decrireLigne,
 } from "../data/bus";
 import "./Nora.css";
+
+// Le pictogramme du type de transport, dans la pastille de la ligne (affiché sur téléphone, voir Nora.css)
+const DESSINS_MODES = {
+  metro: <><rect x="5" y="3" width="14" height="15" rx="4" /><path d="M5 11h14M9 21l-2-3M15 21l2-3" /><circle cx="9" cy="14.5" r="0.8" /><circle cx="15" cy="14.5" r="0.8" /></>,
+  tram: <><path d="M9 2h6M12 2v4" /><rect x="5" y="6" width="14" height="12" rx="3" /><path d="M5 12h14M8 21l1.5-3M16 21l-1.5-3" /></>,
+  bus: <><rect x="4" y="3" width="16" height="15" rx="3" /><path d="M4 11h16M7 21v-3M17 21v-3" /><circle cx="8" cy="14.5" r="0.8" /><circle cx="16" cy="14.5" r="0.8" /></>,
+};
+
+function PastilleLigne({ ligne }) {
+  const { mode, nom } = decrireLigne(ligne);
+  return (
+    <span className="ligne-bus" style={{ background: ligne.couleur, color: ligne.texte }}>
+      <svg className="ligne-bus__icone" viewBox="0 0 24 24" width="18" height="18" aria-hidden="true" fill="none"
+           stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">{DESSINS_MODES[mode]}</svg>
+      {nom}
+    </span>
+  );
+}
 
 // L'avatar de Nora : une bulle de discussion (volontairement pas un visage humain)
 export function AvatarNora({ taille = 40 }) {
@@ -47,7 +65,6 @@ const nouvelId = () => ++compteur;
 export default function NoraConversation({ contexte = null, accueil = null, suggestions: proposees = null, questionInitiale = null }) {
   const { index } = useIndexHoraires();
   const risques = useRisques();
-  const reseauxBus = useBus();
   const [messages, setMessages] = useState([]);
   const [saisie, setSaisie] = useState("");
   const [enAttente, setEnAttente] = useState(false);
@@ -172,10 +189,11 @@ export default function NoraConversation({ contexte = null, accueil = null, sugg
 
   // ---------- Les bus entre la gare et une destination : Nora a compris, l'APPLICATION cherche ----------
   async function itineraireBus(action, nomGare = null, lieuChoisi = null) {
-    const code = normaliser(action.ville).startsWith("boulogne") ? "boulogne" : "calais";
-    const reseau = reseauxBus?.[code];
+    // Le réseau : donné par le serveur (vérifié), sinon retrouvé d'après la ville. Chargé seulement maintenant.
+    const code = action.reseau || reseauDeVille(action.ville);
+    const reseau = code ? await chargerReseau(code) : null;
     if (!reseau) {
-      ajouter({ auteur: "nora", texte: "Les données des bus ne sont pas disponibles pour le moment. Réessayez plus tard." });
+      ajouter({ auteur: "nora", texte: "Les données des transports ne sont pas disponibles pour le moment. Réessayez plus tard." });
       return;
     }
 
@@ -198,8 +216,8 @@ export default function NoraConversation({ contexte = null, accueil = null, sugg
       }
       gare = gares[0];
     }
-    const couverte = gareCouverte(reseauxBus, gare);
-    const ville = code === "boulogne" ? "Boulogne-sur-Mer" : "Calais";
+    const couverte = { code, reseau, nom: gare, gare: reseau.gares[gare] };
+    const ville = infosReseau(code).ville;
     const nomAffiche = libelleGare(gare);              // le nom courant, pour les phrases ; « gare » reste le vrai nom
 
     // 2. Le lieu : retrouvé, ou à choisir s'il y en a plusieurs bien distincts
@@ -243,6 +261,7 @@ export default function NoraConversation({ contexte = null, accueil = null, sugg
     const bus = plusRapideQueAPied(depuis ? busDepuisGare(couverte, lieu) : busVersGare(couverte, lieu), metres);
     const carte = depuis ? lienCarte(pointGare, lieu) : lienCarte(lieu, pointGare);
     const source = `Lignes : ${reseau.reseau} · Lieux : © les contributeurs d'OpenStreetMap`;
+    const kilometres = (metres / 1000).toFixed(1).replace(".", ",");
     if (bus.length === 0 && metres <= 1200) {
       ajouter({
         auteur: "nora",
@@ -257,7 +276,7 @@ export default function NoraConversation({ contexte = null, accueil = null, sugg
       const garePhrase = `Gare de ${nomAffiche}`;
       ajouter({
         auteur: "nora",
-        texte: `Aucun bus ne relie directement la gare de ${nomAffiche} et ${lieu.nom} (${(metres / 1000).toFixed(1).replace(".", ",")} km, `
+        texte: `Aucun ${infosReseau(code).modes.length > 1 ? "bus, tram ou métro" : "bus"} ne relie directement la gare de ${nomAffiche} et ${lieu.nom} (${kilometres} km, `
           + `environ ${minutesAPied(metres)} minutes à pied). Pour un trajet avec changement, le plus simple :`,
         etapes: depuis ? etapesSiteOfficiel(code, garePhrase, lieuTexte) : etapesSiteOfficiel(code, lieuTexte, garePhrase),
         site: SITES_RESEAUX[code],
@@ -265,11 +284,16 @@ export default function NoraConversation({ contexte = null, accueil = null, sugg
       });
       return;
     }
+    // Quand la marche reste raisonnable, Nora la cite aussi : le voyageur choisit en connaissant les deux
+    const modeMeilleur = decrireLigne(bus[0].ligne).mode;
+    const enTransport = { bus: "En bus", tram: "En tram", metro: "En métro" }[modeMeilleur];
     ajouter({
       auteur: "nora",
-      texte: depuis
-        ? `Voici comment rejoindre ${lieu.nom} depuis la gare de ${nomAffiche} :`
-        : `Voici comment rejoindre la gare de ${nomAffiche} depuis ${lieu.nom} :`,
+      texte: metres <= 1500
+        ? `À pied, comptez environ ${minutesAPied(metres)} min (${metres} m). ${enTransport}, c'est plus rapide :`
+        : depuis
+          ? `Voici comment rejoindre ${lieu.nom} depuis la gare de ${nomAffiche} (${kilometres} km) :`
+          : `Voici comment rejoindre la gare de ${nomAffiche} depuis ${lieu.nom} (${kilometres} km) :`,
       bus, carte, sourceBus: source,
     });
   }
@@ -411,26 +435,29 @@ export default function NoraConversation({ contexte = null, accueil = null, sugg
                   <article className="bus-meilleur">
                     <div className="bus-meilleur__haut">
                       <span className="mini-bus__haut">
-                        <span className="ligne-bus" style={{ background: meilleur.ligne.couleur, color: meilleur.ligne.texte }}>{meilleur.ligne.nom}</span>
-                        <span>{meilleur.depart.nom} → {meilleur.arrivee.nom}</span>
+                        <PastilleLigne ligne={meilleur.ligne} />
+                        <span className="bus-meilleur__trajet">{meilleur.depart.nom} → {meilleur.arrivee.nom}</span>
                       </span>
                       <span className="bus-meilleur__badge">
                         Le plus rapide{meilleur.minutesBus !== null ? ` · ${meilleur.minutesTotal} min` : ""}
                       </span>
                     </div>
                     <ol className="bus-meilleur__etapes">
-                      <li>Marchez <strong>{minutesAPied(meilleur.depart.marche)} min</strong> jusqu'à l'arrêt <strong>{meilleur.depart.nom}</strong></li>
-                      <li>Prenez la ligne <strong>{meilleur.ligne.nom}</strong>, direction <strong>{meilleur.direction}</strong> · {meilleur.arrets} arrêt{meilleur.arrets > 1 ? "s" : ""}{meilleur.occasionnel ? " (service peu fréquent)" : ""}</li>
+                      <li>Marchez <strong>{minutesAPied(meilleur.depart.marche)} min</strong> jusqu'à {decrireLigne(meilleur.ligne).station} <strong>{meilleur.depart.nom}</strong></li>
+                      <li>Prenez <strong>{decrireLigne(meilleur.ligne).prendre}</strong>, direction <strong>{meilleur.direction}</strong> · {decrireLigne(meilleur.ligne).arrets(meilleur.arrets)}{meilleur.nuit ? " (ligne de nuit)" : ""}{meilleur.occasionnel ? " (service peu fréquent)" : ""}</li>
                       <li>Descendez à <strong>{meilleur.arrivee.nom}</strong>, puis {minutesAPied(meilleur.arrivee.marche)} min à pied</li>
                     </ol>
                   </article>
                   {autres.length > 0 && <p className="bus-autres__titre">Autres possibilités</p>}
                   {autres.map((b) => (
-                    <a key={`${b.ligne.nom}-${b.direction}`} href={m.carte} target="_blank" rel="noopener noreferrer" className="bus-autre">
-                      <span className="ligne-bus" style={{ background: b.ligne.couleur, color: b.ligne.texte }}>{b.ligne.nom}</span>
+                    <a key={`${b.ligne.nom}-${b.depart.id}-${b.arrivee.id}`} href={m.carte} target="_blank" rel="noopener noreferrer" className="bus-autre">
+                      <PastilleLigne ligne={b.ligne} />
                       <span className="bus-autre__texte">
                         <strong>{b.depart.nom} → {b.arrivee.nom}</strong>
-                        <span>Direction {b.direction}{b.occasionnel ? " · peu fréquent" : ""}</span>
+                        <span>
+                          Direction {b.direction}{b.occasionnel ? " · peu fréquent" : ""}
+                          {b.nuit && <> <span className="bus-autre__nuit">Ligne de nuit</span></>}
+                        </span>
                       </span>
                       <strong>{b.minutesBus !== null ? `${b.minutesTotal} min` : `${b.arrets} arrêts`}</strong>
                     </a>

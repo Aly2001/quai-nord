@@ -1,16 +1,13 @@
 import { Link } from "react-router-dom";
-import { useBus, libelleGare } from "../data/bus";
+import { RESEAUX, libelleGare } from "../data/bus";
 import { AvatarNora } from "./NoraConversation";
 import "./BusDepuisGare.css";
 
-// La carte d'accueil qui fait découvrir l'aide de Nora pour les bus, gare par gare
-const VILLES = { calais: "Calais", boulogne: "Boulogne-sur-Mer" };
-
+// La carte d'accueil qui fait découvrir l'aide de Nora pour les bus, gare par gare.
+// Sur ordinateur seulement (voir BusDepuisGare.css) : sur téléphone, le bandeau des résultats suffit.
+// Les gares viennent de la liste unique reseaux.json : aucune donnée à télécharger pour l'afficher.
 export default function BusDepuisGare() {
-  const reseaux = useBus();
-  if (!reseaux) return null;
-  const gares = Object.entries(reseaux).flatMap(([code, reseau]) =>
-    Object.keys(reseau.gares).map((nom) => ({ nom, ville: VILLES[code] })));
+  const gares = RESEAUX.flatMap((r) => r.gares.map((nom) => ({ nom, ville: r.ville })));
   if (gares.length === 0) return null;
 
   return (

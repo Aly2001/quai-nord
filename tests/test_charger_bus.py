@@ -47,7 +47,7 @@ def reseau_test(tmp_path, monkeypatch):
     monkeypatch.setattr(cb, "gares_sncf", lambda noms: {"Lille Flandres": (50.6370, 3.0700)})
     monkeypatch.setattr(cb, "lieux_utiles", lambda gares, anciens: [])
     (tmp_path / "zips").mkdir()
-    reseau = {"code": "test", "nom": "Réseau test", "gares": ["lille flandres", "lille europe"],
+    reseau = {"code": "test", "nom": "Réseau test", "gares": ["Lille Flandres", "Lille Europe"],
               "source": "test", "exclure": ["^s ?\\d+$"]}
 
     def preparer(contenu):
@@ -63,10 +63,12 @@ def test_la_liste_des_reseaux_est_complete():
     assert {"calais", "boulogne", "lille", "dunkerque", "amiens", "arras"} <= set(reseaux)
     for code, r in reseaux.items():
         assert r["code"] == code and code.isalpha() and code.islower()
-        for champ in ("nom", "ville", "villes", "gares", "url", "source", "site", "exclure"):
+        for champ in ("nom", "ville", "villes", "gares", "modes", "url", "source", "site", "exclure"):
             assert champ in r, f"{code} : champ {champ} manquant"
-        # Les noms de gares doivent déjà être « normalisés », sinon ils ne seraient jamais trouvés
-        assert all(g == cb.normaliser(g) for g in r["gares"]), code
+        assert set(r["modes"]) <= {"metro", "tram", "bus"}, code
+        # Les mots des villes sont comparés tels quels : ils doivent déjà être « normalisés »
+        assert all(v == cb.normaliser(v) for v in r["villes"]), code
+    assert reseaux["lille"]["modes"] == ["metro", "tram", "bus"]
 
 
 # ---------- La validité ----------

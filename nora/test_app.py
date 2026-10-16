@@ -238,8 +238,16 @@ def action_bus(**valeurs):
     (action_bus(gare="Boulogne - Tintelleries", ville=""), True),           # ville déduite de la gare
     (action_bus(gare="gare Boulogne ville", ville="Boulogne"), True),       # retour du test terrain
     (action_bus(gare="la gare de Calais Ville", ville=""), True),           # « la gare de » ignoré
-    (action_bus(ville="Lille", gare="Lille Flandres"), False),              # autre ville
-    (action_bus(gare="Lille Flandres"), False),                             # gare d'une autre ville
+    (action_bus(ville="Lille", gare="Lille Flandres"), True),               # Lille : bus, tram et métro
+    (action_bus(ville="Lille", gare="Roubaix"), True),                      # Roubaix est sur le réseau de Lille
+    (action_bus(ville="", gare="Tourcoing"), True),                         # ville déduite de la gare
+    (action_bus(ville="Amiens", gare="Longueau"), True),                    # Longueau est sur le réseau d'Amiens
+    (action_bus(ville="Arras", gare=""), True),
+    (action_bus(ville="Dunkerque", gare="Dunkerque"), True),
+    (action_bus(ville="Valenciennes", gare="Valenciennes"), False),         # ville non couverte
+    (action_bus(ville="", gare="Paris Gare du Nord"), False),               # gare non couverte
+    (action_bus(gare="Lille Flandres"), False),                             # gare d'une autre ville que Calais
+    (action_bus(ville="Lille", gare="Calais Ville"), False),                # ville et gare contradictoires
     (action_bus(sens="entre_deux_lieux"), False),                           # pas de gare dans le trajet
     (action_bus(lieu=""), False),                                           # lieu manquant
     (action_bus(lieu="x" * 81), False),                                     # lieu anormalement long
@@ -249,18 +257,30 @@ def test_perimetre_bus(action, attendu):
 
 
 def test_bus_hors_perimetre_refuse_par_le_code(monkeypatch):
-    """Même si l'IA propose un bus à Lille, le serveur refuse et explique son rôle."""
+    """Même si l'IA propose un bus à Valenciennes, le serveur refuse et explique son rôle."""
     simuler_mistral(monkeypatch, json.dumps({
         "reponse": "", "sources": [], "lien_sncf": False,
-        "action": action_bus(ville="Lille", gare="Lille Flandres", lieu="le stade"),
+        "action": action_bus(ville="Valenciennes", gare="Valenciennes", lieu="le stade"),
     }))
     corps = client.post("/api/nora", json=UNE_QUESTION).json()
     assert corps["action"] is None
     assert "entre une gare et votre destination" in corps["reponse"]
+    assert "Lille" in corps["reponse"] and "Arras" in corps["reponse"]       # les six villes sont citées
 
 
 def test_bus_valide_transmis(monkeypatch):
     simuler_mistral(monkeypatch, json.dumps({"reponse": "", "sources": [], "lien_sncf": False, "action": action_bus()}))
     corps = client.post("/api/nora", json=UNE_QUESTION).json()
     assert corps["action"] == {"type": "itineraire_bus", "sens": "depuis_gare", "gare": "Calais Ville",
-                               "ville": "Calais", "lieu": "la mairie"}
+                               "ville": "Calais", "reseau": "calais", "lieu": "la mairie"}
+
+
+def test_le_reseau_est_transmis_au_site():
+    """Le site charge le bon fichier grâce au code du réseau, vérifié par le serveur."""
+    action = module.verifier_action(action_bus(ville="", gare="Roubaix", lieu="la piscine"))
+    assert action["reseau"] == "lille" and action["ville"] == "Lille"
+
+
+def test_les_regles_citent_les_six_villes():
+    for ville in ("Lille", "Calais", "Boulogne", "Dunkerque", "Amiens", "Arras"):
+        assert ville in module.REGLES

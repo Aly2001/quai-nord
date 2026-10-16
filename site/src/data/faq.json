@@ -54,8 +54,8 @@
         {
           "question": "Nora peut-elle m'aider pour les bus ?",
           "reponse": [
-            "Oui, à Calais et à Boulogne-sur-Mer, entre une gare et votre destination, dans les deux sens : par exemple « Je suis à la gare de Calais Ville, je vais à la mairie », ou « Je suis à la plage, quel bus pour la gare ? ». Nora indique les bus directs, la ligne, les arrêts et la direction.",
-            "Les lignes viennent des données ouvertes des réseaux Imag'in (Calais) et Marinéo (Boulogne), et les lieux d'OpenStreetMap. Vérifiez les horaires auprès du réseau avant de partir."
+            "Oui, à Lille, Calais, Boulogne-sur-Mer, Dunkerque, Amiens et Arras, entre une gare et votre destination, dans les deux sens : par exemple « Je suis à la gare de Lille Flandres, je vais à l'université », ou « Je suis à la plage, quel bus pour la gare ? ». Nora indique les bus directs, et à Lille le métro et le tram : la ligne, les arrêts et la direction.",
+            "Les lignes viennent des données ouvertes des réseaux ilévia (Lille), Imag'in (Calais), Marinéo (Boulogne-sur-Mer), DK'Bus (Dunkerque), Ametis (Amiens) et Artis (Arras), et les lieux d'OpenStreetMap. Vérifiez les horaires auprès du réseau avant de partir."
           ]
         }
       ]

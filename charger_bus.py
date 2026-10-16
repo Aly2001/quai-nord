@@ -508,8 +508,9 @@ def preparer(code, reseau):
 
     # ---------- Les gares et leurs arrêts proches ----------
     gares = {}
-    trouvees = gares_sncf(set(reseau["gares"]))
-    manquantes = set(reseau["gares"]) - {normaliser(nom) for nom in trouvees}
+    cherchees = {normaliser(nom) for nom in reseau["gares"]}       # comparées sans accents ni tirets
+    trouvees = gares_sncf(cherchees)
+    manquantes = cherchees - {normaliser(nom) for nom in trouvees}
     if manquantes:
         print(f"   ATTENTION : gares introuvables dans gtfs.db : {', '.join(sorted(manquantes))} "
               "(vérifie leur nom SNCF dans reseaux.json)", flush=True)

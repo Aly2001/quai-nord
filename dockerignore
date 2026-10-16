@@ -11,6 +11,7 @@
 !site/src/
 !site/src/data/
 !site/src/data/faq.json
+!site/src/data/reseaux.json
 nora/test_app.py
 nora/diagnostic.py
 nora/__pycache__/

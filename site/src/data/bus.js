@@ -1,8 +1,10 @@
 // =====================================================================
-//  Les bus entre une gare et une destination (Calais et Boulogne)
+//  Les bus, trams et métros entre une gare et une destination
 //
-//  Les données viennent de charger_bus.py (site/public/bus/<reseau>.json) :
-//   - lignes   : nom et couleur officielle
+//  Les réseaux couverts sont décrits dans UNE seule liste, reseaux.json (lue aussi par
+//  charger_bus.py et par le serveur de Nora). Les données de chaque réseau viennent de
+//  charger_bus.py (site/public/bus/<reseau>.json), chargées SEULEMENT quand on en a besoin :
+//   - lignes   : nom, couleur officielle et type (bus, tram ou métro)
 //   - arrets   : nom et position GPS
 //   - parcours : pour chaque ligne et direction, la liste ORDONNÉE de ses arrêts,
 //                et les minutes depuis le premier arrêt
@@ -11,16 +13,39 @@
 //  Le principe de la recherche, comme pour les trains directs :
 //  un parcours convient s'il passe par un arrêt de DÉPART, PUIS par un arrêt d'ARRIVÉE.
 // =====================================================================
-import { useEffect, useState } from "react";
 import { normaliser } from "./horaires";
+import LISTE_RESEAUX from "./reseaux.json";
 
-export const RESEAUX_BUS = ["calais", "boulogne"];
+// ---------- La liste unique des réseaux ----------
+export const RESEAUX = LISTE_RESEAUX.reseaux;
+export const RESEAUX_BUS = RESEAUX.map((r) => r.code);
 
 // Les sites officiels des réseaux, pour guider le voyageur quand Nora ne trouve pas elle-même
-export const SITES_RESEAUX = {
-  calais: { nom: "Imag'in (Calais)", url: "http://www.sitac-calais-opale-bus.fr/" },
-  boulogne: { nom: "Marinéo (Boulogne-sur-Mer)", url: "https://www.marineo.fr/" },
-};
+export const SITES_RESEAUX = Object.fromEntries(RESEAUX.map((r) => [r.code, { nom: r.nom, url: r.site }]));
+
+export const infosReseau = (code) => RESEAUX.find((r) => r.code === code) || null;
+
+// Le réseau qui dessert une gare SNCF (« Lille Flandres » -> lille), SANS rien télécharger
+export function reseauDeGare(nomGare) {
+  const cherche = normaliser(nomGare || "");
+  if (!cherche) return null;
+  return RESEAUX.find((r) => r.gares.some((g) => normaliser(g) === cherche))?.code || null;
+}
+
+// Le réseau d'une ville citée par Nora (« Boulogne-sur-Mer », « Roubaix » -> boulogne, lille)
+export function reseauDeVille(ville) {
+  const cherche = normaliser(ville || "");
+  if (!cherche) return null;
+  return RESEAUX.find((r) => r.villes.includes(cherche) || normaliser(r.ville) === cherche)?.code || null;
+}
+
+// « le bus » ou « le bus, le tram ou le métro » : les mots qui annoncent les transports d'un réseau
+export function transportsDuReseau(code) {
+  const modes = infosReseau(code)?.modes || ["bus"];
+  const mots = { bus: "le bus", tram: "le tram", metro: "le métro" };
+  const liste = ["bus", "tram", "metro"].filter((m) => modes.includes(m)).map((m) => mots[m]);
+  return liste.length > 1 ? `${liste.slice(0, -1).join(", ")} ou ${liste[liste.length - 1]}` : liste[0];
+}
 
 // Les étapes pour chercher soi-même sur le site officiel, déjà remplies avec le départ et l'arrivée
 export function etapesSiteOfficiel(code, depart, arrivee) {
@@ -33,23 +58,30 @@ export function etapesSiteOfficiel(code, depart, arrivee) {
 }
 const DOSSIER_BUS = `${import.meta.env.BASE_URL}bus`;
 const RAYON_DESTINATION = 500;   // mètres à pied, au maximum, entre l'arrêt et la destination
+// Un GRAND site (campus, hôpital) est décrit par son point central, souvent loin de l'entrée :
+// on accepte une marche un peu plus longue jusqu'à ce point (même règle que charger_bus.py)
+const RAYON_GRANDS_SITES = 800;
+const CATEGORIES_GRANDS_SITES = new Set(["universite", "hopital", "stade", "commerce", "loisirs", "plage"]);
+export const rayonMarche = (categorie) => (CATEGORIES_GRANDS_SITES.has(categorie) ? RAYON_GRANDS_SITES : RAYON_DESTINATION);
 const VITESSE_MARCHE = 80;       // mètres par minute (environ 5 km/h)
 
-// ---------- Les données ----------
-let cache = null;
+// ---------- Les données : un seul réseau à la fois ----------
+// Lille pèse 350 Ko : on ne télécharge un réseau que lorsqu'on cherche un trajet dans sa ville.
+// Le résultat est gardé en mémoire : la deuxième question est instantanée.
+const enCours = new Map();
 
-export function useBus() {
-  const [reseaux, setReseaux] = useState(cache);
-  useEffect(() => {
-    if (cache) return;
-    Promise.all(RESEAUX_BUS.map((code) =>
-      fetch(`${DOSSIER_BUS}/${code}.json`).then((r) => (r.ok ? r.json() : null)).catch(() => null)))
-      .then((liste) => {
-        cache = Object.fromEntries(RESEAUX_BUS.map((code, i) => [code, liste[i]]).filter(([, d]) => d));
-        setReseaux(cache);
-      });
-  }, []);
-  return reseaux;
+export function chargerReseau(code) {
+  if (!RESEAUX_BUS.includes(code)) return Promise.resolve(null);
+  if (!enCours.has(code)) {
+    enCours.set(code, fetch(`${DOSSIER_BUS}/${code}.json`)
+      .then((r) => (r.ok ? r.json() : null))
+      .catch(() => null)
+      .then((donnees) => {
+        if (!donnees) enCours.delete(code);          // en cas d'échec, on pourra réessayer
+        return donnees;
+      }));
+  }
+  return enCours.get(code);
 }
 
 // Le réseau et la gare qui correspondent à un nom de gare SNCF (ou null si non couverte)
@@ -104,7 +136,40 @@ export function arretsProches(reseau, lat, lon, rayon = RAYON_DESTINATION) {
     .sort((a, b) => a[1] - b[1]);
 }
 
+// ---------- Les mots justes : bus, tram ou métro ----------
+// « DUNKERQUE GARE » -> « Dunkerque Gare » : certains réseaux écrivent tout en majuscules
+const PETITS_MOTS = new Set(["de", "du", "des", "la", "le", "les", "et", "à", "au", "aux", "sur", "en"]);
+export function joliNom(texte) {
+  if (!texte || texte !== texte.toUpperCase() || !/[A-ZÀ-Ý]/.test(texte)) return texte;
+  return texte.toLowerCase()
+    .replace(/(^|[\s\-'’(])([a-zà-ÿ])/g, (tout, avant, lettre) => avant + lettre.toUpperCase())
+    .split(" ")
+    .map((mot, i) => (i > 0 && PETITS_MOTS.has(mot.toLowerCase()) ? mot.toLowerCase() : mot))
+    .join(" ");
+}
+
+// « 3 Achicourt Collège » sur la ligne 3 -> « Achicourt Collège » : le numéro n'est pas une direction
+export function nettoyerDirection(direction, nomLigne) {
+  let texte = (direction || "").trim();
+  // Le nom de la ligne, éventuellement suivi d'une lettre de variante (« C6a ») : jamais « 30 » pour la ligne 3
+  const echappe = String(nomLigne || "").replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+  if (nomLigne) texte = texte.replace(new RegExp(`^${echappe}[a-z]?\\s+`, "i"), "").trim();
+  return joliNom(texte);
+}
+
+// Comment parler d'une ligne : « le métro M1 », « la station », « 9 stations »
+export function decrireLigne(ligne) {
+  const mode = ligne.mode || "bus";
+  const nom = mode === "tram" && /^tram/i.test(ligne.nom) ? "Tram" : ligne.nom;
+  const prendre = mode === "metro" ? `le métro ${nom}` : mode === "tram" ? (nom === "Tram" ? "le tram" : `le tram ${nom}`) : `le bus ${nom}`;
+  const station = mode === "bus" ? "l'arrêt" : "la station";
+  const arrets = (n) => `${n} ${mode === "bus" ? "arrêt" : "station"}${n > 1 ? "s" : ""}`;
+  return { mode, nom, prendre, station, arrets, nuit: /\bnuit\b/i.test(ligne.long || "") };
+}
+
 // ---------- Le cœur : les bus directs entre deux groupes d'arrêts ----------
+const PENALITE_NUIT = 30;         // minutes : une ligne de nuit passe derrière les lignes de jour
+
 export function busDirects(reseau, departs, arrivees, nombre = 3) {
   const distanceDepart = new Map(departs);
   const distanceArrivee = new Map(arrivees);
@@ -120,27 +185,46 @@ export function busDirects(reseau, departs, arrivees, nombre = 3) {
         const enBus = p.minutes ? p.minutes[j] - p.minutes[i] : (j - i) * 2;   // 2 min par arrêt si inconnu
         // Le temps total estimé ; un parcours peu fréquent (moins de 3 voyages) est pénalisé,
         // pour qu'un trajet habituel passe toujours devant un trajet occasionnel
-        const penalite = (p.voyages ?? 3) < 3 ? 20 : 0;
+        const ligne = reseau.lignes[p.ligne];
+        const description = decrireLigne(ligne);
+        const penalite = ((p.voyages ?? 3) < 3 ? 20 : 0) + (description.nuit ? PENALITE_NUIT : 0);
         const cout = minutesAPied(marche) + enBus + penalite;
         const cle = `${p.ligne}|${p.direction}`;
         if (!meilleurs.has(cle) || cout < meilleurs.get(cle).cout) {
-          const ligne = reseau.lignes[p.ligne];
           meilleurs.set(cle, {
-            ligne: { nom: ligne.nom, couleur: ligne.couleur, texte: ligne.texte },
-            direction: p.direction,
-            depart: { id: idDepart, nom: reseau.arrets[idDepart][0], marche: distanceDepart.get(idDepart) },
-            arrivee: { id: idArrivee, nom: reseau.arrets[idArrivee][0], marche: distanceArrivee.get(idArrivee) },
+            ligne: { nom: ligne.nom, couleur: ligne.couleur, texte: ligne.texte, mode: description.mode, long: ligne.long || "" },
+            direction: nettoyerDirection(p.direction, ligne.nom),
+            nuit: description.nuit,
+            depart: { id: idDepart, nom: joliNom(reseau.arrets[idDepart][0]), marche: distanceDepart.get(idDepart) },
+            arrivee: { id: idArrivee, nom: joliNom(reseau.arrets[idArrivee][0]), marche: distanceArrivee.get(idArrivee) },
             arrets: j - i,
             minutesBus: p.minutes ? enBus : null,
             minutesTotal: minutesAPied(marche) + enBus,     // ce qu'on affiche (sans la pénalité)
-            occasionnel: penalite > 0,
+            occasionnel: (p.voyages ?? 3) < 3,
             cout,
           });
         }
       }
     });
   }
-  return [...meilleurs.values()].sort((a, b) => a.cout - b.cout).slice(0, nombre);
+  // Une même ligne entre les MÊMES arrêts, vers deux terminus (métro M2 vers Roubaix OU Tourcoing) :
+  // c'est le même trajet pour le voyageur, proposé une seule fois
+  const regroupes = new Map();
+  for (const b of [...meilleurs.values()].sort((x, y) => x.cout - y.cout)) {
+    const cle = `${b.ligne.nom}|${b.depart.id}|${b.arrivee.id}`;
+    const deja = regroupes.get(cle);
+    if (!deja) regroupes.set(cle, { ...b, directions: [b.direction] });
+    else if (!deja.directions.includes(b.direction)) deja.directions.push(b.direction);
+  }
+  return [...regroupes.values()]
+    // Deux terminus : on cite les deux ; davantage (DK'Bus C6 en a six) : le principal, et le nombre des autres
+    .map((b) => ({
+      ...b,
+      direction: b.directions.length <= 2
+        ? b.directions.join(" ou ")
+        : `${b.directions[0]} (ou ${b.directions.length - 1} autres terminus)`,
+    }))
+    .slice(0, nombre);
 }
 
 // Le bus ne vaut la peine que s'il est plus rapide que d'y aller directement à pied
@@ -153,7 +237,8 @@ export function plusRapideQueAPied(propositions, metresAPied) {
 // est près de la gare, on proposerait de monter près de la gare... pour redescendre près de la gare.
 function arretsDuLieu(couverte, lieu) {
   const prochesGare = new Set(couverte.gare.arrets_proches.map(([id]) => id));
-  return arretsProches(couverte.reseau, lieu.lat, lieu.lon).filter(([id]) => !prochesGare.has(id));
+  return arretsProches(couverte.reseau, lieu.lat, lieu.lon, rayonMarche(lieu.cat))
+    .filter(([id]) => !prochesGare.has(id));
 }
 
 export function busDepuisGare(couverte, lieu) {
@@ -172,7 +257,7 @@ export function busVersGare(couverte, lieu) {
 // Renvoie une liste de lieux possibles : [{ nom, detail, lat, lon, distance }], du plus proche au plus loin.
 
 const MOTS_VIDES = new Set(["le", "la", "les", "l", "un", "une", "des", "du", "de", "d", "au", "aux", "a",
-  "en", "vers", "pour", "jusqu", "calais", "boulogne", "sur", "mer"]);
+  "en", "vers", "pour", "jusqu", "sur", "mer", ...RESEAUX.flatMap((r) => r.villes.flatMap((v) => v.split(" ")))]);
 
 // Les catégories reconnues, et leur traduction en filtre OpenStreetMap
 export const CATEGORIES = [
@@ -264,7 +349,7 @@ async function parCategorie(categorie, gare) {
     const nom = e.tags?.name || categorie.nom;
     if (lat == null || vus.has(nom)) continue;            // un même lieu peut être décrit plusieurs fois
     vus.add(nom);
-    lieux.push({ nom, detail: [e.tags?.["addr:street"], e.tags?.["addr:city"]].filter(Boolean).join(", "), lat, lon });
+    lieux.push({ nom, cat: categorie.code, detail: [e.tags?.["addr:street"], e.tags?.["addr:city"]].filter(Boolean).join(", "), lat, lon });
   }
   return lieux;
 }

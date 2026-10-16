@@ -10,15 +10,21 @@ export default function NoraPanneau({ titre, contexte, accueil = null, suggestio
   const boite = useRef(null);
 
   // Le clavier du téléphone : quand il s'ouvre, la hauteur VISIBLE de l'écran diminue,
-  // mais la page ne le sait pas toute seule. On écoute cette hauteur (visualViewport)
-  // et on y ajuste le panneau, pour que la saisie reste juste au-dessus du clavier.
+  // mais la page ne le sait pas toute seule. On écoute cette hauteur (visualViewport).
+  // Le panneau garde toute la hauteur de l'écran (son fond blanc passe SOUS le clavier, qui est
+  // transparent sur les iPhone récents), et une marge en bas égale au clavier garde la saisie au-dessus.
   useEffect(() => {
     const vue = window.visualViewport;
     if (!vue) return undefined;
     const ajuster = () => {
       if (!boite.current) return;
-      boite.current.style.height = `${vue.height}px`;
+      const hauteurEcran = window.innerHeight;
+      const clavier = Math.max(0, Math.round(hauteurEcran - vue.height - vue.offsetTop));
       boite.current.style.top = `${vue.offsetTop}px`;
+      boite.current.style.height = `${hauteurEcran}px`;
+      boite.current.style.paddingBottom = `${clavier}px`;
+      // Clavier ouvert : la barre du bas de l'iPhone est cachée, inutile de lui laisser de la place
+      boite.current.classList.toggle("nora-panneau__boite--clavier", clavier > 80);
     };
     ajuster();
     vue.addEventListener("resize", ajuster);

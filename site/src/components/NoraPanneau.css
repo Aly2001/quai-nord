@@ -5,7 +5,8 @@
   position: absolute;
   top: 0;
   right: 0;
-  height: 100%;            /* ajustée en direct à la hauteur visible (clavier ouvert) */
+  height: 100%;            /* ajustée en direct, avec une marge en bas pour le clavier (NoraPanneau.jsx) */
+  box-sizing: border-box;
   width: 440px;
   max-width: 100%;
   display: flex;
@@ -52,3 +53,6 @@
   .nora-panneau__titre p { display: none; }
   .nora-panneau__contexte { padding: 7px 14px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 }
+
+/* Clavier ouvert : pas de marge pour la barre du bas de l'iPhone, cachée par le clavier */
+.nora-panneau__boite--clavier .nora-bas { padding-bottom: 10px; }

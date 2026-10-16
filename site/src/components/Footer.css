@@ -14,3 +14,9 @@
 .pied__logo { font-family: var(--police-titre); font-weight: 700; font-size: 26px; color: #FFFFFF; }
 .pied__logo span { color: var(--signal); }
 .pied__texte { margin: 0; max-width: 46em; font-size: 14px; line-height: 1.5; }
+
+/* Sur téléphone, comme dans une application : pas de pied de page.
+   Les sources sont dans Plus › Sources et licences, et rappelées en une ligne sur l'accueil. */
+@media (max-width: 640px) {
+  .pied { display: none; }
+}

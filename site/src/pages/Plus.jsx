@@ -26,18 +26,29 @@ export default function Plus() {
       </section>
 
       <section className="plus__bloc">
+        <h2 className="plus__rubrique">À propos</h2>
+        <div className="plus__apropos">
+          <p>
+            Quai Nord est né d'une question simple : mon TER sera-t-il à l'heure&nbsp;? Conçu et développé
+            par <strong>Aly Keita</strong>, de la collecte des données en temps réel jusqu'à l'assistante IA.
+          </p>
+          <div className="plus__boutons">
+            <a href="https://www.linkedin.com/in/aly-keita-306703340/" target="_blank" rel="noopener noreferrer"
+               className="plus__bouton plus__bouton--plein">LinkedIn ↗</a>
+            <a href="https://github.com/Aly2001/quai-nord" target="_blank" rel="noopener noreferrer"
+               className="plus__bouton">Code sur GitHub ↗</a>
+          </div>
+        </div>
+      </section>
+
+      <section className="plus__bloc">
         <h2 className="plus__rubrique">Aide et informations</h2>
         <nav aria-label="Aide et informations" className="plus__liens">
           <Link to="/faq">Questions fréquentes</Link>
           <Link to="/faq#risque">Comment est calculé le risque ?</Link>
-          <Link to="/faq#donnees">Données et licences</Link>
-          <a href="https://github.com/Aly2001/quai-nord" target="_blank" rel="noopener noreferrer">Code source sur GitHub ↗</a>
+          <Link to="/sources">Sources et licences</Link>
         </nav>
       </section>
-
-      <p className="plus__mention">
-        Projet personnel, sans lien avec la SNCF. Données SNCF Voyageurs (ODbL) et Open-Meteo (CC BY 4.0).
-      </p>
     </div>
   );
 }

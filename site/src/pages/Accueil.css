@@ -203,3 +203,23 @@
 }
 
 .decouverte__lien { font-weight: 600; margin-top: auto; padding: 10px 0; }
+
+/* ---------- Téléphone : l'accueil se limite à la recherche et aux favoris ----------
+   Les chiffres restent sur ordinateur, et sur les pages Analyses et Carte (onglets). */
+.accueil__signature { display: none; }
+
+@media (max-width: 640px) {
+  .seulement-ordinateur { display: none !important; }
+  .accueil__signature {
+    display: block;
+    margin: 0;
+    padding: 4px 8px 20px;
+    text-align: center;
+    font-size: 13px;
+    line-height: 1.5;
+    color: var(--texte-doux);
+  }
+  .accueil__signature a { color: var(--mer); font-weight: 600; }
+  /* Le bandeau n'a plus de contenu à sa droite ni en dessous : moins d'espace perdu */
+  .bandeau { margin-bottom: 18px; min-height: 0; }
+}

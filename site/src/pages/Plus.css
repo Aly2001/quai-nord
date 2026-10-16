@@ -33,3 +33,23 @@
 .plus__liens a:last-child { border-bottom: 0; }
 .plus__liens a:hover { background: #F5F7F9; color: var(--nuit); }
 .plus__mention { margin: 0; font-size: 14px; color: var(--texte-doux); }
+
+/* ---------- À propos ---------- */
+.plus__apropos { display: flex; flex-direction: column; gap: 12px; padding: 16px; background: #FFFFFF; border: 1px solid var(--filet); border-radius: 12px; }
+.plus__apropos p { margin: 0; font-size: 16px; line-height: 1.5; }
+.plus__boutons { display: flex; flex-wrap: wrap; gap: 8px; }
+.plus__bouton {
+  display: inline-flex;
+  align-items: center;
+  min-height: 44px;
+  padding: 0 14px;
+  border-radius: 8px;
+  border: 1.5px solid var(--nuit);
+  color: var(--nuit);
+  font-weight: 600;
+  font-size: 15px;
+  text-decoration: none;
+}
+.plus__bouton--plein { background: var(--nuit); color: #FFFFFF; }
+.plus__bouton:hover { color: var(--nuit); background: #F5F7F9; }
+.plus__bouton--plein:hover { color: var(--signal); background: var(--nuit); }

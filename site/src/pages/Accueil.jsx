@@ -42,7 +42,7 @@ export default function Accueil() {
             <Fraicheur sombre partie="infos" />
           </div>
 
-          <aside className="info-ponctualite" aria-labelledby="titre-ponctualite">
+          <aside className="info-ponctualite seulement-ordinateur" aria-labelledby="titre-ponctualite">
             <h2 id="titre-ponctualite" className="info-ponctualite__titre">Ponctualité mesurée</h2>
             <div className="info-ponctualite__corps">
               <p className="info-ponctualite__valeur">{chiffreVedette.valeur}</p>
@@ -66,14 +66,14 @@ export default function Accueil() {
       </section>
 
       {/* ---------- 2. Chiffres clés ---------- */}
-      <section aria-label="Chiffres clés" className="accueil__chiffres">
+      <section aria-label="Chiffres clés" className="accueil__chiffres seulement-ordinateur">
         {chiffresCles.map((c) => (
           <CarteChiffre key={c.texte} valeur={c.valeur} texte={c.texte} />
         ))}
       </section>
 
       {/* ---------- 3. Graphique heure par heure ---------- */}
-      <section className="bloc">
+      <section className="bloc seulement-ordinateur">
         <div className="bloc__entete">
           <h2 className="titre-section">Ce matin, heure par heure</h2>
           <p className="texte-doux">Part des passages avec 5 min de retard ou plus, 9 octobre 2026</p>
@@ -86,7 +86,7 @@ export default function Accueil() {
       </section>
 
       {/* ---------- 4. Découvertes ---------- */}
-      <section className="accueil__decouvertes">
+      <section className="accueil__decouvertes seulement-ordinateur">
         <h2 className="titre-section">Ce que les données révèlent</h2>
         <div className="grille-decouvertes">
           {decouvertes.map((d) => (
@@ -99,6 +99,11 @@ export default function Accueil() {
           ))}
         </div>
       </section>
+
+      {/* Sur téléphone, le grand pied de page est remplacé par cette ligne discrète (voir Footer.css) */}
+      <p className="accueil__signature">
+        Projet d'Aly Keita, sans lien avec la SNCF · <Link to="/sources">Sources des données</Link>
+      </p>
     </>
   );
 }

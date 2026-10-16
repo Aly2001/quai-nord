@@ -13,9 +13,10 @@ const ONGLETS = [
 
 export default function BarreOnglets() {
   // Les résultats (/trajet) sont la suite d'une recherche lancée depuis l'accueil :
-  // l'onglet Accueil reste allumé. Idem pour la FAQ, rangée dans « Plus ».
+  // l'onglet Accueil reste allumé. Idem pour la FAQ et les sources, rangées dans « Plus ».
   const { pathname } = useLocation();
-  const parent = pathname.startsWith("/trajet") ? "/" : pathname.startsWith("/faq") ? "/plus" : null;
+  const parent = pathname.startsWith("/trajet") ? "/"
+    : pathname.startsWith("/faq") || pathname.startsWith("/sources") ? "/plus" : null;
   // Sur la page Nora, la zone de saisie occupe le bas de l'écran : pas de barre d'onglets
   if (pathname.startsWith("/nora")) return null;
 

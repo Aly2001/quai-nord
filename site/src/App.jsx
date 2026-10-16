@@ -11,6 +11,7 @@ import Trajet from "./pages/Trajet";
 import Faq from "./pages/Faq";
 import Plus from "./pages/Plus";
 import Nora from "./pages/Nora";
+import Sources from "./pages/Sources";
 
 export default function App() {
   return (
@@ -29,6 +30,7 @@ export default function App() {
           <Route path="/faq" element={<Faq />} />
           <Route path="/plus" element={<Plus />} />
           <Route path="/nora" element={<Nora />} />
+          <Route path="/sources" element={<Sources />} />
         </Routes>
       </main>
 

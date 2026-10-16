@@ -165,7 +165,7 @@ export default function Trajet() {
                     question: `Je suis à la gare de ${nomArrivee}, je vais ${lieu}.`,
                   })),
                 })}>
-                  <AvatarNora taille={32} />
+                  <AvatarNora taille={32} expression="souriant" />
                   <span><strong>Vous arrivez à {libelleGare(nomArrivee)} ?</strong> Nora vous trouve {transportsDuReseau(reseauArrivee)} jusqu'à votre destination.</span>
                 </button>
               )}

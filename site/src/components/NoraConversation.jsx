@@ -31,14 +31,26 @@ function PastilleLigne({ ligne }) {
 }
 
 // L'avatar de Nora : une bulle de discussion (volontairement pas un visage humain)
-export function AvatarNora({ taille = 40 }) {
+// L'avatar de Nora. Sur ordinateur : la bulle dessinée (inchangée). Sur téléphone : la mascotte
+// (voir Nora.css). Aux petites tailles, l'icône ronde ; en grand, l'expression qui convient :
+// souriant (par défaut), reflechit (réponse en cours), recherche (trajet), ecoute (dictée, pause).
+const MASCOTTES = new Set(["ronde", "souriant", "reflechit", "recherche", "ecoute", "principal"]);
+
+export function AvatarNora({ taille = 40, expression = null }) {
+  const image = MASCOTTES.has(expression) ? expression : taille <= 48 ? "ronde" : "souriant";
   return (
-    <svg viewBox="0 0 40 40" width={taille} height={taille} aria-hidden="true" className="nora-avatar">
-      <circle cx="20" cy="20" r="20" fill="#F2C230" />
-      <path d="M11 14h18a3 3 0 0 1 3 3v8a3 3 0 0 1-3 3h-9l-6 5v-5h-3a3 3 0 0 1-3-3v-8a3 3 0 0 1 3-3z" fill="#14213D" />
-      <circle cx="15" cy="21" r="1.8" fill="#F2C230" /><circle cx="20" cy="21" r="1.8" fill="#F2C230" />
-      <circle cx="25" cy="21" r="1.8" fill="#F2C230" />
-    </svg>
+    <span className="nora-avatar-bloc" style={{ width: taille, height: taille }}>
+      <svg viewBox="0 0 40 40" width={taille} height={taille} aria-hidden="true" className="nora-avatar">
+        <circle cx="20" cy="20" r="20" fill="#F2C230" />
+        <path d="M11 14h18a3 3 0 0 1 3 3v8a3 3 0 0 1-3 3h-9l-6 5v-5h-3a3 3 0 0 1-3-3v-8a3 3 0 0 1 3-3z" fill="#14213D" />
+        <circle cx="15" cy="21" r="1.8" fill="#F2C230" /><circle cx="20" cy="21" r="1.8" fill="#F2C230" />
+        <circle cx="25" cy="21" r="1.8" fill="#F2C230" />
+      </svg>
+      <img src={`/nora/nora-${image}.webp`} alt="" width={taille} height={taille} decoding="async"
+           className="nora-mascotte"
+           // Si l'image manque, on garde simplement la bulle dessinée
+           onError={(e) => { e.currentTarget.closest(".nora-avatar-bloc")?.classList.add("nora-avatar-bloc--sans-image"); }} />
+    </span>
   );
 }
 
@@ -79,6 +91,7 @@ export default function NoraConversation({ contexte = null, accueil = null, sugg
   const [messages, setMessages] = useState([]);
   const [saisie, setSaisie] = useState("");
   const [enAttente, setEnAttente] = useState(false);
+  const [phase, setPhase] = useState("reflechit");            // ce que fait Nora pendant l'attente
   const [limiteAtteinte, setLimiteAtteinte] = useState(null);   // null, ou { code, message, reprise, limite }
   const [exemple, setExemple] = useState(null);                 // l'exemple touché, tant qu'on le modifie
   const champ = useRef(null);
@@ -115,6 +128,7 @@ export default function NoraConversation({ contexte = null, accueil = null, sugg
     if (!question || enAttente || limiteAtteinte) return;
     setSaisie("");
     setExemple(null);
+    setPhase("reflechit");
     const historique = [...messages, { auteur: "vous", texte: question }]
       .filter((m) => m.texte)
       .slice(-8)
@@ -136,6 +150,7 @@ export default function NoraConversation({ contexte = null, accueil = null, sugg
       if (!reponse.ok) throw new Error(String(reponse.status));
       const donnees = await reponse.json();
       setRestantes(donnees.questions_restantes);
+      if (donnees.action) setPhase("recherche");             // Nora cherche maintenant un trajet ou un bus
       if (donnees.action?.type === "rechercher_trajet") {
         await rechercher(donnees.action);
       } else if (donnees.action?.type === "itineraire_bus") {
@@ -578,10 +593,15 @@ export default function NoraConversation({ contexte = null, accueil = null, sugg
         )))}
 
         {enAttente && (
-          <p className="bulle bulle--nora nora-ecrit" role="status">
-            <span className="nora-ecrit__points" aria-hidden="true"><span /><span /><span /></span>
-            Nora écrit…
-          </p>
+          <div className="nora-attente">
+            {/* Sur téléphone seulement : la mascotte montre ce que fait Nora */}
+            <span className="nora-attente__mascotte"><AvatarNora taille={52} expression={phase} /></span>
+            <p className="bulle bulle--nora nora-ecrit" role="status">
+              <span className="nora-ecrit__points" aria-hidden="true"><span /><span /><span /></span>
+              <span className="nora-ecrit__ordinateur">Nora écrit…</span>
+              <span className="nora-ecrit__telephone">{phase === "recherche" ? "Je cherche le meilleur trajet" : "Nora réfléchit"}</span>
+            </p>
+          </div>
         )}
         <div ref={fin} />
       </div>
@@ -589,9 +609,15 @@ export default function NoraConversation({ contexte = null, accueil = null, sugg
       {/* ---------- Le bas : saisie, ou message de limite ---------- */}
       {limiteAtteinte ? (
         <section className="nora-limite" aria-label="Limite atteinte" role="status">
-          <p className="nora-limite__titre">
-            {limiteAtteinte.message || "Vous avez posé vos questions du jour."}
-          </p>
+          <div className="nora-limite__haut">
+            {limiteAtteinte.code === "plafond_site" && (
+              // Les yeux fermés : Nora « fait une pause » (téléphone seulement)
+              <span className="nora-limite__mascotte"><AvatarNora taille={64} expression="ecoute" /></span>
+            )}
+            <p className="nora-limite__titre">
+              {limiteAtteinte.message || "Vous avez posé vos questions du jour."}
+            </p>
+          </div>
           <p>
             {limiteAtteinte.code === "plafond_site"
               ? <>Elle fait une pause et sera de nouveau disponible <strong>{limiteAtteinte.reprise || "demain"}</strong>.
@@ -649,6 +675,7 @@ export default function NoraConversation({ contexte = null, accueil = null, sugg
           <div className="nora-dictee__fond" onClick={() => arreterDictee(false)} />
           <section className="nora-dictee__panneau">
             <p className="nora-dictee__titre">Je vous écoute…</p>
+            <span className="nora-dictee__mascotte"><AvatarNora taille={96} expression="ecoute" /></span>
             <span className="nora-dictee__micro" aria-hidden="true">
               <svg viewBox="0 0 24 24" width="30" height="30" fill="none" stroke="#14213D" strokeWidth="2.2"
                    strokeLinecap="round"><rect x="9" y="3" width="6" height="11" rx="3" /><path d="M5 11a7 7 0 0 0 14 0M12 18v3" /></svg>

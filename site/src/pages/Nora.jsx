@@ -27,7 +27,7 @@ export default function Nora() {
         <AvatarNora taille={40} />
         <div>
           <h1 className="nora-page__nom">Nora</h1>
-          <p className="nora-page__signature">Je suis là pour votre trajet</p>
+          <p className="nora-page__signature">Votre assistante mobilité</p>
         </div>
       </header>
 

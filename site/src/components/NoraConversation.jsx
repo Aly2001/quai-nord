@@ -31,8 +31,8 @@ function PastilleLigne({ ligne }) {
 }
 
 // L'avatar de Nora : une bulle de discussion (volontairement pas un visage humain)
-// L'avatar de Nora. Sur ordinateur : la bulle dessinée (inchangée). Sur téléphone : la mascotte
-// (voir Nora.css). Aux petites tailles, l'icône ronde ; en grand, l'expression qui convient :
+// L'avatar de Nora : la mascotte, sur téléphone et sur ordinateur (la bulle dessinée reste en secours
+// si l'image manque, voir Nora.css). Aux petites tailles, l'icône ronde ; en grand, l'expression qui convient :
 // souriant (par défaut), reflechit (réponse en cours), recherche (trajet), ecoute (dictée, pause).
 const MASCOTTES = new Set(["ronde", "souriant", "reflechit", "recherche", "ecoute", "principal"]);
 
@@ -594,7 +594,7 @@ export default function NoraConversation({ contexte = null, accueil = null, sugg
 
         {enAttente && (
           <div className="nora-attente">
-            {/* Sur téléphone seulement : la mascotte montre ce que fait Nora */}
+            {/* La mascotte montre ce que fait Nora */}
             <span className="nora-attente__mascotte"><AvatarNora taille={52} expression={phase} /></span>
             <p className="bulle bulle--nora nora-ecrit" role="status">
               <span className="nora-ecrit__points" aria-hidden="true"><span /><span /><span /></span>
@@ -611,7 +611,7 @@ export default function NoraConversation({ contexte = null, accueil = null, sugg
         <section className="nora-limite" aria-label="Limite atteinte" role="status">
           <div className="nora-limite__haut">
             {limiteAtteinte.code === "plafond_site" && (
-              // Les yeux fermés : Nora « fait une pause » (téléphone seulement)
+              // Les yeux fermés : Nora « fait une pause »
               <span className="nora-limite__mascotte"><AvatarNora taille={64} expression="ecoute" /></span>
             )}
             <p className="nora-limite__titre">

@@ -456,21 +456,20 @@
   .nora-exemples__villes { padding: 12px 14px; border-radius: 12px; background: #FFF8E1; color: #4A3000; font-size: 14px; line-height: 1.45; }
 }
 
-/* ---------- La mascotte de Nora : téléphone seulement ---------- */
+/* ---------- La mascotte de Nora : sur téléphone ET sur ordinateur ----------
+   La bulle dessinée ne sert plus que de secours, si une image manque. */
 .nora-avatar-bloc { position: relative; display: inline-flex; flex: none; }
-.nora-mascotte { display: none; border-radius: 50%; object-fit: cover; }
-.nora-attente { display: contents; }
-.nora-attente__mascotte, .nora-dictee__mascotte, .nora-limite__mascotte, .nora-ecrit__telephone { display: none; }
+.nora-mascotte { display: block; border-radius: 50%; object-fit: cover; }
+.nora-avatar-bloc:not(.nora-avatar-bloc--sans-image) .nora-avatar { display: none; }
+.nora-avatar-bloc--sans-image .nora-mascotte { display: none; }
+/* Pendant l'attente : la mascotte montre ce que fait Nora (réfléchit, puis recherche) */
+.nora-attente { display: flex; align-items: center; gap: 10px; align-self: flex-start; }
+.nora-attente__mascotte { display: inline-flex; }
+.nora-ecrit__ordinateur { display: none; }
+.nora-ecrit__telephone { display: inline; }
+/* La dictée : « en écoute » à la place du micro */
+.nora-dictee__mascotte { display: inline-flex; align-self: center; border-radius: 50%; box-shadow: 0 0 0 6px #FFF3C4; }
+.nora-dictee__mascotte + .nora-dictee__micro { display: none; }
+/* La pause du soir : les yeux fermés */
 .nora-limite__haut { display: flex; align-items: center; gap: 14px; }
-
-@media (max-width: 640px) {
-  .nora-avatar-bloc:not(.nora-avatar-bloc--sans-image) .nora-avatar { display: none; }
-  .nora-avatar-bloc:not(.nora-avatar-bloc--sans-image) .nora-mascotte { display: block; }
-  .nora-attente { display: flex; align-items: center; gap: 10px; align-self: flex-start; }
-  .nora-attente__mascotte { display: inline-flex; }
-  .nora-ecrit__ordinateur { display: none; }
-  .nora-ecrit__telephone { display: inline; }
-  .nora-dictee__mascotte { display: inline-flex; align-self: center; border-radius: 50%; box-shadow: 0 0 0 6px #FFF3C4; }
-  .nora-dictee__mascotte + .nora-dictee__micro { display: none; }
-  .nora-limite__mascotte { display: inline-flex; }
-}
+.nora-limite__mascotte { display: inline-flex; }

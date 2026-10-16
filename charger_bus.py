@@ -174,6 +174,9 @@ def categorie_lieu(tags):
     amenity, nom = tags.get("amenity", ""), tags.get("name", "")
     nom_simple = normaliser(nom)
     if amenity in ("university", "college") or tags.get("building") in ("university", "college"):
+        # Un lycée avec des classes prépas ou des BTS est souvent rangé « college » dans OpenStreetMap
+        if nom_simple.startswith("lycee") or "cite scolaire" in nom_simple:
+            return "lycee"
         return "universite"
     if amenity in ("hospital", "clinic"):
         return "hopital"
@@ -252,6 +255,8 @@ def lieux_utiles(gares, anciens):
             # Une UFR déclarée comme université, avec sa lettre de bâtiment devant (« F - UFR d'Économie ») :
             # c'est une vraie destination pour un étudiant, on garde son nom sans la lettre
             nom = PREFIXE_AILE.sub("", nom)
+            if normaliser(nom).startswith(NOMS_DE_PIECES):        # « Bâtiment A - Accueil » : jamais une destination
+                continue
         cle = (normaliser(nom), categorie)
         if not categorie or lat is None or cle in vus:   # un même lieu peut être décrit plusieurs fois
             continue
@@ -314,6 +319,39 @@ def distance_m(lat1, lon1, lat2, lon2):
     dp, dl = p2 - p1, math.radians(lon2 - lon1)
     a = math.sin(dp / 2) ** 2 + math.cos(p1) * math.cos(p2) * math.sin(dl / 2) ** 2
     return 2 * rayon_terre * math.asin(math.sqrt(a))
+
+
+def arret_sur_reservation(horaire):
+    """Vrai si, à cet arrêt, il faut réserver pour monter ou pour descendre (code GTFS 2)."""
+    return "2" in ((horaire.get("pickup_type") or "").strip(), (horaire.get("drop_off_type") or "").strip())
+
+
+RAYON_DESTINATION = 500     # mètres : comme sur le site (bus.js), la marche maximale entre l'arrêt et le lieu
+# Les GRANDS sites (un campus, un hôpital) sont décrits par leur point central, souvent loin de l'entrée :
+# on accepte une marche un peu plus longue jusqu'à ce point
+RAYON_GRANDS_SITES = 800
+CATEGORIES_GRANDS_SITES = {"universite", "hopital", "stade", "commerce", "loisirs", "plage"}
+
+
+def rayon_marche(categorie):
+    return RAYON_GRANDS_SITES if categorie in CATEGORIES_GRANDS_SITES else RAYON_DESTINATION
+
+
+def lieux_desservis(lieux, arrets):
+    """Seulement les lieux qui ont un arrêt du réseau à distance de marche (500 m, 800 m pour un grand site) :
+    les autres (un village voisin, une ville belge proche de la frontière) ne sont de toute façon pas desservis."""
+    # Un premier tri grossier par carrés d'environ 1 km, pour ne pas calculer des millions de distances
+    carres = defaultdict(list)
+    for _, lat, lon in arrets.values():
+        carres[(round(lat * 100), round(lon * 70))].append((lat, lon))
+    gardes = []
+    for l in lieux:
+        cle_lat, cle_lon = round(l["lat"] * 100), round(l["lon"] * 70)
+        voisins = [a for dl in (-1, 0, 1) for dk in (-1, 0, 1) for a in carres.get((cle_lat + dl, cle_lon + dk), [])]
+        rayon = rayon_marche(l["cat"])
+        if any(distance_m(l["lat"], l["lon"], lat, lon) <= rayon for lat, lon in voisins):
+            gardes.append(l)
+    return gardes
 
 
 def lire_csv_flux(archive, nom):
@@ -394,14 +432,10 @@ def preparer(code, reseau):
             "couleur": couleur(r.get("route_color"), "#14213D"),
             "texte": couleur(r.get("route_text_color"), "#FFFFFF"),
         }
-    par_mode = Counter(l["mode"] for l in lignes.values())
-    print(f"   {len(lignes)} lignes gardées (" + ", ".join(f"{m} {n}" for m, n in par_mode.most_common()) + ")",
-          flush=True)
     if exclues:
         # La liste COMPLÈTE, triée « naturellement » (S2 avant S10), pour vérifier qu'aucune vraie ligne n'y est
         tri = sorted(exclues, key=lambda n: [int(t) if t.isdigit() else t.lower() for t in re.split(r"(\d+)", n)])
         print(f"   {len(exclues)} lignes écartées (scolaires, à la demande) : {', '.join(tri)}", flush=True)
-    print(f"   Lignes gardées : {', '.join(sorted(l['nom'] for l in lignes.values()))}", flush=True)
 
     # ---------- Les arrêts ----------
     arrets = {}
@@ -419,10 +453,26 @@ def preparer(code, reseau):
     voyages = {t["trip_id"]: (t["route_id"], (t.get("trip_headsign") or "").strip())
                for t in lire_csv_flux(archive, "trips.txt") if t["route_id"] in lignes}
     suites = defaultdict(list)                     # trip_id -> [(ordre, stop_id, minutes)]
+    reserves = Counter()                           # trip_id -> nombre d'arrêts « sur réservation »
     for st in lire_csv_flux(archive, "stop_times.txt"):
         if st["trip_id"] in voyages and st["stop_id"] in arrets:
             suites[st["trip_id"]].append((int(st["stop_sequence"]), st["stop_id"],
                                           en_minutes(st.get("departure_time") or st.get("arrival_time"))))
+            if arret_sur_reservation(st):
+                reserves[st["trip_id"]] += 1
+
+    # Les voyages SUR RÉSERVATION (le GTFS le dit arrêt par arrêt : pickup_type ou drop_off_type = 2,
+    # « téléphoner avant ») : un voyageur qui sort du train ne peut pas les prendre. On écarte un voyage
+    # quand la plupart de ses arrêts sont sur réservation, quel que soit le nom de sa ligne.
+    sur_reservation = {t for t, n in reserves.items() if n * 2 > len(suites[t])}
+    if sur_reservation:
+        lignes_avant = {voyages[t][0] for t in suites}
+        for t in sur_reservation:
+            del suites[t]
+        disparues = sorted(lignes[r]["nom"] for r in lignes_avant - {voyages[t][0] for t in suites})
+        print(f"   {len(sur_reservation)} voyages sur réservation écartés"
+              f"{' (lignes entièrement sur réservation : ' + ', '.join(disparues) + ')' if disparues else ''}",
+              flush=True)
 
     compte = Counter()
     temps = {}                                     # parcours -> minutes depuis le 1er arrêt
@@ -449,6 +499,12 @@ def preparer(code, reseau):
     utilises = {a for p in parcours for a in p["arrets"]}
     arrets = {a: v for a, v in arrets.items() if a in utilises}
     lignes = {l: v for l, v in lignes.items() if any(p["ligne"] == l for p in parcours)}
+    # Le bilan des lignes, APRÈS tous les tris (noms, réservation)
+    par_mode = Counter(l["mode"] for l in lignes.values())
+    print(f"   {len(lignes)} lignes gardées (" + ", ".join(f"{m} {n}" for m, n in par_mode.most_common()) + ") : "
+          + ", ".join(sorted((l["nom"] for l in lignes.values()),
+                             key=lambda n: [int(t) if t.isdigit() else t.lower() for t in re.split(r"(\d+)", n)])),
+          flush=True)
 
     # ---------- Les gares et leurs arrêts proches ----------
     gares = {}
@@ -477,6 +533,11 @@ def preparer(code, reseau):
             pass
     print("   Lieux utiles (OpenStreetMap)…", flush=True)
     lieux = lieux_utiles({nom: (g["lat"], g["lon"]) for nom, g in gares.items()}, anciens)
+    desservis = lieux_desservis(lieux, arrets)
+    if len(desservis) < len(lieux):
+        print(f"   {len(lieux) - len(desservis)} lieux écartés : aucun arrêt à distance de marche "
+              f"({RAYON_DESTINATION} m, {RAYON_GRANDS_SITES} m pour un campus ou un hôpital)", flush=True)
+    lieux = desservis
     if lieux:
         par_categorie = Counter(l["cat"] for l in lieux)
         print(f"   {len(lieux)} lieux utiles : " + ", ".join(f"{c} {n}" for c, n in par_categorie.most_common()), flush=True)

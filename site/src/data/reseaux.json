@@ -21,18 +21,18 @@
       "url": "https://zenbus.net/gtfs/static/download.zip?dataset=sitac-calais-rt&src=true",
       "source": "Réseau urbain SITAC, transport.data.gouv.fr, Licence Ouverte",
       "site": "http://www.sitac-calais-opale-bus.fr/",
-      "exclure": []
+      "exclure": ["^ts ?\\d+$"]
     },
     {
       "code": "boulogne",
       "nom": "Marinéo (Boulogne-sur-Mer)",
       "ville": "Boulogne-sur-Mer",
       "villes": ["boulogne", "boulogne sur mer"],
-      "gares": ["boulogne ville", "boulogne sur mer", "boulogne tintelleries"],
+      "gares": ["boulogne sur mer", "boulogne tintelleries"],
       "url": "https://s3.eu-west-1.amazonaws.com/files.orchestra.ratpdev.com/networks/boulogne/exports/medias.zip",
       "source": "Réseau urbain Marinéo, transport.data.gouv.fr, Licence Ouverte",
       "site": "https://www.marineo.fr/",
-      "exclure": []
+      "exclure": ["^\\d+$"]
     },
     {
       "code": "lille",
@@ -43,7 +43,7 @@
       "url": "https://media.ilevia.fr/opendata/gtfs.zip",
       "source": "Réseau urbain ilévia, Métropole Européenne de Lille, transport.data.gouv.fr, Licence Ouverte",
       "site": "https://www.ilevia.fr/",
-      "exclure": []
+      "exclure": ["^s ?\\d+$"]
     },
     {
       "code": "dunkerque",
@@ -65,7 +65,7 @@
       "url": "https://www.data.gouv.fr/api/1/datasets/r/571e3014-066d-4bd6-9f73-fb8065c928c6",
       "source": "Réseau urbain Ametis, Amiens Métropole, transport.data.gouv.fr, Licence Ouverte",
       "site": "https://www.ametis.fr/",
-      "exclure": []
+      "exclure": ["^t ?\\d+$"]
     },
     {
       "code": "arras",

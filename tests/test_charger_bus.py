@@ -201,3 +201,93 @@ def test_ufr_declaree_comme_universite_gardee_sans_sa_lettre(monkeypatch):
     noms = sorted(l["nom"] for l in cb.lieux_utiles({"Arras": (50.2870, 2.7810)}, []))
     assert noms == ["CESI École d'ingénieurs - campus d'Arras", "Lettres et Arts", "UFR d'Economie, Gestion",
                     "Université d'Artois"]
+
+
+# ---------- Les voyages sur réservation ----------
+def test_voyages_sur_reservation_ecartes(reseau_test):
+    contenu = faux_gtfs()
+    # On rend le bus L1 entièrement « sur réservation » (pickup_type 2 à tous ses arrêts)
+    tampon = io.BytesIO()
+    with zipfile.ZipFile(io.BytesIO(contenu)) as source, zipfile.ZipFile(tampon, "w") as z:
+        for nom in source.namelist():
+            texte = source.read(nom).decode()
+            if nom == "stop_times.txt":
+                lignes = texte.splitlines()
+                texte = lignes[0] + ",pickup_type,drop_off_type\n" + "".join(
+                    l + (",2,2\n" if l.startswith("v4,") else ",0,0\n") for l in lignes[1:])
+            z.writestr(nom, texte)
+    donnees = reseau_test(tampon.getvalue())
+    assert {l["nom"] for l in donnees["lignes"].values()} == {"M1", "R"}
+
+
+def test_arret_sur_reservation():
+    assert cb.arret_sur_reservation({"pickup_type": "2"})
+    assert cb.arret_sur_reservation({"pickup_type": "0", "drop_off_type": "2"})
+    assert not cb.arret_sur_reservation({"pickup_type": "0", "drop_off_type": ""})
+    assert not cb.arret_sur_reservation({})
+
+
+# ---------- Les lieux desservis ----------
+def test_lieux_sans_arret_proche_ecartes():
+    arrets = {"G": ["Gare", 50.6370, 3.0700]}
+    lieux = [{"nom": "Près", "cat": "mairie", "lat": 50.6380, "lon": 3.0700},          # environ 110 m
+             {"nom": "Courtrai", "cat": "universite", "lat": 50.8270, "lon": 3.2650}]   # en Belgique
+    assert [l["nom"] for l in cb.lieux_desservis(lieux, arrets)] == ["Près"]
+
+
+def test_lieu_desservi_a_la_limite_d_un_carre():
+    # Le lieu et l'arrêt sont dans deux « carrés » voisins : il doit quand même être trouvé
+    arrets = {"A": ["Arrêt", 50.6449, 3.0700]}
+    assert len(cb.lieux_desservis([{"nom": "L", "cat": "poste", "lat": 50.6451, "lon": 3.0700}], arrets)) == 1
+
+
+def test_motifs_de_la_liste_valides():
+    # Les lignes scolaires S de Lille et d'Arras sont écartées, pas les lignes normales
+    reseaux = cb.lire_reseaux()
+    # Les lignes Tempo d'Amiens (T31 à T49) sont scolaires
+    assert cb.ligne_exclue({"route_short_name": "T40"}, reseaux["amiens"]["exclure"])
+    assert not cb.ligne_exclue({"route_short_name": "N1"}, reseaux["amiens"]["exclure"])
+    for code in ("lille", "arras"):
+        assert cb.ligne_exclue({"route_short_name": "S45"}, reseaux[code]["exclure"])
+        assert not cb.ligne_exclue({"route_short_name": "L1"}, reseaux[code]["exclure"])
+        assert not cb.ligne_exclue({"route_short_name": "CIT1"}, reseaux[code]["exclure"])
+
+
+def test_grand_site_accepte_plus_loin():
+    # Le point central d'un campus est souvent à plus de 500 m de l'arrêt le plus proche
+    arrets = {"M": ["Métro", 50.6100, 3.1400]}
+    a_700_m = 50.6100 + 0.0063                     # environ 700 m plus au nord
+    lieux = [{"nom": "IMT Nord Europe", "cat": "universite", "lat": a_700_m, "lon": 3.1400},
+             {"nom": "Bureau de poste", "cat": "poste", "lat": a_700_m, "lon": 3.1400}]
+    assert [l["nom"] for l in cb.lieux_desservis(lieux, arrets)] == ["IMT Nord Europe"]
+
+
+
+def test_lycee_range_comme_college_reclasse():
+    # Un lycée avec des BTS est souvent rangé « college » (enseignement supérieur) dans OpenStreetMap
+    assert cb.categorie_lieu({"amenity": "college", "name": "Lycée Madeleine Michelis"}) == "lycee"
+    assert cb.categorie_lieu({"amenity": "college", "name": "Cité Scolaire Delambre-Montaigne"}) == "lycee"
+    assert cb.categorie_lieu({"amenity": "college", "name": "UniLaSalle Amiens"}) == "universite"
+
+
+def test_batiment_declare_comme_universite_ecarte(monkeypatch):
+    elements = [
+        {"tags": {"amenity": "university", "name": "Bâtiment A - Accueil"}, "center": {"lat": 49.89, "lon": 2.30}},
+        {"tags": {"amenity": "university", "name": "Université de Picardie Jules Verne"}, "center": {"lat": 49.89, "lon": 2.29}},
+    ]
+    monkeypatch.setattr(cb, "demander_overpass", lambda requete: elements if "university" in requete else [])
+    monkeypatch.setattr(cb.time, "sleep", lambda s: None)
+    assert [l["nom"] for l in cb.lieux_utiles({"Amiens": (49.89, 2.31)}, [])] == ["Université de Picardie Jules Verne"]
+
+
+
+def test_lignes_scolaires_de_calais_et_boulogne():
+    reseaux = cb.lire_reseaux()
+    # Calais : les TS (transport scolaire) ; les lignes 1 à 13, ATC, B et M restent
+    assert cb.ligne_exclue({"route_short_name": "TS12"}, reseaux["calais"]["exclure"])
+    for nom in ("1", "13", "ATC", "B", "M"):
+        assert not cb.ligne_exclue({"route_short_name": nom}, reseaux["calais"]["exclure"])
+    # Boulogne : les 24 lignes scolaires sont numérotées (153, 206...), les lignes régulières sont des lettres
+    assert cb.ligne_exclue({"route_short_name": "153"}, reseaux["boulogne"]["exclure"])
+    for nom in ("A", "B1", "K2", "NEMO", "NAV1", "TH02"):
+        assert not cb.ligne_exclue({"route_short_name": nom}, reseaux["boulogne"]["exclure"])

@@ -56,3 +56,6 @@
 }
 
 .favoris__vide { margin: 0; color: var(--texte-doux); }
+
+/* L'étoile toujours en jaune : en contour pour « Ajouter », pleine pour « Dans vos favoris » */
+.bouton-favori svg { color: var(--signal); flex: none; }

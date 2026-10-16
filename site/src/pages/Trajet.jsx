@@ -7,6 +7,7 @@ import { BoutonFavori } from "../components/Favoris";
 import NoraPanneau from "../components/NoraPanneau";
 import { AvatarNora } from "../components/NoraConversation";
 import { reseauDeGare, transportsDuReseau, infosReseau, libelleGare } from "../data/bus";
+import { questionsDuTrain, accueilDuTrain } from "../data/questionsTrain";
 import {
   DOSSIER, useIndexHoraires, useRisques, trouverGare, normaliser, dateLongue, etiquetteJour,
   joursAVenir, aujourdhuiIso, heureActuelle, risqueDuTrain, niveauRisque,
@@ -179,7 +180,8 @@ export default function Trajet() {
 
               <ol className="liste-trajets">
                 {trajets.map((t, i) => (
-                  <CarteTrajet key={`${t.heure}-${t.arrivee}-${i}`} trajet={t} jour={jour}
+                  <CarteTrajet key={`${t.heure}-${t.arrivee}-${i}`} cle={`${t.heure}-${t.arrivee}-${i}`}
+                               choisie={nora?.cle === `${t.heure}-${t.arrivee}-${i}`} trajet={t} jour={jour}
                                risques={risques} meteo={meteo} tempsReel={tempsReel}
                                onDemanderNora={setNora}
                                reseauArrivee={reseauDeGare(t.gareArrivee)} />
@@ -238,46 +240,7 @@ function contexteNora(t, jour, risque, pourcentage, niveau, meteoDepart = null) 
   return texte;
 }
 
-// Vrai sur un écran de téléphone (même limite que la barre d'onglets : 640 px), et suivi en direct
-const ECRAN_TELEPHONE = "(max-width: 640px)";
-function useTelephone() {
-  const lire = () => typeof window !== "undefined" && window.matchMedia?.(ECRAN_TELEPHONE).matches;
-  const [telephone, setTelephone] = useState(lire);
-  useEffect(() => {
-    const requete = window.matchMedia?.(ECRAN_TELEPHONE);
-    if (!requete) return undefined;
-    const suivre = () => setTelephone(requete.matches);
-    requete.addEventListener("change", suivre);
-    return () => requete.removeEventListener("change", suivre);
-  }, []);
-  return Boolean(telephone);
-}
-
-// Les questions préparées pour un train : seulement celles auxquelles Nora sait répondre
-function questionsDuTrain(t, pourcentage, niveau, meteoDepart, reseauArrivee, telephone = false) {
-  const questions = [];
-  questions.push(pourcentage !== null
-    ? { texte: `Pourquoi ${pourcentage < 1 ? "moins de 1" : pourcentage} % ?`, question: `Pourquoi ce train a-t-il ${pourcentage < 1 ? "moins de 1" : pourcentage} % de risque de retard ?` }
-    : { texte: "Sera-t-il à l'heure ?", question: "Ce train sera-t-il à l'heure ?" });
-  // Sur téléphone, le bandeau « Vous arrivez à… ? » en haut des résultats suffit : pas de répétition sous chaque train
-  if (reseauArrivee && !telephone) {
-    const plusieurs = infosReseau(reseauArrivee).modes.length > 1;
-    questions.push({
-      texte: plusieurs ? "Bus, tram ou métro à l'arrivée ?" : "Bus à l'arrivée ?",
-      question: `Quel ${plusieurs ? "transport" : "bus"} prendre à l'arrivée à la gare de ${t.gareArrivee} ?`,
-    });
-  }
-  if (meteoDepart && (meteoDepart.pluie >= 0.5 || meteoDepart.rafales >= 50)) {
-    questions.push({ texte: "Pluie au départ ?", question: "Quel temps fera-t-il au départ de ce train ?" });
-  }
-  if (pourcentage !== null && pourcentage >= 15) {
-    questions.push({ texte: "Et le train suivant ?", question: "Et s'il est en retard, quel train prendre ensuite ?" });
-  }
-  return questions;
-}
-
-function CarteTrajet({ trajet: t, jour, risques, meteo, tempsReel, onDemanderNora, reseauArrivee = null }) {
-  const telephone = useTelephone();
+function CarteTrajet({ trajet: t, jour, risques, meteo, tempsReel, onDemanderNora, reseauArrivee = null, cle, choisie = false }) {
   const [details, setDetails] = useState(false);
   const [premier, dernier] = [t.troncons[0], t.troncons[t.troncons.length - 1]];
 
@@ -294,11 +257,12 @@ function CarteTrajet({ trajet: t, jour, risques, meteo, tempsReel, onDemanderNor
     && risquePremier.taux >= 0.15;
 
   const meteoDepart = meteoDuTrain(meteo, premier.depart.stop_id, jour, t.heure);
-  const questions = questionsDuTrain(t, pourcentage, niveau, meteoDepart, reseauArrivee, telephone);
+  const questions = questionsDuTrain(t, pourcentage, meteoDepart, reseauArrivee);
   const ouvrirNora = (question = null) => onDemanderNora({
+    cle,
     titre: `${premier.train.transport} ${premier.train.numero} · ${t.heure} ${t.gareDepart} → ${t.gareArrivee}`,
     contexte: contexteNora(t, jour, risque, pourcentage, niveau, meteoDepart),
-    accueil: niveau ? `Ce train a un risque de retard ${niveau.mot.toLowerCase()}. Que voulez-vous savoir ?` : "Que voulez-vous savoir sur ce train ?",
+    accueil: accueilDuTrain(t.heure, texteRisque),
     suggestions: questions,
     question,
   });
@@ -306,6 +270,7 @@ function CarteTrajet({ trajet: t, jour, risques, meteo, tempsReel, onDemanderNor
   const supprime = directs.some((d) => d?.supprime);
   const classes = ["trajet-carte", `trajet-carte--${niveau ? niveau.classe : "inconnu"}`];
   if (supprime) classes.push("trajet-carte--supprime");
+  if (choisie) classes.push("trajet-carte--choisie");          // le train dont parle Nora
 
   return (
     <li className={classes.join(" ")}>
@@ -403,16 +368,12 @@ function CarteTrajet({ trajet: t, jour, risques, meteo, tempsReel, onDemanderNor
         )}
       </div>
 
-      {/* Nora, sous chaque train : deux questions prêtes, propres à ce train */}
+      {/* Nora, sous chaque train : UN bouton ; les questions de ce train s'affichent dans Nora */}
       <div className="carte-nora">
-        <button type="button" className="carte-nora__avatar" aria-label="Poser une question à Nora sur ce train" onClick={() => ouvrirNora()}>
-          <AvatarNora taille={28} />
+        <button type="button" className="carte-nora__bouton" onClick={() => ouvrirNora()}>
+          <AvatarNora taille={30} />
+          Ce train sera-t-il à l'heure&nbsp;?
         </button>
-        {questions.slice(0, 2).map((q) => (
-          <button key={q.texte} type="button" className="carte-nora__question" onClick={() => ouvrirNora(q.question)}>
-            {q.texte}
-          </button>
-        ))}
       </div>
     </li>
   );

@@ -509,3 +509,23 @@
 }
 
 .risque-boite__nora:hover { text-decoration: underline; }
+
+/* ---------- Nora sous un train : un seul bouton ---------- */
+.carte-nora__bouton {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  min-height: 42px;
+  padding: 0 16px 0 5px;
+  font: inherit;
+  font-size: 15px;
+  font-weight: 700;
+  background: #FFFFFF;
+  color: var(--nuit);
+  border: 1.5px solid #C9D3E3;
+  border-radius: 999px;
+  cursor: pointer;
+}
+.carte-nora__bouton:hover { border-color: var(--nuit); }
+/* Le train dont parle Nora, entouré de jaune pendant que le panneau est ouvert */
+.trajet-carte--choisie { box-shadow: 0 0 0 3px var(--signal), 0 2px 8px rgba(20, 33, 61, 0.06); }

@@ -3,6 +3,7 @@ import { test, expect } from "vitest";
 import { renderToString } from "react-dom/server";
 import { MemoryRouter } from "react-router-dom";
 import Trajet from "./pages/Trajet";
+import { questionsDuTrain, accueilDuTrain } from "./data/questionsTrain";
 import Accueil from "./pages/Accueil";
 import Nora from "./pages/Nora";
 import Plus from "./pages/Plus";
@@ -32,4 +33,13 @@ test("la page Nora propose des exemples à compléter et cite les six villes", (
   const page = rendre(Nora, "/nora");
   expect(page).toContain("touchez pour compléter");
   for (const ville of ["Lille", "Calais", "Boulogne", "Dunkerque", "Amiens", "Arras"]) expect(page).toContain(ville);
+});
+
+test("les questions d'un train sont proposées dans Nora, avec l'information d'abord", () => {
+  const t = { gareArrivee: "Calais Ville", heure: "07:04" };
+  const questions = questionsDuTrain(t, 17, null, "calais").map((q) => q.texte);
+  expect(questions).toEqual(["Pourquoi 17 % de risque ?", "S'il est en retard, quel train ensuite ?", "Bus à l'arrivée à Calais Ville ?"]);
+  expect(questionsDuTrain({ gareArrivee: "Lille Flandres" }, 5, null, "lille").map((q) => q.texte))
+    .toEqual(["Pourquoi 5 % de risque ?", "Bus, tram ou métro à l'arrivée à Lille Flandres ?"]);
+  expect(accueilDuTrain("07:04", "17 %")).toBe("Le train de 07:04 a 17 % de risque de retard. Que voulez-vous savoir ?");
 });

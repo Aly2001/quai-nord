@@ -10,6 +10,7 @@ import {
   distance, plusRapideQueAPied, garesCorrespondantes, libelleGare, SITES_RESEAUX, etapesSiteOfficiel, decrireLigne,
   RESEAUX,
 } from "../data/bus";
+import { useTailleNora } from "./TailleNora";
 import "./Nora.css";
 
 // Le pictogramme du type de transport, dans la pastille de la ligne (affiché sur téléphone, voir Nora.css)
@@ -90,6 +91,7 @@ export default function NoraConversation({ contexte = null, accueil = null, sugg
   const risques = useRisques();
   const [messages, setMessages] = useState([]);
   const [saisie, setSaisie] = useState("");
+  const taille = useTailleNora();                              // normale, grande ou très grande
   const [enAttente, setEnAttente] = useState(false);
   const [phase, setPhase] = useState("reflechit");            // ce que fait Nora pendant l'attente
   const [limiteAtteinte, setLimiteAtteinte] = useState(null);   // null, ou { code, message, reprise, limite }
@@ -405,7 +407,7 @@ export default function NoraConversation({ contexte = null, accueil = null, sugg
     : (contexte ? SUGGESTIONS_TRAIN : SUGGESTIONS).map((texte) => ({ texte, question: texte }));
 
   return (
-    <div className="nora-conversation">
+    <div className={`nora-conversation nora-conversation--${taille}`}>
       <div className="nora-fil" aria-live="polite">
         {messages.length === 0 && !questionInitiale && (
           <div className={accueil ? "nora-accueil nora-accueil--contexte" : "nora-accueil"}>
@@ -478,10 +480,11 @@ export default function NoraConversation({ contexte = null, accueil = null, sugg
               <p className="bulle__texte">{m.texte}</p>
               {peutLire && m.texte && (
                 <button type="button" className="bulle__ecouter" aria-label="Écouter la réponse" onClick={() => lire(m.texte)}>
-                  <svg viewBox="0 0 24 24" width="18" height="18" aria-hidden="true" fill="none" stroke="currentColor"
+                  <svg viewBox="0 0 24 24" width="17" height="17" aria-hidden="true" fill="none" stroke="currentColor"
                        strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
                     <path d="M4 9v6h4l5 4V5L8 9z" /><path d="M16 9a4 4 0 0 1 0 6M19 6a8 8 0 0 1 0 12" />
                   </svg>
+                  <span aria-hidden="true">Écouter</span>
                 </button>
               )}
             </div>
@@ -659,7 +662,7 @@ export default function NoraConversation({ contexte = null, accueil = null, sugg
             )}
             <button type="submit" className="nora-rond nora-rond--envoyer" aria-label="Envoyer" disabled={enAttente || !saisie.trim()}>
               <svg viewBox="0 0 24 24" width="22" height="22" aria-hidden="true" fill="none" stroke="currentColor"
-                   strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round"><path d="M5 12h14M13 6l6 6-6 6" /></svg>
+                   strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round"><path d="M12 19V5M6 11l6-6 6 6" /></svg>
             </button>
           </form>
           <p className="nora-mention">

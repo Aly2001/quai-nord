@@ -43,3 +43,9 @@ test("les questions d'un train sont proposées dans Nora, avec l'information d'a
     .toEqual(["Pourquoi 5 % de risque ?", "Bus, tram ou métro à l'arrivée à Lille Flandres ?"]);
   expect(accueilDuTrain("07:04", "17 %")).toBe("Le train de 07:04 a 17 % de risque de retard. Que voulez-vous savoir ?");
 });
+
+test("la page Nora a le réglage de la taille du texte, en taille normale par défaut", () => {
+  const page = rendre(Nora, "/nora");
+  expect(page).toContain("Taille du texte : normale");
+  expect(page).toContain("nora-conversation--normale");
+});

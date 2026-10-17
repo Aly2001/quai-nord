@@ -1,5 +1,6 @@
 import { useSearchParams } from "react-router-dom";
 import NoraConversation, { AvatarNora } from "../components/NoraConversation";
+import { BoutonTaille } from "../components/TailleNora";
 import { libelleGare } from "../data/bus";
 import "./NoraPage.css";
 
@@ -29,6 +30,7 @@ export default function Nora() {
           <h1 className="nora-page__nom">Nora</h1>
           <p className="nora-page__signature">Votre assistante mobilité</p>
         </div>
+        <BoutonTaille />
       </header>
 
       {/* ---------- Ordinateur : présentation ---------- */}
@@ -37,8 +39,9 @@ export default function Nora() {
           <AvatarNora taille={64} />
           <div>
             <h1 className="nora-carte-nuit__nom">Nora</h1>
-            <p className="nora-carte-nuit__signature">Je suis là pour votre trajet.</p>
+            <p className="nora-carte-nuit__signature">Votre assistante mobilité</p>
           </div>
+          <BoutonTaille />
           <p>L'assistante IA de Quai Nord répond à vos questions sur l'application, vos trajets et le risque de retard.</p>
         </section>
 

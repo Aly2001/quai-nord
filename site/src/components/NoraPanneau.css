@@ -56,3 +56,19 @@
 
 /* Clavier ouvert : pas de marge pour la barre du bas de l'iPhone, cachée par le clavier */
 .nora-panneau__boite--clavier .nora-bas { padding-bottom: 10px; }
+
+/* Le contexte devient une petite étiquette centrée, au lieu d'une grande bande jaune */
+.nora-panneau__contexte {
+  align-self: center;
+  max-width: calc(100% - 32px);
+  margin: 12px auto 0;
+  padding: 4px 12px;
+  border-radius: 999px;
+  background: #F1F3F6;
+  color: var(--texte-doux);
+  font-size: 13px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.nora-panneau__contexte strong { color: var(--nuit); font-weight: 600; }

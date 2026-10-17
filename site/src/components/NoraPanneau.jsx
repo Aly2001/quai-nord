@@ -1,5 +1,6 @@
 import { useEffect, useRef } from "react";
 import NoraConversation, { AvatarNora } from "./NoraConversation";
+import { BoutonTaille } from "./TailleNora";
 import "./NoraPanneau.css";
 
 // Le panneau latéral de Nora, ouvert depuis un train (« Pourquoi ? Demander à Nora »).
@@ -54,8 +55,9 @@ export default function NoraPanneau({ titre, contexte, accueil = null, suggestio
           <AvatarNora taille={44} />
           <div className="nora-panneau__titre">
             <h2>Nora</h2>
-            <p>Je suis là pour votre trajet</p>
+            <p>Votre assistante mobilité</p>
           </div>
+          <BoutonTaille />
           <button ref={fermer} type="button" className="nora-panneau__fermer" aria-label="Fermer" onClick={onFermer}>
             <svg viewBox="0 0 24 24" width="22" height="22" aria-hidden="true" fill="none" stroke="currentColor"
                  strokeWidth="2.2" strokeLinecap="round"><path d="M6 6l12 12M18 6L6 18" /></svg>

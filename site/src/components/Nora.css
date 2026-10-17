@@ -473,3 +473,108 @@
 /* La pause du soir : les yeux fermés */
 .nora-limite__haut { display: flex; align-items: center; gap: 14px; }
 .nora-limite__mascotte { display: inline-flex; }
+
+/* =====================================================================
+   La discussion moderne : une police de lecture, un texte plus grand,
+   les réponses de Nora sans bulle, une barre de saisie flottante.
+   ===================================================================== */
+.nora-conversation {
+  --nora-texte: 18px;
+  --police-lecture: "Atkinson Hyperlegible", "Barlow", system-ui, sans-serif;
+}
+.nora-conversation--grande { --nora-texte: 20px; }
+.nora-conversation--tres-grande { --nora-texte: 22px; }
+
+.nora-fil { gap: 18px; }
+
+.bulle { font-family: var(--police-lecture); font-size: var(--nora-texte); line-height: 1.55; }
+
+/* Mes messages : une bulle bleu nuit à droite */
+.bulle--vous { padding: 12px 18px; border-radius: 22px 22px 6px 22px; max-width: 82%; }
+
+/* Les réponses de Nora : du texte libre sur toute la largeur, la petite mascotte à gauche */
+.bulle--nora {
+  position: relative;
+  max-width: 100%;
+  align-self: stretch;
+  padding: 2px 0 0 42px;
+  background: transparent;
+  border-radius: 0;
+}
+.bulle--nora::before {
+  content: "";
+  position: absolute;
+  left: 0;
+  top: 0;
+  width: 30px;
+  height: 30px;
+  border-radius: 50%;
+  background: var(--signal) url("/nora/nora-ronde.webp") center / cover no-repeat;
+}
+.bulle__haut { flex-direction: column; align-items: flex-start; gap: 4px; }
+.bulle__ecouter {
+  order: 2;
+  width: auto;
+  height: 36px;
+  gap: 6px;
+  padding: 0 10px;
+  margin-left: -10px;
+  font: inherit;
+  font-family: "Barlow", system-ui, sans-serif;
+  font-size: 14px;
+  font-weight: 600;
+  background: transparent;
+  color: var(--texte-doux);
+  border-radius: 8px;
+}
+.bulle__ecouter:hover { background: #EEF1F5; color: var(--nuit); }
+/* La carte du trajet et les choix grandissent avec le texte */
+.bus-meilleur__etapes, .bus-autre__texte { font-size: calc(var(--nora-texte) - 1px); }
+.nora-choix__bouton, .nora-suggestion, .nora-exemple { font-family: var(--police-lecture); }
+
+/* La barre de saisie flottante : micro et envoi DANS la barre */
+.nora-saisie {
+  align-items: center;
+  gap: 6px;
+  padding: 4px 4px 4px 4px;
+  border: 1.5px solid #C9D3E3;
+  border-radius: 28px;
+  background: #FFFFFF;
+  box-shadow: 0 4px 16px rgba(20, 33, 61, 0.08);
+}
+.nora-saisie:focus-within { border-color: var(--nuit); }
+.nora-saisie input, .nora-saisie textarea {
+  border: 0;
+  background: transparent;
+  font-family: var(--police-lecture);
+  font-size: 17px;
+  min-height: 46px;
+  padding: 12px 6px 12px 14px;
+}
+.nora-saisie input:focus, .nora-saisie textarea:focus { border: 0; outline: none; }
+.nora-rond { width: 46px; height: 46px; }
+.nora-rond:not(.nora-rond--envoyer) { background: #EEF1F5; color: var(--nuit); }
+
+/* Le bouton « AA » de l'en-tête */
+.bouton-taille {
+  flex: none;
+  display: inline-flex;
+  align-items: baseline;
+  gap: 1px;
+  min-height: 40px;
+  padding: 0 12px;
+  font: inherit;
+  font-weight: 700;
+  background: transparent;
+  color: #FFFFFF;
+  border: 1.5px solid #5FB3CE;
+  border-radius: 999px;
+  cursor: pointer;
+}
+.bouton-taille__petit { font-size: 14px; }
+.bouton-taille__grand { font-size: 20px; }
+.bouton-taille--actif { background: var(--signal); color: var(--nuit); border-color: var(--signal); }
+/* « Nora réfléchit » : la grande mascotte est déjà à côté, pas de petite en plus */
+.bulle--nora.nora-ecrit { padding-left: 0; align-self: center; }
+.bulle--nora.nora-ecrit::before { display: none; }
+.nora-attente .bulle--nora { align-self: center; }

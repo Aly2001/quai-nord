@@ -5,6 +5,7 @@ import {
   nettoyerLieu, categorieDe, garesCorrespondantes, estUnLieuPrecis, dansLaCategorie, libelleGare,
   lieuxPrepares, chercherLieu, etapesSiteOfficiel, SITES_RESEAUX, seRessemblent, pertinent,
   reseauDeGare, reseauDeVille, transportsDuReseau, decrireLigne, nettoyerDirection, joliNom, RESEAUX_BUS,
+  estAdresse, arretsCorrespondants,
 } from "./bus";
 
 const reseau = {
@@ -395,5 +396,43 @@ describe("les grands sites : jusqu'à 800 m à pied", () => {
   });
   test("un bureau de poste à 700 m de l'arrêt ne l'est pas (500 m au plus)", () => {
     expect(busDepuisGare(couverte, { ...centre, cat: "poste" })).toEqual([]);
+  });
+});
+
+
+// ---------------------------------------------------------------------
+//  Retour du test à Boulogne : « 7 place de Lorraine » donnait des plages
+// ---------------------------------------------------------------------
+describe("une adresse n'est pas une catégorie", () => {
+  test.each(["7 place de Lorraine", "Place lorraine", "rue des Écoles", "12 avenue Foch", "quai Gambetta"])(
+    "« %s » est une adresse", (texte) => {
+      expect(estAdresse(texte)).toBe(true);
+      expect(categorieDe(texte)).toBeNull();
+    });
+  test.each([["la plage", "plage"], ["l'université", "universite"], ["la mairie", "mairie"]])(
+    "« %s » reste une catégorie", (texte, code) => {
+      expect(categorieDe(texte)?.code).toBe(code);
+    });
+});
+
+describe("un nom d'arrêt est une destination", () => {
+  const boulogne = {
+    arrets: {
+      L1: ["Place de Lorraine", 50.7262, 1.6151], L2: ["Place de Lorraine", 50.7264, 1.6155],
+      G: ["Gare SNCF", 50.7155, 1.6135], P: ["Plage", 50.73, 1.59],
+    },
+  };
+  test("« 7 place de Lorraine » trouve l'arrêt, ses deux quais réunis en un seul lieu", () => {
+    const lieux = arretsCorrespondants(boulogne, "7 place de Lorraine");
+    expect(lieux).toHaveLength(1);
+    expect(lieux[0]).toMatchObject({ nom: "Place de Lorraine", cat: "arret" });
+    expect(lieux[0].lat).toBeCloseTo(50.7263, 4);
+  });
+  test("une faute de frappe est tolérée, un autre nom ne correspond pas", () => {
+    expect(arretsCorrespondants(boulogne, "place lorainne")).toHaveLength(1);
+    expect(arretsCorrespondants(boulogne, "place Dalton")).toEqual([]);
+  });
+  test("une catégorie ne cherche pas parmi les arrêts (« plage » ressemble à « place »)", () => {
+    expect(arretsCorrespondants(boulogne, "la plage")).toEqual([]);
   });
 });

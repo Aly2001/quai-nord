@@ -319,7 +319,17 @@ export function nettoyerLieu(texte) {
   return normaliser(texte).split(" ").filter((mot) => mot && !MOTS_VIDES.has(mot)).join(" ");
 }
 
+// Les mots d'une ADRESSE : « 7 place de Lorraine » n'est pas « la plage » (place et plage ne diffèrent que
+// d'une lettre), ni « rue des Écoles » une demande d'école. Une adresse n'est jamais une catégorie.
+const MOTS_ADRESSE = new Set(["rue", "place", "pl", "avenue", "av", "boulevard", "bd", "chemin", "allee", "quai", "impasse",
+  "route", "rte", "square", "cours", "parvis", "esplanade", "passage", "sentier", "rond", "faubourg"]);
+export function estAdresse(texte) {
+  const mots = normaliser(texte).split(" ");
+  return mots.some((m) => /^\d+[a-z]?$/.test(m)) || mots.some((m) => MOTS_ADRESSE.has(m));
+}
+
 export function categorieDe(texte) {
+  if (estAdresse(texte)) return null;
   const propre = nettoyerLieu(texte);
   if (!propre) return null;
   // Chaque mot-clé (parfois en plusieurs mots : « hotel ville ») doit se retrouver, à une faute près
@@ -421,12 +431,34 @@ function classer(lieux, gare) {
     .sort((a, b) => a.distance - b.distance);
 }
 
+// Les ARRÊTS du réseau dont le nom correspond (« place de Lorraine » est aussi un arrêt à Boulogne) :
+// un nom d'arrêt est une destination parfaite, et il est déjà dans les données, sans rien chercher en ligne.
+// Plusieurs quais d'un même arrêt (même nom) n'en font qu'un.
+export function arretsCorrespondants(reseau, texte) {
+  const mots = nettoyerLieu(texte).split(" ").filter((mot) => mot.length > 1 && !/^\d+[a-z]?$/.test(mot));
+  // Une catégorie (« la plage ») n'est pas un nom d'arrêt : sinon « plage » ressemblerait à « Place Dalton »
+  if (!reseau?.arrets || mots.length === 0 || categorieDe(texte)) return [];
+  const parNom = new Map();
+  for (const [nom, lat, lon] of Object.values(reseau.arrets)) {
+    if (!contientLesMots(mots, nom)) continue;
+    const cle = normaliser(nom);
+    const deja = parNom.get(cle) || { nom: joliNom(nom), cat: "arret", detail: "Arrêt de bus", lat: 0, lon: 0, n: 0 };
+    deja.lat += lat; deja.lon += lon; deja.n += 1;
+    parNom.set(cle, deja);
+  }
+  return [...parNom.values()].map(({ n, ...l }) => ({ ...l, lat: l.lat / n, lon: l.lon / n }));
+}
+
 export async function chercherLieu(texte, gare, ville, reseau = null) {
   // 1. Les lieux préparés : fiables et instantanés
   const prepares = classer(lieuxPrepares(reseau, texte), gare);
   if (prepares.length > 0) return prepares;
 
-  // 2. En secours, la recherche en direct sur Internet
+  // 2. Un arrêt du réseau qui porte ce nom
+  const arrets = classer(arretsCorrespondants(reseau, texte), gare);
+  if (arrets.length > 0) return arrets;
+
+  // 3. En secours, la recherche en direct sur Internet
   const categorie = categorieDe(texte);
   const essais = categorie
     ? [() => parCategorie(categorie, gare), () => parPhoton(`${categorie.nom} ${ville}`, gare, categorie)]

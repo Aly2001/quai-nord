@@ -331,8 +331,8 @@ export default function NoraConversation({ contexte = null, accueil = null, sugg
       texte: metres <= 1500
         ? `À pied, comptez environ ${minutesAPied(metres)} min (${metres} m). ${enTransport}, c'est plus rapide :`
         : depuis
-          ? `Voici comment rejoindre ${lieu.nom} depuis la gare de ${nomAffiche} (${kilometres} km) :`
-          : `Voici comment rejoindre la gare de ${nomAffiche} depuis ${lieu.nom} (${kilometres} km) :`,
+          ? `Voici comment rejoindre ${lieu.nom} depuis la gare de ${nomAffiche}, à ${kilometres} km :`
+          : `Voici comment rejoindre la gare de ${nomAffiche} depuis ${lieu.nom}, à ${kilometres} km :`,
       bus, carte, sourceBus: source,
     });
   }

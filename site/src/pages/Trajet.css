@@ -529,3 +529,72 @@
 .carte-nora__bouton:hover { border-color: var(--nuit); }
 /* Le train dont parle Nora, entouré de jaune pendant que le panneau est ouvert */
 .trajet-carte--choisie { box-shadow: 0 0 0 3px var(--signal), 0 2px 8px rgba(20, 33, 61, 0.06); }
+
+/* ---------- La carte jaune de Nora (gare d'arrivée desservie) ---------- */
+.carte-arrivee {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 14px 16px;
+  margin-bottom: 18px;
+  padding: 16px 18px;
+  border-radius: 14px;
+  background: #FFF8E1;
+  border: 1.5px solid #F7DE8A;
+  color: #4A3000;
+}
+.carte-arrivee__texte p { margin: 0; font-size: 15px; line-height: 1.4; }
+.carte-arrivee__texte .carte-arrivee__titre { margin-bottom: 2px; font-size: 17px; font-weight: 700; color: var(--nuit); }
+.carte-arrivee__bouton {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  min-height: 48px;
+  padding: 0 20px 0 8px;
+  font: inherit;
+  font-size: 16px;
+  font-weight: 700;
+  background: var(--signal);
+  color: var(--nuit);
+  border: 0;
+  border-radius: 10px;
+  cursor: pointer;
+}
+.carte-arrivee__bouton:hover { filter: brightness(0.96); }
+@media (max-width: 640px) {
+  .carte-arrivee { grid-template-columns: auto minmax(0, 1fr); padding: 14px; }
+  .carte-arrivee__bouton { grid-column: 1 / -1; width: 100%; }
+}
+
+/* ---------- Le badge du trajet le plus rapide, le pictogramme du train, le « ? » du risque ---------- */
+.trajet-carte__rapide {
+  align-self: flex-start;
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  margin-bottom: 6px;
+  padding: 3px 9px;
+  border-radius: 6px;
+  background: var(--signal);
+  color: var(--nuit);
+  font-size: 13px;
+  font-weight: 700;
+}
+.badge--train { display: inline-flex; align-items: center; gap: 6px; }
+.risque-boite__titre { display: flex; align-items: center; gap: 8px; }
+.risque-boite__aide {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 22px;
+  height: 22px;
+  border: 1.5px solid currentColor;
+  border-radius: 50%;
+  color: inherit;
+  font-size: 13px;
+  font-weight: 700;
+  letter-spacing: 0;
+  text-decoration: none;
+}
+.risque-boite__aide:hover { color: var(--signal); }

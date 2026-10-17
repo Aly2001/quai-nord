@@ -93,6 +93,8 @@ export default function Trajet() {
   // Le réseau de la gare d'arrivée : connu tout de suite grâce à reseaux.json, sans rien télécharger
   const reseauArrivee = reseauDeGare(nomArrivee);
   const pret = horaires && fichiersCorresp;
+  // Le trajet le plus court (le premier en cas d'égalité) reçoit le badge « Le plus rapide »
+  const indexRapide = trajets.reduce((meilleur, t, i) => (t.dureeMin < trajets[meilleur].dureeMin ? i : meilleur), 0);
 
   return (
     <>
@@ -110,7 +112,7 @@ export default function Trajet() {
               {etiquetteJour(jour)}, {dateLongue(jour)} · départ à partir de {debut}
             </p>
           )}
-          <Fraicheur tempsReel={tempsReel} sombre />
+          <Fraicheur tempsReel={tempsReel} sombre pastilles />
           {gareDepart && a && <BoutonFavori de={gareDepart.nom} a={nomArrivee} />}
         </div>
       </section>
@@ -148,16 +150,9 @@ export default function Trajet() {
 
           {pret && jourValide && (
             <>
-              <h2 className="resultats__compte">
-                {trajets.length} trajet{trajets.length > 1 ? "s" : ""} à partir de {debut}
-                <span className="resultats__detail">
-                  {nbDirects} direct{nbDirects > 1 ? "s" : ""}, {trajets.length - nbDirects} avec correspondance
-                </span>
-              </h2>
-
               {/* La gare d'arrivée est couverte par les bus : Nora le fait savoir, sans qu'on ait à la chercher */}
               {trajets.length > 0 && reseauArrivee && (
-                <button type="button" className="bandeau-bus" onClick={() => setNora({
+                <CarteNoraArrivee gare={libelleGare(nomArrivee)} reseau={reseauArrivee} onOuvrir={() => setNora({
                   titre: `Arrivée à ${libelleGare(nomArrivee)}`,
                   contexte: `Le voyageur arrive en train à la gare de ${nomArrivee} et cherche ${transportsDuReseau(reseauArrivee).replace(/^le /, "un ").replace(/ le /g, " un ")} pour continuer (ville : ${infosReseau(reseauArrivee).ville}).`,
                   accueil: `Depuis la gare de ${libelleGare(nomArrivee)}, où allez-vous ?`,
@@ -165,11 +160,15 @@ export default function Trajet() {
                     texte: lieu.charAt(0).toUpperCase() + lieu.slice(1),
                     question: `Je suis à la gare de ${nomArrivee}, je vais ${lieu}.`,
                   })),
-                })}>
-                  <AvatarNora taille={32} expression="souriant" />
-                  <span><strong>Vous arrivez à {libelleGare(nomArrivee)} ?</strong> Nora vous trouve {transportsDuReseau(reseauArrivee)} jusqu'à votre destination.</span>
-                </button>
+                })} />
               )}
+
+              <h2 className="resultats__compte">
+                {trajets.length} trajet{trajets.length > 1 ? "s" : ""} à partir de {debut}
+                <span className="resultats__detail">
+                  {nbDirects} direct{nbDirects > 1 ? "s" : ""}, {trajets.length - nbDirects} avec correspondance
+                </span>
+              </h2>
 
               {trajets.length === 0 && (
                 <p className="resultats__message">
@@ -184,7 +183,8 @@ export default function Trajet() {
                                choisie={nora?.cle === `${t.heure}-${t.arrivee}-${i}`} trajet={t} jour={jour}
                                risques={risques} meteo={meteo} tempsReel={tempsReel}
                                onDemanderNora={setNora}
-                               reseauArrivee={reseauDeGare(t.gareArrivee)} />
+                               reseauArrivee={reseauDeGare(t.gareArrivee)}
+                               rapide={trajets.length > 1 && i === indexRapide} />
                 ))}
               </ol>
 
@@ -240,7 +240,25 @@ function contexteNora(t, jour, risque, pourcentage, niveau, meteoDepart = null) 
   return texte;
 }
 
-function CarteTrajet({ trajet: t, jour, risques, meteo, tempsReel, onDemanderNora, reseauArrivee = null, cle, choisie = false }) {
+// La carte jaune de Nora, quand la gare d'arrivée est desservie : la vraie question du voyageur, et ce que Nora apporte
+function CarteNoraArrivee({ gare, reseau, onOuvrir }) {
+  const plusieurs = infosReseau(reseau).modes.length > 1;
+  return (
+    <section className="carte-arrivee" aria-label="Après le train, avec Nora">
+      <AvatarNora taille={52} expression="souriant" />
+      <div className="carte-arrivee__texte">
+        <p className="carte-arrivee__titre">Vous arrivez à {gare}. Où allez-vous ensuite&nbsp;?</p>
+        <p>Nora vous dit quel {plusieurs ? "bus, tram ou métro" : "bus"} prendre, à quel arrêt et dans quelle direction.</p>
+      </div>
+      <button type="button" className="carte-arrivee__bouton" onClick={onOuvrir}>
+        <AvatarNora taille={28} />
+        {plusieurs ? "Trouver mon trajet" : "Trouver mon bus"}
+      </button>
+    </section>
+  );
+}
+
+function CarteTrajet({ trajet: t, jour, risques, meteo, tempsReel, onDemanderNora, reseauArrivee = null, cle, choisie = false, rapide = false }) {
   const [details, setDetails] = useState(false);
   const [premier, dernier] = [t.troncons[0], t.troncons[t.troncons.length - 1]];
 
@@ -275,6 +293,12 @@ function CarteTrajet({ trajet: t, jour, risques, meteo, tempsReel, onDemanderNor
   return (
     <li className={classes.join(" ")}>
       <div className="trajet-carte__principal">
+        {rapide && (
+          <span className="trajet-carte__rapide">
+            <svg viewBox="0 0 24 24" width="13" height="13" aria-hidden="true" fill="currentColor"><path d="M13 2L4 14h7l-1 8 9-12h-7z" /></svg>
+            Le plus rapide
+          </span>
+        )}
         <div className="trajet-carte__horaires">
           <span className="trajet-carte__heure">{t.heure}</span>
           <span className="trajet-carte__ligne" aria-hidden="true">
@@ -302,7 +326,11 @@ function CarteTrajet({ trajet: t, jour, risques, meteo, tempsReel, onDemanderNor
             {t.troncons.map((tr, i) => (
               <span key={i} className="trajet-carte__train">
                 {i > 0 && <span className="trajet-carte__chevron" aria-label="puis">›</span>}
-                <span className="badge">{tr.train.transport} {tr.train.numero}</span>
+                <span className="badge badge--train">
+                  <svg viewBox="0 0 24 24" width="15" height="15" aria-hidden="true" fill="none" stroke="currentColor"
+                       strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><rect x="5" y="3" width="14" height="14" rx="3" /><path d="M5 11h14M9 21l1.5-4M15 21l-1.5-4" /></svg>
+                  {tr.train.transport} {tr.train.numero}
+                </span>
                 {tr.train.ligne && <span className="badge badge--ligne">{tr.train.ligne}</span>}
               </span>
             ))}
@@ -348,7 +376,10 @@ function CarteTrajet({ trajet: t, jour, risques, meteo, tempsReel, onDemanderNor
 
       {/* ---------- La boîte de risque (à la place du prix) ---------- */}
       <div className="risque-boite">
-        <p className="risque-boite__titre">Risque de retard</p>
+        <p className="risque-boite__titre">
+          Risque de retard
+          <Link to="/faq#risque" className="risque-boite__aide" aria-label="Comment est calculé le risque ?">?</Link>
+        </p>
         {niveau ? (
           <>
             <p className="risque-boite__valeur">

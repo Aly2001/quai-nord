@@ -11,7 +11,13 @@ import {
   RESEAUX,
 } from "../data/bus";
 import { useTailleNora } from "./TailleNora";
+import { reponseLocale } from "../data/reponsesNora";
 import "./Nora.css";
+
+// Pour la lecture à voix haute : sans émojis (certains téléphones lisent « visage souriant », « train »…)
+export function sansEmojis(texte) {
+  return String(texte || "").replace(/[\p{Extended_Pictographic}\u{FE0F}\u{200D}]/gu, "").replace(/[ \t]{2,}/g, " ").trim();
+}
 
 // Le pictogramme du type de transport, dans la pastille de la ligne (affiché sur téléphone, voir Nora.css)
 const DESSINS_MODES = {
@@ -136,6 +142,12 @@ export default function NoraConversation({ contexte = null, accueil = null, sugg
       .slice(-8)
       .map((m) => ({ role: m.auteur === "vous" ? "user" : "assistant", content: m.texte.slice(0, 600) }));
     ajouter({ auteur: "vous", texte: question });
+    // La présentation, le bonjour, le merci : le site répond lui-même, sans Gemini (aucune question comptée)
+    const locale = reponseLocale(question);
+    if (locale) {
+      ajouter({ auteur: "nora", texte: locale });
+      return;
+    }
     setEnAttente(true);
     try {
       const reponse = await fetch("/api/nora", {
@@ -397,7 +409,7 @@ export default function NoraConversation({ contexte = null, accueil = null, sugg
 
   function lire(texte) {
     window.speechSynthesis.cancel();
-    const phrase = new SpeechSynthesisUtterance(texte);
+    const phrase = new SpeechSynthesisUtterance(sansEmojis(texte));
     phrase.lang = "fr-FR";
     window.speechSynthesis.speak(phrase);
   }

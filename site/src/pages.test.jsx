@@ -9,6 +9,7 @@ import Nora from "./pages/Nora";
 import Plus from "./pages/Plus";
 import Sources from "./pages/Sources";
 import Footer from "./components/Footer";
+import { sansEmojis } from "./components/NoraConversation";
 const rendre = (Page, url) => renderToString(<MemoryRouter initialEntries={[url]}><Page /></MemoryRouter>);
 test.each([
   [Trajet, "/trajet?de=Marquise+-+Rinxent&a=Calais+Ville&jour=2026-10-16&heure=17%3A52"],
@@ -56,4 +57,8 @@ test("le sitemap et robots.txt listent les pages publiques", async () => {
   for (const page of ["/carte", "/analyses", "/faq", "/nora", "/sources"]) expect(sitemap).toContain(`quai-nord.web.app${page}<`);
   expect(sitemap).not.toContain("/trajet");
   expect(fs.readFileSync("public/robots.txt", "utf-8")).toContain("Sitemap: https://quai-nord.web.app/sitemap.xml");
+});
+
+test("la lecture à voix haute retire les émojis, pas le texte", () => {
+  expect(sansEmojis("Bonjour ! 👋 Je suis Nora.\n🚆 Je trouve votre train. 😊")).toBe("Bonjour ! Je suis Nora.\n Je trouve votre train.");
 });

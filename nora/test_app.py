@@ -429,3 +429,4 @@ def test_les_regles_de_la_serie_4():
     assert "tu proposes de chercher le PROCHAIN train" in regles
     assert "commence par le TRAIN" in regles
     assert "c'est le trajet INVERSE du dernier trajet de la conversation" in regles
+    assert "À quelle heure voulez-vous revenir ?" in regles                  # pas l'heure de l'aller

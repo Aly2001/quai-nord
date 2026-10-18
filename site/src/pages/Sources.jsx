@@ -17,6 +17,8 @@ export default function Sources() {
     { nom: "Open-Meteo", detail: "Météo prévue au départ des trains", licence: "Licence CC BY 4.0" },
     { nom: "Bus, trams et métros", detail: reseaux, licence: "Licence Ouverte, via transport.data.gouv.fr" },
     { nom: "OpenStreetMap", detail: "Lieux autour des gares (universités, hôpitaux…)", licence: "© les contributeurs d'OpenStreetMap, licence ODbL" },
+    { nom: "Google Gemini", detail: "Les réponses de Nora, l'assistante IA. Vos questions sont transmises à Google (version gratuite : elles peuvent servir à améliorer ses services)", licence: "Service de Google, conditions de l'API Gemini" },
+    { nom: "Base Adresse Nationale et Photon", detail: "La recherche des adresses et des lieux demandés à Nora, quand ils ne sont pas déjà dans les données", licence: "Licence Ouverte (BAN) ; données OpenStreetMap, licence ODbL (Photon)" },
   ];
   return (
     <div className="plus sources">

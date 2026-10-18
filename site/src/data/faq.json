@@ -48,7 +48,7 @@
           "question": "Qui est Nora ?",
           "reponse": [
             "Nora est l'assistante IA de Quai Nord. Elle répond aux questions sur l'application, explique un risque de retard et peut chercher vos prochains trains.",
-            "Pour générer ses réponses, vos questions sont transmises au service Gemini de Google ; Quai Nord ne les conserve pas. Nora peut se tromper : ne lui confiez pas d'informations personnelles."
+            "Pour générer ses réponses, vos questions sont transmises au service Gemini de Google. Quai Nord utilise sa version gratuite : Google peut utiliser ces échanges pour améliorer ses services, et des personnes peuvent les relire. Quai Nord ne les conserve pas. Nora peut se tromper : ne lui confiez jamais d'informations personnelles."
           ]
         },
         {
@@ -159,6 +159,7 @@
           "reponse": [
             "Non. Il n'y a pas de compte, vos recherches ne sont pas enregistrées et le site n'utilise pas de cookies.",
             "Vos trajets favoris sont enregistrés uniquement sur votre appareil, jamais sur nos serveurs.",
+            "Quand Nora cherche un lieu qui n'est pas déjà dans ses données, votre destination est envoyée aux services de recherche OpenStreetMap (Photon, Overpass) et à la Base Adresse Nationale, sans aucune information sur vous.",
             "Seule une mesure d'audience anonyme compte les visites (nombre de pages vues, provenance), sans jamais identifier les visiteurs."
           ]
         }

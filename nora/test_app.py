@@ -20,6 +20,8 @@ def preparer(monkeypatch):
     monkeypatch.setattr(module, "FOURNISSEUR", "mistral")
     module._compteurs.clear()
     module._total.clear()
+    module._minute.clear()
+    module._minute_site.clear()
 
 
 def simuler_mistral(monkeypatch, contenu, statut=200):
@@ -104,6 +106,7 @@ def test_reponse_hors_format_toleree(monkeypatch):
 
 def test_limite_par_jour(monkeypatch):
     simuler_mistral(monkeypatch, json.dumps({"reponse": "ok", "sources": [], "lien_sncf": False, "action": None}))
+    monkeypatch.setattr(module, "QUESTIONS_PAR_MINUTE", 100)        # on teste la limite du JOUR, pas celle de la minute
     for _ in range(module.QUESTIONS_PAR_JOUR):
         assert client.post("/api/nora", json=UNE_QUESTION).status_code == 200
     reponse = client.post("/api/nora", json=UNE_QUESTION)
@@ -431,3 +434,29 @@ def test_les_regles_de_la_serie_4():
     assert "commence par le TRAIN" in regles
     assert "c'est le trajet INVERSE du dernier trajet de la conversation" in regles
     assert "À quelle heure voulez-vous revenir ?" in regles                  # pas l'heure de l'aller
+
+
+
+def test_trop_de_questions_en_une_minute(monkeypatch):
+    """Une rafale (quelqu'un qui contourne le site) est arrêtée, même avec des adresses différentes."""
+    simuler_mistral(monkeypatch, REPONSE_OK)
+    monkeypatch.setattr(module, "QUESTIONS_TOTAL_PAR_MINUTE", 3)
+    for i in range(3):
+        assert client.post("/api/nora", json=UNE_QUESTION, headers={"x-forwarded-for": f"10.1.0.{i}"}).status_code == 200
+    reponse = client.post("/api/nora", json=UNE_QUESTION, headers={"x-forwarded-for": "10.1.0.99"})
+    assert reponse.status_code == 429 and reponse.json()["detail"]["code"] == "trop_rapide"
+
+
+def test_un_visiteur_trop_rapide(monkeypatch):
+    simuler_mistral(monkeypatch, REPONSE_OK)
+    monkeypatch.setattr(module, "QUESTIONS_PAR_MINUTE", 2)
+    entetes = {"x-forwarded-for": "10.2.0.1"}
+    for _ in range(2):
+        assert client.post("/api/nora", json=UNE_QUESTION, headers=entetes).status_code == 200
+    assert client.post("/api/nora", json=UNE_QUESTION, headers=entetes).json()["detail"]["code"] == "trop_rapide"
+
+
+def test_la_minute_passee_est_oubliee():
+    module._minute["x"].extend([0, 1])
+    module._minute_site.extend([0, 1])
+    assert module.trop_rapide("x", maintenant=1000) is False

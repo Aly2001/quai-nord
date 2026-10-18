@@ -65,6 +65,17 @@ const CATEGORIES_GRANDS_SITES = new Set(["universite", "hopital", "stade", "comm
 export const rayonMarche = (categorie) => (CATEGORIES_GRANDS_SITES.has(categorie) ? RAYON_GRANDS_SITES : RAYON_DESTINATION);
 const VITESSE_MARCHE = 80;       // mètres par minute (environ 5 km/h)
 
+// La date de fin de validité du fichier d'un réseau, si elle est DÉPASSÉE (« 31/12/2026 »), sinon null.
+// charger_bus.py refuse un fichier expiré, mais un fichier valide le jour où il est préparé expire ensuite.
+export function horairesPerimes(reseau, aujourdhui = new Date()) {
+  const fin = reseau?.valide_jusqu_au;
+  if (!fin) return null;
+  const jour = aujourdhui.toISOString().slice(0, 10);
+  if (fin >= jour) return null;
+  const [a, m, j] = fin.split("-");
+  return `${j}/${m}/${a}`;
+}
+
 // ---------- Les données : un seul réseau à la fois ----------
 // Lille pèse 350 Ko : on ne télécharge un réseau que lorsqu'on cherche un trajet dans sa ville.
 // Le résultat est gardé en mémoire : la deuxième question est instantanée.

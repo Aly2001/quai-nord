@@ -8,7 +8,7 @@ import { SNCF_CONNECT } from "../data/faq";
 import {
   chargerReseau, reseauDeVille, infosReseau, chercherLieu, busDepuisGare, busVersGare, lienCarte, minutesAPied,
   distance, plusRapideQueAPied, garesCorrespondantes, libelleGare, SITES_RESEAUX, etapesSiteOfficiel, decrireLigne,
-  RESEAUX,
+  RESEAUX, horairesPerimes,
 } from "../data/bus";
 import { useTailleNora } from "./TailleNora";
 import { reponseLocale } from "../data/reponsesNora";
@@ -158,6 +158,11 @@ export default function NoraConversation({ contexte = null, accueil = null, sugg
       if (reponse.status === 429) {
         // « limite_visiteur » ou « plafond_site » : le serveur dit lequel, et quand les questions reviennent
         const detail = (await reponse.json().catch(() => null))?.detail;
+        if (detail?.code === "trop_rapide") {
+          // Une simple pause d'une minute : on le dit, sans bloquer la conversation
+          ajouter({ auteur: "nora", texte: detail.message });
+          return;
+        }
         setLimiteAtteinte(typeof detail === "object" && detail ? detail : { code: "limite_visiteur" });
         return;
       }
@@ -270,6 +275,11 @@ export default function NoraConversation({ contexte = null, accueil = null, sugg
       gare = gares[0];
     }
     const couverte = { code, reseau, nom: gare, gare: reseau.gares[gare] };
+    const perime = horairesPerimes(reseau);
+    if (perime) {
+      // Le fichier du réseau a expiré : les lignes ont pu changer. On prévient avant de répondre.
+      ajouter({ auteur: "nora", texte: `Attention : les horaires du réseau ${SITES_RESEAUX[code].nom} que je connais ne sont plus garantis depuis le ${perime}. Vérifiez sur le site du réseau avant de partir.` });
+    }
     const ville = infosReseau(code).ville;
     const nomAffiche = libelleGare(gare);              // le nom courant, pour les phrases ; « gare » reste le vrai nom
 

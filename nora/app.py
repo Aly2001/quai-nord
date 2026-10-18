@@ -22,7 +22,7 @@ import json
 import os
 import re
 import time
-from collections import defaultdict
+from collections import defaultdict, deque
 from datetime import datetime, timedelta
 from pathlib import Path
 from zoneinfo import ZoneInfo
@@ -62,6 +62,11 @@ QUESTIONS_TOTAL_PAR_JOUR = int(os.environ.get("NORA_QUESTIONS_TOTAL_PAR_JOUR", "
 # Google remet le quota à zéro à minuit, heure de Californie (9 h en France la plupart de l'année) :
 # nos compteurs repartent au même moment
 FUSEAU_QUOTA = ZoneInfo("America/Los_Angeles")
+# Les rafales : l'adresse d'un visiteur peut être falsifiée par quelqu'un qui appelle le serveur directement,
+# sans passer par le site. Ces limites PAR MINUTE, pour un visiteur et pour tout le site, bornent les dégâts
+# (et restent sous la limite de Gemini, environ 15 requêtes par minute en gratuit).
+QUESTIONS_PAR_MINUTE = int(os.environ.get("NORA_QUESTIONS_PAR_MINUTE", "4"))
+QUESTIONS_TOTAL_PAR_MINUTE = int(os.environ.get("NORA_QUESTIONS_TOTAL_PAR_MINUTE", "12"))
 ORIGINES = os.environ.get("NORA_ORIGINES", "http://localhost:5173").split(",")
 FUSEAU = ZoneInfo("Europe/Paris")
 
@@ -127,6 +132,8 @@ class Reponse(BaseModel):
 # ----------------------------------------------------------------------
 _compteurs = defaultdict(int)      # (visiteur, jour) -> questions posées
 _total = defaultdict(int)          # jour -> questions posées sur tout le site
+_minute = defaultdict(deque)       # visiteur -> heures des dernières questions (60 dernières secondes)
+_minute_site = deque()             # les dernières questions de tout le site
 
 
 def jour_quota(maintenant=None):
@@ -154,7 +161,23 @@ def refuser(code, message, **details):
     raise HTTPException(429, {"code": code, "message": message, "reprise": reprise(), **details})
 
 
+def trop_rapide(visiteur, maintenant=None):
+    """Vrai si le visiteur, ou tout le site, a dépassé sa limite sur la dernière minute."""
+    maintenant = maintenant or time.time()
+    for file in (_minute[visiteur], _minute_site):
+        while file and maintenant - file[0] > 60:
+            file.popleft()
+    if not _minute[visiteur]:
+        _minute.pop(visiteur, None)
+    return len(_minute.get(visiteur, ())) >= QUESTIONS_PAR_MINUTE or len(_minute_site) >= QUESTIONS_TOTAL_PAR_MINUTE
+
+
 def compter_question(visiteur):
+    if trop_rapide(visiteur):
+        refuser("trop_rapide", "Doucement ! Nora reçoit beaucoup de questions en ce moment. Réessayez dans une minute.")
+    maintenant = time.time()
+    _minute[visiteur].append(maintenant)
+    _minute_site.append(maintenant)
     jour = jour_quota()
     for cle in [c for c in _compteurs if c[1] != jour]:          # on oublie les jours passés
         del _compteurs[cle]

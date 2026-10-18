@@ -5,7 +5,7 @@ import {
   nettoyerLieu, categorieDe, garesCorrespondantes, estUnLieuPrecis, dansLaCategorie, libelleGare,
   lieuxPrepares, chercherLieu, etapesSiteOfficiel, SITES_RESEAUX, seRessemblent, pertinent,
   reseauDeGare, reseauDeVille, transportsDuReseau, decrireLigne, nettoyerDirection, joliNom, RESEAUX_BUS,
-  estAdresse, arretsCorrespondants, estCentreVille, adressePertinente, motsAdresse,
+  estAdresse, arretsCorrespondants, estCentreVille, adressePertinente, motsAdresse, horairesPerimes,
 } from "./bus";
 
 const reseau = {
@@ -466,5 +466,15 @@ describe("les lieux ambigus", () => {
   });
   test.each(["Centre hospitalier", "centre de secours", "le centre commercial"])("« %s » n'est pas le centre-ville", (t) => {
     expect(estCentreVille(t)).toBe(false);
+  });
+});
+
+
+describe("des horaires périmés", () => {
+  test("avant la fin de validité : rien à signaler ; après : la date, en français", () => {
+    const dunkerque = { valide_jusqu_au: "2026-12-31" };
+    expect(horairesPerimes(dunkerque, new Date("2026-12-31T12:00:00Z"))).toBeNull();
+    expect(horairesPerimes(dunkerque, new Date("2027-01-02T12:00:00Z"))).toBe("31/12/2026");
+    expect(horairesPerimes({}, new Date())).toBeNull();
   });
 });

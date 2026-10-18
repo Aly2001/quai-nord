@@ -420,3 +420,12 @@ def test_une_rue_au_nom_de_ville_depuis_une_gare_reste_un_bus(monkeypatch):
                                              "action": action_bus(gare="Boulogne", ville="Boulogne", lieu="boulevard de Lille")}))
     action = client.post("/api/nora", json=UNE_QUESTION).json()["action"]
     assert action["type"] == "itineraire_bus" and action["lieu"] == "boulevard de Lille"
+
+
+
+def test_les_regles_de_la_serie_4():
+    """Retours du test : train raté renvoyé vers SNCF Connect, deux demandes, « et pour revenir ? »."""
+    regles = module.message_systeme(None)
+    assert "tu proposes de chercher le PROCHAIN train" in regles
+    assert "commence par le TRAIN" in regles
+    assert "c'est le trajet INVERSE du dernier trajet de la conversation" in regles

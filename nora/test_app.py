@@ -427,6 +427,7 @@ def test_les_regles_de_la_serie_4():
     """Retours du test : train raté renvoyé vers SNCF Connect, deux demandes, « et pour revenir ? »."""
     regles = module.message_systeme(None)
     assert "tu proposes de chercher le PROCHAIN train" in regles
+    assert "Oh, je suis désolée pour ce train manqué ! Pas de panique, je vous cherche le prochain." in regles
     assert "commence par le TRAIN" in regles
     assert "c'est le trajet INVERSE du dernier trajet de la conversation" in regles
     assert "À quelle heure voulez-vous revenir ?" in regles                  # pas l'heure de l'aller

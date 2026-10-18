@@ -369,3 +369,13 @@ def test_un_vrai_lieu_qui_contient_la_ville_reste_cherche(monkeypatch, lieu):
     simuler_mistral(monkeypatch, json.dumps({"reponse": "", "sources": [], "lien_sncf": False,
                                              "action": action_bus(gare="Calais Ville", ville="Calais", lieu=lieu)}))
     assert client.post("/api/nora", json=UNE_QUESTION).json()["action"]["lieu"] == lieu
+
+
+
+def test_les_regles_distinguent_train_et_bus():
+    """Retour du test : « Je vais à Paris » était refusé comme une ville hors région, « Je vais à Calais » donnait
+    seulement « Je ne sais pas ». Ce sont des demandes de TRAIN."""
+    regles = module.message_systeme(None)
+    assert "« Je vais à <ville> » tout seul est une demande de TRAIN" in regles
+    assert "Paris (Paris Gare du Nord) fait partie des trajets connus" in regles
+    assert "Tu ne réponds JAMAIS seulement « Je ne sais pas »" in regles

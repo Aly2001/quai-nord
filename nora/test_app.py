@@ -406,3 +406,17 @@ def test_un_quartier_de_la_ville_reste_un_bus(monkeypatch):
     simuler_mistral(monkeypatch, json.dumps({"reponse": "", "sources": [], "lien_sncf": False,
                                              "action": action_bus(gare="Lille Flandres", ville="Lille", lieu="Vieux-Lille")}))
     assert client.post("/api/nora", json=UNE_QUESTION).json()["action"]["type"] == "itineraire_bus"
+
+
+
+def test_les_regles_acceptent_une_rue_depuis_une_gare():
+    """Retour du test : « je suis à la gare de Boulogne, je vais boulevard de Lille » était refusé."""
+    assert "si la personne EST à une gare" in module.message_systeme(None)
+
+
+def test_une_rue_au_nom_de_ville_depuis_une_gare_reste_un_bus(monkeypatch):
+    # Le serveur ne doit pas transformer « boulevard de Lille » en train vers Lille
+    simuler_mistral(monkeypatch, json.dumps({"reponse": "", "sources": [], "lien_sncf": False,
+                                             "action": action_bus(gare="Boulogne", ville="Boulogne", lieu="boulevard de Lille")}))
+    action = client.post("/api/nora", json=UNE_QUESTION).json()["action"]
+    assert action["type"] == "itineraire_bus" and action["lieu"] == "boulevard de Lille"

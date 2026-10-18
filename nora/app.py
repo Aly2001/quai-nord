@@ -342,6 +342,16 @@ def reseau_de_gare(gare):
     return None
 
 
+def lieu_est_la_ville(action):
+    """Vrai si le « lieu » n'est que le nom de la ville ou d'une de ses gares (« Calais », « Calais Ville »)."""
+    lieu = " ".join(m for m in sans_accents(action.get("lieu", "")).split() if m not in MOTS_GARE_INUTILES | {"centre", "a", "au", "pour"})
+    reseau = next((r for r in RESEAUX if r["code"] == action.get("reseau")), None)
+    if not lieu or not reseau:
+        return False
+    noms = set(reseau["villes"]) | {sans_accents(reseau["ville"])} | {" ".join(m for m in sans_accents(g).split() if m not in MOTS_GARE_INUTILES) for g in reseau["gares"]}
+    return lieu in noms
+
+
 def verifier_bus(action):
     """Le PÉRIMÈTRE des transports, vérifié par le code (et non seulement par les règles de l'IA) :
     une gare d'un côté du trajet, dans une ville couverte, et un lieu précis de l'autre."""
@@ -391,6 +401,11 @@ def lire_reponse(texte):
     action_proposee = donnees.get("action")
     action = verifier_action(action_proposee)
     reponse = "" if action else str(donnees.get("reponse", "")).strip()[:800]
+    if action and action.get("type") == "itineraire_bus" and lieu_est_la_ville(action):
+        # « Bus pour Calais » : le nom de la ville n'est pas une destination. On demande où, sans chercher.
+        reponse = (f"Où allez-vous à {action['ville']} ? Dites-moi un lieu ou une adresse, "
+                   "par exemple « la mairie », « la plage » ou « 10 rue Royale ».")
+        action = None
     if action is None and isinstance(action_proposee, dict) and action_proposee.get("type") == "itineraire_bus" and not reponse:
         # L'IA a proposé un bus hors du périmètre : le code refuse à sa place
         ville = str(action_proposee.get("ville", "")).strip()[:40]

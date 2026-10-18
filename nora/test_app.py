@@ -350,3 +350,21 @@ def test_la_journee_change_a_9_h_en_france():
     assert module.jour_quota(avant) != module.jour_quota(apres)
     assert module.reprise(avant) == "aujourd'hui à 9 h"
     assert module.reprise(apres) == "demain à 9 h"
+
+
+
+@pytest.mark.parametrize("lieu", ["Calais", "calais", "Calais Ville", "la gare de Calais", "centre de Calais"])
+def test_le_nom_de_la_ville_n_est_pas_un_lieu(monkeypatch, lieu):
+    """Retour du test : « Bus pour Calais » cherchait le lieu « Calais » et proposait Calais-Ville à 0 km."""
+    simuler_mistral(monkeypatch, json.dumps({"reponse": "", "sources": [], "lien_sncf": False,
+                                             "action": action_bus(gare="Calais Ville", ville="Calais", lieu=lieu)}))
+    corps = client.post("/api/nora", json=UNE_QUESTION).json()
+    assert corps["action"] is None
+    assert corps["reponse"].startswith("Où allez-vous à Calais ?")
+
+
+@pytest.mark.parametrize("lieu", ["la mairie", "Citadelle de Calais", "Phare de Calais", "rue de Calais"])
+def test_un_vrai_lieu_qui_contient_la_ville_reste_cherche(monkeypatch, lieu):
+    simuler_mistral(monkeypatch, json.dumps({"reponse": "", "sources": [], "lien_sncf": False,
+                                             "action": action_bus(gare="Calais Ville", ville="Calais", lieu=lieu)}))
+    assert client.post("/api/nora", json=UNE_QUESTION).json()["action"]["lieu"] == lieu

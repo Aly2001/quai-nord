@@ -376,6 +376,8 @@ def test_les_regles_distinguent_train_et_bus():
     """Retour du test : « Je vais à Paris » était refusé comme une ville hors région, « Je vais à Calais » donnait
     seulement « Je ne sais pas ». Ce sont des demandes de TRAIN."""
     regles = module.message_systeme(None)
-    assert "« Je vais à <ville> » tout seul est une demande de TRAIN" in regles
+    assert "est une demande de TRAIN" in regles and "Je vais à <ville>" in regles
     assert "Paris (Paris Gare du Nord) fait partie des trajets connus" in regles
     assert "Tu ne réponds JAMAIS seulement « Je ne sais pas »" in regles
+    # « Je vais à l'école » : un lieu, donc un bus depuis une gare, pas un train
+    assert "n'est PAS un train : c'est un trajet en BUS depuis une gare" in regles

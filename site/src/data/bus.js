@@ -406,8 +406,19 @@ async function parBaseAdresse(texte, gare) {
 // par catégorie (« l'université »), sinon par nom (« Cité Europe », « Nausicaá »).
 export function lieuxPrepares(reseau, texte) {
   const lieux = reseau?.lieux || [];
+  if (estAdresse(texte)) return [];               // une adresse se cherche comme une adresse (voir chercherLieu)
   const categorie = categorieDe(texte);
-  if (categorie) return lieux.filter((l) => l.cat === categorie.code);
+  if (categorie) {
+    const duType = lieux.filter((l) => l.cat === categorie.code);
+    // Les mots en plus de la catégorie : « malo » dans « la plage de Malo »
+    const motsCategorie = new Set(categorie.mots.flatMap((m) => m.split(" ")));
+    const precis = nettoyerLieu(texte).split(" ").filter((m) => m.length > 2 && ![...motsCategorie].some((c) => seRessemblent(m, c)));
+    if (precis.length > 0) {
+      const nommes = duType.filter((l) => contientLesMots(precis, l.nom));
+      if (nommes.length > 0) return nommes;
+    }
+    return duType;
+  }
   const mots = nettoyerLieu(texte).split(" ").filter((mot) => mot.length > 1);
   if (mots.length === 0) return [];
   return lieux.filter((l) => contientLesMots(mots, l.nom));
@@ -422,6 +433,14 @@ export function pertinent(lieu, texte) {
   return mots.some((mot) => motsLieu.some((m) => seRessemblent(mot, m)));
 }
 
+// Une adresse trouvée doit contenir TOUS les mots du nom de la voie (« boulevard » ET « lille »)
+export function adressePertinente(lieu, texte) {
+  const mots = motsAdresse(texte);
+  if (mots.length === 0) return true;
+  const motsLieu = normaliser(`${lieu.nom} ${lieu.detail || ""}`).split(" ");
+  return mots.every((mot) => motsLieu.some((m) => seRessemblent(mot, m)));
+}
+
 const PRES_DE_LA_GARE = 15_000;   // mètres : au-delà, c'est sans doute un homonyme dans une autre ville
 
 function classer(lieux, gare) {
@@ -434,8 +453,15 @@ function classer(lieux, gare) {
 // Les ARRÊTS du réseau dont le nom correspond (« place de Lorraine » est aussi un arrêt à Boulogne) :
 // un nom d'arrêt est une destination parfaite, et il est déjà dans les données, sans rien chercher en ligne.
 // Plusieurs quais d'un même arrêt (même nom) n'en font qu'un.
+const PETITS_MOTS_ADRESSE = new Set(["de", "du", "des", "la", "le", "les", "l", "d", "a", "au", "aux", "je", "vais", "suis"]);
+export function motsAdresse(texte) {
+  return normaliser(texte).split(" ").filter((mot) => mot.length > 1 && !PETITS_MOTS_ADRESSE.has(mot) && !/^\d+[a-z]?$/.test(mot));
+}
+
 export function arretsCorrespondants(reseau, texte) {
-  const mots = nettoyerLieu(texte).split(" ").filter((mot) => mot.length > 1 && !/^\d+[a-z]?$/.test(mot));
+  // Pour une adresse, on garde aussi les noms de villes (« boulevard de Lille » à Boulogne)
+  const mots = estAdresse(texte) ? motsAdresse(texte)
+    : nettoyerLieu(texte).split(" ").filter((mot) => mot.length > 1 && !/^\d+[a-z]?$/.test(mot));
   // Une catégorie (« la plage ») n'est pas un nom d'arrêt : sinon « plage » ressemblerait à « Place Dalton »
   if (!reseau?.arrets || mots.length === 0 || categorieDe(texte)) return [];
   const parNom = new Map();
@@ -449,9 +475,35 @@ export function arretsCorrespondants(reseau, texte) {
   return [...parNom.values()].map(({ n, ...l }) => ({ ...l, lat: l.lat / n, lon: l.lon / n }));
 }
 
+// « le centre-ville », « le centre », « centre de Lille » : le cœur de la ville, repéré par sa mairie
+// (« centre de secours » ou « centre hospitalier » ne sont pas le centre-ville : seul « centre de <ville> » l'est)
+const CENTRE_VILLE = /^(le |au |en )?(hyper )?centre( ville)?( de (.+))?$/;
+export function estCentreVille(texte) {
+  const propre = normaliser(texte).replace(/[^a-z ]/g, " ").replace(/\s+/g, " ").trim();
+  const trouve = propre.match(CENTRE_VILLE);
+  if (!trouve) return false;
+  if (!trouve[5]) return true;
+  const villes = new Set(RESEAUX.flatMap((r) => [...r.villes, normaliser(r.ville).replace(/-/g, " ")]));
+  return villes.has(trouve[5].trim());
+}
+
+// Parmi les lieux d'une catégorie, ceux dont le NOM contient le mot de la catégorie passent devant
+// (« Université d'Artois » avant « Association pour la formation… », à distance égale ou presque)
+function vraisDabord(lieux, categorie) {
+  if (!categorie) return lieux;
+  const racines = categorie.mots.map((m) => m.split(" ")[0].slice(0, 6));
+  const vrai = (l) => normaliser(l.nom).split(" ").some((mot) => racines.some((r) => mot.startsWith(r)));
+  return [...lieux.filter(vrai), ...lieux.filter((l) => !vrai(l))];
+}
+
 export async function chercherLieu(texte, gare, ville, reseau = null) {
+  // 0. Le centre-ville : la mairie la plus proche de la gare
+  if (estCentreVille(texte)) {
+    const mairie = classer((reseau?.lieux || []).filter((l) => l.cat === "mairie"), gare)[0];
+    if (mairie) return [{ ...mairie, nom: `Centre-ville (${mairie.nom})` }];
+  }
   // 1. Les lieux préparés : fiables et instantanés
-  const prepares = classer(lieuxPrepares(reseau, texte), gare);
+  const prepares = vraisDabord(classer(lieuxPrepares(reseau, texte), gare), categorieDe(texte));
   if (prepares.length > 0) return prepares;
 
   // 2. Un arrêt du réseau qui porte ce nom
@@ -462,7 +514,9 @@ export async function chercherLieu(texte, gare, ville, reseau = null) {
   const categorie = categorieDe(texte);
   const essais = categorie
     ? [() => parCategorie(categorie, gare), () => parPhoton(`${categorie.nom} ${ville}`, gare, categorie)]
-    : [() => parPhoton(`${texte} ${ville}`, gare), () => parBaseAdresse(`${texte} ${ville}`, gare)];
+    : estAdresse(texte)
+      ? [() => parBaseAdresse(`${texte} ${ville}`, gare), () => parPhoton(`${texte} ${ville}`, gare)]
+      : [() => parPhoton(`${texte} ${ville}`, gare), () => parBaseAdresse(`${texte} ${ville}`, gare)];
   let lieux = [];
   for (const essai of essais) {
     try {
@@ -471,7 +525,7 @@ export async function chercherLieu(texte, gare, ville, reseau = null) {
       lieux = [];                                          // service indisponible : on essaie le suivant
     }
     lieux = classer(lieux, gare);
-    if (!categorie) lieux = lieux.filter((l) => pertinent(l, texte));
+    if (!categorie) lieux = lieux.filter((l) => (estAdresse(texte) ? adressePertinente(l, texte) : pertinent(l, texte)));
     if (lieux.length > 0) break;
   }
   return lieux;

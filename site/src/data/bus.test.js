@@ -5,7 +5,7 @@ import {
   nettoyerLieu, categorieDe, garesCorrespondantes, estUnLieuPrecis, dansLaCategorie, libelleGare,
   lieuxPrepares, chercherLieu, etapesSiteOfficiel, SITES_RESEAUX, seRessemblent, pertinent,
   reseauDeGare, reseauDeVille, transportsDuReseau, decrireLigne, nettoyerDirection, joliNom, RESEAUX_BUS,
-  estAdresse, arretsCorrespondants,
+  estAdresse, arretsCorrespondants, estCentreVille, adressePertinente, motsAdresse,
 } from "./bus";
 
 const reseau = {
@@ -434,5 +434,37 @@ describe("un nom d'arrêt est une destination", () => {
   });
   test("une catégorie ne cherche pas parmi les arrêts (« plage » ressemble à « place »)", () => {
     expect(arretsCorrespondants(boulogne, "la plage")).toEqual([]);
+  });
+});
+
+
+// ---------------------------------------------------------------------
+//  Retours de la série 2 de tests (Boulogne, Dunkerque, Arras)
+// ---------------------------------------------------------------------
+describe("les lieux ambigus", () => {
+  const reseau = {
+    arrets: { A: ["Boulevard Daunou", 50.72, 1.61] },
+    lieux: [
+      { nom: "Plage de Malo-les-Bains", cat: "plage", lat: 51.05, lon: 2.40 },
+      { nom: "Plage de Zuydcoote", cat: "plage", lat: 51.07, lon: 2.48 },
+      { nom: "Stade de la Libération", cat: "stade", lat: 50.72, lon: 1.61 },
+    ],
+  };
+  test("« la plage de Malo » : seulement la plage de Malo", () => {
+    expect(lieuxPrepares(reseau, "la plage de Malo").map((l) => l.nom)).toEqual(["Plage de Malo-les-Bains"]);
+    expect(lieuxPrepares(reseau, "la plage")).toHaveLength(2);
+  });
+  test("« boulevard de Lille » : une adresse, ni lieu préparé ni arrêt « boulevard » quelconque", () => {
+    expect(motsAdresse("je vais boulevard de Lille")).toEqual(["boulevard", "lille"]);
+    expect(lieuxPrepares(reseau, "boulevard de Lille")).toEqual([]);
+    expect(arretsCorrespondants(reseau, "boulevard de Lille")).toEqual([]);
+    expect(adressePertinente({ nom: "Boulevard de Lille", detail: "Boulogne-sur-Mer" }, "boulevard de Lille")).toBe(true);
+    expect(adressePertinente({ nom: "Stade de la Libération", detail: "Boulevard Daunou" }, "boulevard de Lille")).toBe(false);
+  });
+  test.each(["le centre-ville", "centre ville", "au centre", "le centre de Lille", "hyper centre"])("« %s » est le centre-ville", (t) => {
+    expect(estCentreVille(t)).toBe(true);
+  });
+  test.each(["Centre hospitalier", "centre de secours", "le centre commercial"])("« %s » n'est pas le centre-ville", (t) => {
+    expect(estCentreVille(t)).toBe(false);
   });
 });

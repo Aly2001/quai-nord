@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { trajet, trains } from "../data/prediction";
 import "./Prediction.css";
+import { useTitrePage } from "../components/titrePage";
 
 // Niveau de risque en mots, selon le pourcentage
 function niveau(risque) {
@@ -10,6 +11,7 @@ function niveau(risque) {
 }
 
 export default function Prediction() {
+  useTitrePage("Prédiction des retards", "Comment Quai Nord estime le risque de retard d'un TER, ligne par ligne et heure par heure.");
   // L'état : le numéro du train étudié (le 07:24 au départ)
   const [numeroChoisi, setNumeroChoisi] = useState("847103");
   const train = trains.find((t) => t.numero === numeroChoisi);

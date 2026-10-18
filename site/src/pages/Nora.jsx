@@ -3,12 +3,14 @@ import NoraConversation, { AvatarNora } from "../components/NoraConversation";
 import { BoutonTaille } from "../components/TailleNora";
 import { libelleGare } from "../data/bus";
 import "./NoraPage.css";
+import { useTitrePage } from "../components/titrePage";
 
 // La page de Nora : présentation à gauche, conversation à droite (ordinateur) ;
 // sur téléphone, un bandeau compact puis la conversation en plein écran.
 const DESTINATIONS = ["au centre-ville", "à l'université", "à l'hôpital", "à la mairie"];
 
 export default function Nora() {
+  useTitrePage("Nora, l'assistante", "Nora, l'assistante IA de Quai Nord : le bus, le tram ou le métro depuis la gare, et les risques de retard expliqués, dans six villes des Hauts-de-France.");
   // Ouverte depuis la carte « Votre bus depuis la gare » de l'accueil : la gare est déjà connue
   const [parametres] = useSearchParams();
   const gare = parametres.get("gare");

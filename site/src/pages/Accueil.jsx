@@ -9,8 +9,10 @@ import GraphiqueBarres from "../components/GraphiqueBarres";
 import { chiffreVedette, chiffresCles, retardParHeure, decouvertes } from "../data/chiffres";
 import { gares } from "../data/gares";
 import "./Accueil.css";
+import { useTitrePage } from "../components/titrePage";
 
 export default function Accueil() {
+  useTitrePage(null, "Votre TER des Hauts-de-France sera-t-il à l'heure ? Recherchez un trajet et voyez son risque de retard, calculé à partir des données ouvertes de la SNCF.");
   const navigate = useNavigate();
 
   // Quand on valide le formulaire : on va sur la page des résultats,

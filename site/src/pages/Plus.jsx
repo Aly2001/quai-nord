@@ -1,8 +1,10 @@
 import { Link } from "react-router-dom";
 import { ListeFavoris } from "../components/Favoris";
 import "./Plus.css";
+import { useTitrePage } from "../components/titrePage";
 
 export default function Plus() {
+  useTitrePage("Plus", "Vos trajets favoris, l'installation de l'application et les informations sur Quai Nord.");
   return (
     <div className="plus">
       <h1 className="plus__titre">Plus</h1>

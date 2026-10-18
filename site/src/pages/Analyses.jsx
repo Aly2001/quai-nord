@@ -2,8 +2,10 @@ import CarteChiffre from "../components/CarteChiffre";
 import GraphiqueBarres, { formaterTaux } from "../components/GraphiqueBarres";
 import { resume, paliers, parPosition, parHeure, methode } from "../data/analyses";
 import "./Analyses.css";
+import { useTitrePage } from "../components/titrePage";
 
 export default function Analyses() {
+  useTitrePage("Analyses des retards", "Ce que les données révèlent sur les retards des TER des Hauts-de-France : paliers de 5 minutes, accumulation au fil du trajet, heures de pointe.");
   const maxPosition = Math.max(...parPosition.map((p) => p.taux));
 
   return (

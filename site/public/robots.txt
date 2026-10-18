@@ -1,0 +1,7 @@
+# Quai Nord : tout le site peut être exploré par les moteurs de recherche,
+# sauf les pages de résultats, qui changent à chaque recherche (/trajet?de=...)
+User-agent: *
+Allow: /
+Disallow: /trajet
+
+Sitemap: https://quai-nord.web.app/sitemap.xml

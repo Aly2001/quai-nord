@@ -3,8 +3,10 @@ import { Link, useLocation } from "react-router-dom";
 import DecorVoies from "../components/DecorVoies";
 import { faq, SNCF_CONNECT } from "../data/faq";
 import "./Faq.css";
+import { useTitrePage } from "../components/titrePage";
 
 export default function Faq() {
+  useTitrePage("Questions fréquentes", "Les réponses aux questions sur Quai Nord : le calcul du risque de retard, les données utilisées, Nora et les bus depuis les gares.");
   // Arrivée sur /faq#risque : on fait défiler jusqu'au bon thème
   const { hash } = useLocation();
   useEffect(() => {

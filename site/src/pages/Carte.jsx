@@ -2,6 +2,7 @@ import { useEffect, useState } from "react";
 import { gares, contourRegion } from "../data/gares";
 import { DOSSIER, useRisques, normaliser } from "../data/horaires";
 import "./Carte.css";
+import { useTitrePage } from "../components/titrePage";
 
 // ---------- Réglages ----------
 const HAUTEUR = 770;                  // la carte est un peu plus haute que la région, pour Paris
@@ -38,6 +39,7 @@ function mesureGare(risques, gare) {
 }
 
 export default function Carte() {
+  useTitrePage("Carte des gares", "La carte des gares TER des Hauts-de-France et de leur ponctualité mesurée, mise à jour chaque jour.");
   const risques = useRisques();
   const [lignes, setLignes] = useState({});
   const [choix, setChoix] = useState("Lille Flandres");

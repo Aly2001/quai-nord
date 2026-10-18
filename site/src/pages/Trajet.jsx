@@ -15,6 +15,7 @@ import {
   trajetsDirects, trajetsAvecCorrespondance, garderMeilleurs, formatDuree,
 } from "../data/horaires";
 import "./Trajet.css";
+import { useTitrePage } from "../components/titrePage";
 
 export default function Trajet() {
   // La recherche est stockée dans l'ADRESSE : /trajet?de=Calais&a=Lille&jour=...&heure=...
@@ -23,6 +24,7 @@ export default function Trajet() {
   const a = params.get("a") || "";
   const jour = params.get("jour") || "";
   const heure = params.get("heure") || "00:00";
+  useTitrePage(de && a ? `${de} → ${a}` : "Résultats", `Les TER de ${de || "votre gare"} à ${a || "votre destination"} et leur risque de retard, avec Quai Nord.`);
 
   const { index, erreur } = useIndexHoraires();
   const risques = useRisques();

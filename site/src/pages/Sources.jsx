@@ -2,12 +2,14 @@ import { Link } from "react-router-dom";
 import { RESEAUX } from "../data/bus";
 import "./Plus.css";
 import "./Sources.css";
+import { useTitrePage } from "../components/titrePage";
 
 // Toutes les sources de données de Quai Nord, avec leur licence (citer la source est une obligation de ces licences).
 // Les réseaux de bus, tram et métro viennent de la liste unique reseaux.json : un nouveau réseau y apparaît tout seul.
 const TRANSPORTS = { metro: "métro", tram: "tram", bus: "bus" };
 
 export default function Sources() {
+  useTitrePage("Sources et licences", "Les données ouvertes réutilisées par Quai Nord et leurs licences : SNCF Voyageurs, Open-Meteo, six réseaux de bus, tram et métro, OpenStreetMap.");
   const reseaux = RESEAUX.map((r) => `${r.nom.replace(/ \(.*\)$/, "")} (${r.ville}${r.modes.length > 1
     ? ` : ${r.modes.map((m) => TRANSPORTS[m]).join(", ")}` : ""})`).join(" · ");
   const sources = [

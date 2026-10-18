@@ -49,3 +49,11 @@ test("la page Nora a le rÃ©glage de la taille du texte, en taille normale par dÃ
   expect(page).toContain("Taille du texte : normale");
   expect(page).toContain("nora-conversation--normale");
 });
+
+test("le sitemap et robots.txt listent les pages publiques", async () => {
+  const fs = await import("node:fs");
+  const sitemap = fs.readFileSync("public/sitemap.xml", "utf-8");
+  for (const page of ["/carte", "/analyses", "/faq", "/nora", "/sources"]) expect(sitemap).toContain(`quai-nord.web.app${page}<`);
+  expect(sitemap).not.toContain("/trajet");
+  expect(fs.readFileSync("public/robots.txt", "utf-8")).toContain("Sitemap: https://quai-nord.web.app/sitemap.xml");
+});

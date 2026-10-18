@@ -271,7 +271,7 @@ def test_bus_hors_perimetre_refuse_par_le_code(monkeypatch):
     assert corps["reponse"].startswith("Je ne connais pas encore les bus de Valenciennes")
     assert "Lille" in corps["reponse"] and "Arras" in corps["reponse"]       # les six villes sont citées
     assert "peut-être bientôt la vôtre" in corps["reponse"]
-    assert "votre train jusqu'à Valenciennes" in corps["reponse"]
+    assert "votre TER des Hauts-de-France" in corps["reponse"]             # jamais « votre train jusqu'à Lyon »
 
 
 def test_bus_valide_transmis(monkeypatch):
@@ -289,7 +289,8 @@ def test_le_reseau_est_transmis_au_site():
 
 def test_les_regles_citent_les_six_villes():
     regles = module.message_systeme(None)
-    assert "{villes_bus}" not in regles                                      # la liste est bien insérée
+    assert "{villes_bus" not in regles                                       # les deux listes sont bien insérées
+    assert "HORS des Hauts-de-France" in regles
     for ville in ("Lille", "Calais", "Boulogne", "Dunkerque", "Amiens", "Arras", "Roubaix", "Longueau"):
         assert ville in regles
     assert module.VILLES_COUVERTES.startswith("Lille")                       # métro et tram d'abord

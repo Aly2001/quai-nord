@@ -94,6 +94,7 @@ def message_systeme(contexte):
     texte = REGLES.replace("{date_heure}", date_en_francais(datetime.now(FUSEAU)))
     # La liste des villes vient de reseaux.json : une ville ajoutée est connue de Nora sans toucher aux règles
     texte = texte.replace("{villes_bus}", villes_couvertes(detail=True))
+    texte = texte.replace("{villes_bus_court}", VILLES_COUVERTES)
     texte += "\n\nBASE DE CONNAISSANCES\n\n" + BASE_CONNAISSANCES
     if contexte:
         texte += "\n\nCONTEXTE DU TRAJET\n\n" + contexte
@@ -413,7 +414,7 @@ def lire_reponse(texte):
             # Une ville dont on ne connaît pas encore les bus : non clair, la ville reprise, et le train proposé
             reponse = (f"Je ne connais pas encore les bus de {ville}, désolée. Je les connais à {VILLES_COUVERTES}. "
                        "De nouvelles villes arrivent au fil du temps : peut-être bientôt la vôtre. "
-                       f"Pour votre train jusqu'à {ville}, je peux vous aider : d'où partez-vous ?")
+                       "Je peux aussi vous dire si votre TER des Hauts-de-France risque d'être en retard.")
         else:
             reponse = (f"Je peux vous aider pour les bus, trams et métros entre une gare et votre destination, à {VILLES_COUVERTES}. "
                        "Par exemple : « Je suis à la gare de Lille Flandres, je vais à l'université ».")

@@ -343,6 +343,42 @@ def reseau_de_gare(gare):
     return None
 
 
+def mots_utiles(texte):
+    return [m for m in sans_accents(texte).split() if m not in MOTS_GARE_INUTILES | {"a", "au", "pour", "vers", "la", "le", "les"}]
+
+
+def ville_connue(texte):
+    """« Roubaix », « Calais » : le nom d'une ville ou d'une gare connue (n'importe quel réseau), ou None."""
+    cherche = " ".join(mots_utiles(texte))
+    if not cherche:
+        return None
+    for r in RESEAUX:
+        noms = set(r["villes"]) | {sans_accents(r["ville"])} | {" ".join(mots_utiles(g)) for g in r["gares"]}
+        if cherche in noms:
+            return cherche
+    return None
+
+
+def corriger_bus(action, reponse):
+    """Les confusions de l'IA, corrigées par le code (retours des tests sur téléphone) :
+    - « je vais à la gare » sans lieu de départ : on demande d'où ;
+    - « je suis à Lille, je vais à Roubaix » : une AUTRE ville, c'est un train, pas un bus ;
+    - « bus pour Calais » : la ville elle-même n'est pas une destination, on demande où."""
+    lieu = action.get("lieu", "")
+    if not mots_utiles(lieu) and "gare" in sans_accents(lieu):
+        return None, ("D'où partez-vous ? Dites-moi le lieu où vous êtes (une adresse, un quartier, un monument), "
+                      "je vous indique le bus jusqu'à la gare.")
+    destination = ville_connue(lieu)
+    depart = " ".join(mots_utiles(action.get("gare", ""))) or sans_accents(action.get("ville", ""))
+    if destination and action.get("sens") == "depuis_gare" and destination.split()[0] != depart.split()[0]:
+        return ({"type": "rechercher_trajet", "de": action.get("gare") or action.get("ville"), "a": lieu.strip(),
+                 "jour": "aujourd'hui", "heure": datetime.now(FUSEAU).strftime("%H:%M")}, "")
+    if lieu_est_la_ville(action):
+        return None, (f"Où allez-vous à {action['ville']} ? Dites-moi un lieu ou une adresse, "
+                      "par exemple « la mairie », « la plage » ou « 10 rue Royale ».")
+    return action, reponse
+
+
 def lieu_est_la_ville(action):
     """Vrai si le « lieu » n'est que le nom de la ville ou d'une de ses gares (« Calais », « Calais Ville »)."""
     lieu = " ".join(m for m in sans_accents(action.get("lieu", "")).split() if m not in MOTS_GARE_INUTILES | {"centre", "a", "au", "pour"})
@@ -402,11 +438,8 @@ def lire_reponse(texte):
     action_proposee = donnees.get("action")
     action = verifier_action(action_proposee)
     reponse = "" if action else str(donnees.get("reponse", "")).strip()[:800]
-    if action and action.get("type") == "itineraire_bus" and lieu_est_la_ville(action):
-        # « Bus pour Calais » : le nom de la ville n'est pas une destination. On demande où, sans chercher.
-        reponse = (f"Où allez-vous à {action['ville']} ? Dites-moi un lieu ou une adresse, "
-                   "par exemple « la mairie », « la plage » ou « 10 rue Royale ».")
-        action = None
+    if action and action.get("type") == "itineraire_bus":
+        action, reponse = corriger_bus(action, reponse)
     if action is None and isinstance(action_proposee, dict) and action_proposee.get("type") == "itineraire_bus" and not reponse:
         # L'IA a proposé un bus hors du périmètre : le code refuse à sa place
         ville = str(action_proposee.get("ville", "")).strip()[:40]

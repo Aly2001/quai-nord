@@ -381,3 +381,28 @@ def test_les_regles_distinguent_train_et_bus():
     assert "Tu ne réponds JAMAIS seulement « Je ne sais pas »" in regles
     # « Je vais à l'école » : un lieu, donc un bus depuis une gare, pas un train
     assert "n'est PAS un train : c'est un trajet en BUS depuis une gare" in regles
+
+
+
+def test_une_autre_ville_devient_un_train(monkeypatch):
+    """Retour du test : « Je suis à Lille et je vais à Roubaix » donnait « Où allez-vous à Lille ? »."""
+    simuler_mistral(monkeypatch, json.dumps({"reponse": "", "sources": [], "lien_sncf": False,
+                                             "action": action_bus(gare="Lille", ville="Lille", lieu="Roubaix")}))
+    corps = client.post("/api/nora", json=UNE_QUESTION).json()
+    assert corps["action"]["type"] == "rechercher_trajet"
+    assert corps["action"]["de"] == "Lille" and corps["action"]["a"] == "Roubaix"
+
+
+@pytest.mark.parametrize("lieu", ["la gare", "gare", "la gare SNCF"])
+def test_je_vais_a_la_gare_sans_depart(monkeypatch, lieu):
+    """Retour du test : « Je vais à la gare » cherchait des lieux nommés « gare » (bureau de poste…)."""
+    simuler_mistral(monkeypatch, json.dumps({"reponse": "", "sources": [], "lien_sncf": False,
+                                             "action": action_bus(gare="Lille Flandres", ville="Lille", lieu=lieu)}))
+    corps = client.post("/api/nora", json=UNE_QUESTION).json()
+    assert corps["action"] is None and corps["reponse"].startswith("D'où partez-vous ?")
+
+
+def test_un_quartier_de_la_ville_reste_un_bus(monkeypatch):
+    simuler_mistral(monkeypatch, json.dumps({"reponse": "", "sources": [], "lien_sncf": False,
+                                             "action": action_bus(gare="Lille Flandres", ville="Lille", lieu="Vieux-Lille")}))
+    assert client.post("/api/nora", json=UNE_QUESTION).json()["action"]["type"] == "itineraire_bus"

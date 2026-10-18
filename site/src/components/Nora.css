@@ -578,3 +578,5 @@
 .bulle--nora.nora-ecrit { padding-left: 0; align-self: center; }
 .bulle--nora.nora-ecrit::before { display: none; }
 .nora-attente .bulle--nora { align-self: center; }
+/* Les retours à la ligne de Nora sont gardés (sa présentation est une petite liste) */
+.bulle__texte { white-space: pre-line; }

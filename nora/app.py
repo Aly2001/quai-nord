@@ -92,6 +92,8 @@ def date_en_francais(moment):
 
 def message_systeme(contexte):
     texte = REGLES.replace("{date_heure}", date_en_francais(datetime.now(FUSEAU)))
+    # La liste des villes vient de reseaux.json : une ville ajoutée est connue de Nora sans toucher aux règles
+    texte = texte.replace("{villes_bus}", villes_couvertes(detail=True))
     texte += "\n\nBASE DE CONNAISSANCES\n\n" + BASE_CONNAISSANCES
     if contexte:
         texte += "\n\nCONTEXTE DU TRAJET\n\n" + contexte
@@ -300,7 +302,24 @@ def sans_accents(texte):
 
 # Les réseaux couverts, lus dans la même liste que le site et charger_bus.py
 RESEAUX = json.loads(FICHIER_RESEAUX.read_text(encoding="utf-8"))["reseaux"]
-VILLES_COUVERTES = ", ".join(r["ville"] for r in RESEAUX[:-1]) + " et " + RESEAUX[-1]["ville"]
+
+
+def villes_couvertes(detail=False):
+    """« Lille, Calais, … et Arras », les villes avec métro et tram d'abord. En détail, pour les règles de Nora :
+    « Lille (avec le métro et le tram ; aussi Roubaix, Tourcoing), …, Amiens (aussi Longueau), … »."""
+    noms = []
+    for r in sorted(RESEAUX, key=lambda r: -len(r["modes"])):
+        if not detail:
+            noms.append(r["ville"])
+            continue
+        premier = sans_accents(r["ville"]).split()[0]
+        autres = [g for g in r["gares"] if sans_accents(g).split()[0] != premier]
+        precisions = (["avec le métro et le tram"] if len(r["modes"]) > 1 else []) + ([f"aussi {', '.join(autres)}"] if autres else [])
+        noms.append(r["ville"] + (f" ({' ; '.join(precisions)})" if precisions else ""))
+    return ", ".join(noms[:-1]) + " et " + noms[-1]
+
+
+VILLES_COUVERTES = villes_couvertes()
 MOTS_GARE_INUTILES = {"la", "gare", "de", "du", "d", "l", "sncf", "ville", "centre"}
 
 
@@ -374,8 +393,15 @@ def lire_reponse(texte):
     reponse = "" if action else str(donnees.get("reponse", "")).strip()[:800]
     if action is None and isinstance(action_proposee, dict) and action_proposee.get("type") == "itineraire_bus" and not reponse:
         # L'IA a proposé un bus hors du périmètre : le code refuse à sa place
-        reponse = (f"Je peux vous aider pour les bus, trams et métros entre une gare et votre destination, à {VILLES_COUVERTES}. "
-                   "Par exemple : « Je suis à la gare de Lille Flandres, je vais à l'université ».")
+        ville = str(action_proposee.get("ville", "")).strip()[:40]
+        if ville and not reseau_de_ville(ville) and not reseau_de_gare(str(action_proposee.get("gare", ""))):
+            # Une ville dont on ne connaît pas encore les bus : non clair, la ville reprise, et le train proposé
+            reponse = (f"Je ne connais pas encore les bus de {ville}, désolée. Je les connais à {VILLES_COUVERTES}. "
+                       "De nouvelles villes arrivent au fil du temps : peut-être bientôt la vôtre. "
+                       f"Pour votre train jusqu'à {ville}, je peux vous aider : d'où partez-vous ?")
+        else:
+            reponse = (f"Je peux vous aider pour les bus, trams et métros entre une gare et votre destination, à {VILLES_COUVERTES}. "
+                       "Par exemple : « Je suis à la gare de Lille Flandres, je vais à l'université ».")
     return {
         "reponse": reponse,
         # Seules les sources qui existent VRAIMENT dans la FAQ sont gardées

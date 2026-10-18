@@ -268,8 +268,10 @@ def test_bus_hors_perimetre_refuse_par_le_code(monkeypatch):
     }))
     corps = client.post("/api/nora", json=UNE_QUESTION).json()
     assert corps["action"] is None
-    assert "entre une gare et votre destination" in corps["reponse"]
+    assert corps["reponse"].startswith("Je ne connais pas encore les bus de Valenciennes")
     assert "Lille" in corps["reponse"] and "Arras" in corps["reponse"]       # les six villes sont citées
+    assert "peut-être bientôt la vôtre" in corps["reponse"]
+    assert "votre train jusqu'à Valenciennes" in corps["reponse"]
 
 
 def test_bus_valide_transmis(monkeypatch):
@@ -286,8 +288,19 @@ def test_le_reseau_est_transmis_au_site():
 
 
 def test_les_regles_citent_les_six_villes():
-    for ville in ("Lille", "Calais", "Boulogne", "Dunkerque", "Amiens", "Arras"):
-        assert ville in module.REGLES
+    regles = module.message_systeme(None)
+    assert "{villes_bus}" not in regles                                      # la liste est bien insérée
+    for ville in ("Lille", "Calais", "Boulogne", "Dunkerque", "Amiens", "Arras", "Roubaix", "Longueau"):
+        assert ville in regles
+    assert module.VILLES_COUVERTES.startswith("Lille")                       # métro et tram d'abord
+
+
+def test_un_refus_sans_ville_reste_general(monkeypatch):
+    """Un bus demandé sans gare (de la plage au supermarché) : le rappel général, pas « pas encore les bus de… »."""
+    simuler_mistral(monkeypatch, json.dumps({"reponse": "", "sources": [], "lien_sncf": False,
+                                             "action": action_bus(sens="entre_deux_lieux")}))
+    corps = client.post("/api/nora", json=UNE_QUESTION).json()
+    assert "entre une gare et votre destination" in corps["reponse"]
 
 
 # ---------- Le plafond de tout le site, et le quota de Google ----------

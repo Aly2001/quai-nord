@@ -527,3 +527,14 @@ describe("une gare nommée, pour toutes les villes", () => {
   test.each(["la gare de Boulogne", "Lille", "Lille ville", "Calais", "l'université", "boulevard de Lille"])(
     "« %s » : ambigu ou pas une gare, Nora demande", (phrase) => expect(gareCitee(toutes, phrase)).toBeNull());
 });
+
+
+describe("une gare nommée, aussi pour les TRAINS (toutes les gares SNCF, même sans bus)", () => {
+  const sncf = ["Boulogne sur Mer", "Boulogne Tintelleries", "Calais Ville", "Calais - Fréthun", "Douai", "Béthune",
+    "Lille Flandres", "Lille Europe", "Saint-Omer", "Paris Gare du Nord", "Le Touquet"];
+  test.each([
+    ["Boulogne ville", "Boulogne sur Mer"], ["Fréthun", "Calais - Fréthun"], ["la gare de Douai", "Douai"],
+    ["Saint-Omer", "Saint-Omer"], ["Paris Nord", "Paris Gare du Nord"], ["Béthune", "Béthune"],
+  ])("« %s » -> %s", (phrase, gare) => expect(gareCitee(sncf, phrase)).toBe(gare));
+  test.each(["Boulogne", "Lille", "Calais"])("« %s » : plusieurs gares, Nora demande", (p) => expect(gareCitee(sncf, p)).toBeNull());
+});

@@ -396,6 +396,7 @@ def contient_ligne_urbaine(texte):
 # La gare nommée dans un texte, pour TOUS les réseaux (même règle que gareCitee dans le site) :
 # nom complet, mot distinctif (« Tintelleries »), ville à une seule gare (« Arras »),
 # ou « <ville> Ville » pour la gare principale (« Boulogne Ville » = « Boulogne sur Mer »).
+_SUFFIXES_VILLE = {"sur", "mer", "les", "bains", "en", "lez", "plage", "saint", "sainte", "st"}   # « Boulogne-sur-Mer »
 _PETITS_MOTS_GARE = {"la", "gare", "sncf", "de", "du", "d", "l", "le", "les", "a", "au", "en", "vers", "jusqu", "je", "vais", "suis", "pour"}
 
 
@@ -412,7 +413,7 @@ def gare_citee(reseau, texte):
     for nom in reseau["gares"]:
         utiles = [m for m in _mots(nom) if m not in _PETITS_MOTS_GARE and m != "ville"]
         ville = next((m for m in utiles if m in villes), utiles[0] if utiles else "")
-        gares.append((nom, ville, [m for m in utiles if m not in villes]))
+        gares.append((nom, ville, [m for m in utiles if m not in villes and m not in _SUFFIXES_VILLE]))
     complets = [nom for nom, _, _ in gares if f" {' '.join(_mots(nom))} " in phrase]
     if complets:
         return max(complets, key=len)

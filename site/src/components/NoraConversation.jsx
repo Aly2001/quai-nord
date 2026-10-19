@@ -227,6 +227,9 @@ export default function NoraConversation({ contexte = null, accueil = null, sugg
 
     // Retrouver la vraie gare de départ, et demander de choisir s'il y en a plusieurs
     let gare = gareChoisie;
+    // La même règle générale que pour les bus : « Boulogne Ville », « Fréthun », « la gare d'Arras »
+    const nommee = !gare && gareCitee(index.gares.map((g) => g.nom), action.de);
+    if (nommee) gare = index.gares.find((g) => g.nom === nommee);
     if (!gare) {
       const cherche = normaliser(action.de);
       const candidates = index.gares.filter((g) => normaliser(g.nom).includes(cherche));
@@ -256,8 +259,10 @@ export default function NoraConversation({ contexte = null, accueil = null, sugg
       ajouter({ auteur: "nora", erreur: null, texte: "Je n'arrive pas à lire les horaires pour le moment." });
       return;
     }
-    const trains = trajetsDirects(departs, gare.nom, normaliser(action.a)).slice(0, 3);
-    const lienTous = `/trajet?${new URLSearchParams({ de: gare.nom, a: action.a, jour, heure: debut })}`;
+    // L'arrivée aussi : « Boulogne Ville » est la gare SNCF « Boulogne sur Mer »
+    const arrivee = gareCitee(index.destinations || index.gares.map((g) => g.nom), action.a) || action.a;
+    const trains = trajetsDirects(departs, gare.nom, normaliser(arrivee)).slice(0, 3);
+    const lienTous = `/trajet?${new URLSearchParams({ de: gare.nom, a: arrivee, jour, heure: debut })}`;
     if (trains.length === 0) {
       ajouter({
         auteur: "nora",

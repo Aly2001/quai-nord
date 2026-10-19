@@ -168,12 +168,16 @@ export const libelleGare = (nom) => NOMS_COURANTS[normaliser(nom)] || nom;
 const motsDe = (texte) => normaliser(texte || "").replace(/[^a-z0-9 ]/g, " ").split(" ").filter(Boolean);
 const PETITS_MOTS_GARE = new Set(["la", "gare", "sncf", "de", "du", "d", "l", "le", "les", "a", "au", "en", "vers", "jusqu", "je", "vais", "suis", "pour"]);
 
+// Les mots qui font partie d'un NOM DE VILLE (« Boulogne-sur-Mer », « Malo-les-Bains ») : jamais distinctifs
+const SUFFIXES_VILLE = new Set(["sur", "mer", "les", "bains", "en", "lez", "plage", "saint", "sainte", "st"]);
+
 function descriptionGare(nom) {
+  // Une gare d'un réseau de bus : sa ville vient de reseaux.json. Sinon (Douai, Béthune…), le premier mot du nom.
   const reseau = RESEAUX.find((r) => r.gares.includes(nom));
-  const motsVilles = new Set((reseau ? [reseau.ville, ...reseau.villes] : []).flatMap(motsDe));
   const mots = motsDe(nom).filter((m) => !PETITS_MOTS_GARE.has(m) && m !== "ville");
+  const motsVilles = new Set(reseau ? [reseau.ville, ...reseau.villes].flatMap(motsDe) : mots.slice(0, 1));
   const villeDeLaGare = mots.find((m) => motsVilles.has(m)) || mots[0];
-  return { nom, ville: villeDeLaGare, distinctifs: mots.filter((m) => !motsVilles.has(m)) };
+  return { nom, ville: villeDeLaGare, distinctifs: mots.filter((m) => !motsVilles.has(m) && !SUFFIXES_VILLE.has(m)) };
 }
 
 export function gareCitee(noms, texte) {

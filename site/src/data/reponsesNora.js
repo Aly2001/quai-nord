@@ -26,3 +26,25 @@ export function reponseLocale(question) {
   if (REMERCIEMENTS.test(texte)) return MERCI;
   return null;
 }
+
+// Après un trajet en bus, « je vais à pied », « l'adresse », « comment y aller à pied »… :
+// le site connaît déjà la distance et les positions, il répond lui-même (sans Gemini).
+// (précis exprès : « comment aller à Lille ? » est une demande de TRAIN, pas de marche)
+const DEMANDES_A_PIED = /\b(a pied|marche|marcher|adresse|chemin|comment y aller|comment j y vais)\b/;
+export function demandeAPied(question) {
+  const texte = normaliser(question).replace(/[^a-z0-9 ]/g, " ").replace(/\s+/g, " ").trim();
+  return DEMANDES_A_PIED.test(texte);
+}
+
+// La marche réelle est plus longue que la ligne droite : environ un quart de plus en ville
+const DETOUR = 1.25;
+const VITESSE = 80;            // mètres par minute, comme le reste du site
+export function reponseAPied(trajet) {
+  const metresReels = trajet.metres * DETOUR;
+  const minutes = Math.max(1, Math.round(metresReels / VITESSE));
+  const km = (metresReels / 1000).toFixed(1).replace(".", ",");
+  const trajetTexte = trajet.depuis
+    ? `${trajet.lieu} depuis la gare de ${trajet.gare}`
+    : `la gare de ${trajet.gare} depuis ${trajet.lieu}`;
+  return `Pour rejoindre ${trajetTexte} à pied, comptez environ ${minutes} min (${km} km). Le bouton ci-dessous ouvre l'itinéraire à pied sur la carte.`;
+}

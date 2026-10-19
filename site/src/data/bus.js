@@ -543,6 +543,11 @@ export async function chercherLieu(texte, gare, ville, reseau = null) {
 }
 
 // ---------- Le lien vers une application de cartes (itinéraire en transports) ----------
+// Le même lien, mais l'itinéraire À PIED (quand le voyageur préfère marcher)
+export function lienAPied(depart, arrivee) {
+  return lienCarte(depart, arrivee).replace("travelmode=transit", "travelmode=walking");
+}
+
 export function lienCarte(depart, arrivee) {
   const parametres = new URLSearchParams({
     api: "1", origin: `${depart.lat},${depart.lon}`, destination: `${arrivee.lat},${arrivee.lon}`, travelmode: "transit",

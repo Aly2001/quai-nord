@@ -8,10 +8,10 @@ import { SNCF_CONNECT } from "../data/faq";
 import {
   chargerReseau, reseauDeVille, infosReseau, chercherLieu, busDepuisGare, busVersGare, lienCarte, minutesAPied,
   distance, plusRapideQueAPied, garesCorrespondantes, libelleGare, SITES_RESEAUX, etapesSiteOfficiel, decrireLigne,
-  RESEAUX, horairesPerimes,
+  RESEAUX, horairesPerimes, lienAPied,
 } from "../data/bus";
 import { useTailleNora } from "./TailleNora";
-import { reponseLocale } from "../data/reponsesNora";
+import { reponseLocale, demandeAPied, reponseAPied } from "../data/reponsesNora";
 import "./Nora.css";
 
 // Pour la lecture à voix haute : sans émojis (certains téléphones lisent « visage souriant », « train »…)
@@ -100,6 +100,7 @@ export default function NoraConversation({ contexte = null, accueil = null, sugg
   const taille = useTailleNora();                              // normale, grande ou très grande
   const [enAttente, setEnAttente] = useState(false);
   const [phase, setPhase] = useState("reflechit");            // ce que fait Nora pendant l'attente
+  const [dernierTrajet, setDernierTrajet] = useState(null);     // le dernier trajet gare <-> lieu, pour « à pied »
   const [limiteAtteinte, setLimiteAtteinte] = useState(null);   // null, ou { code, message, reprise, limite }
   const [exemple, setExemple] = useState(null);                 // l'exemple touché, tant qu'on le modifie
   const champ = useRef(null);
@@ -146,6 +147,11 @@ export default function NoraConversation({ contexte = null, accueil = null, sugg
     const locale = reponseLocale(question);
     if (locale) {
       ajouter({ auteur: "nora", texte: locale });
+      return;
+    }
+    // « Je vais à pied », « l'adresse » après un trajet : la distance et l'itinéraire à pied, sans Gemini
+    if (dernierTrajet && demandeAPied(question)) {
+      ajouter({ auteur: "nora", texte: reponseAPied(dernierTrajet), carte: dernierTrajet.lienPied, libelleCarte: "Itinéraire à pied ↗" });
       return;
     }
     setEnAttente(true);
@@ -323,6 +329,11 @@ export default function NoraConversation({ contexte = null, accueil = null, sugg
     // Seulement les bus plus rapides que d'y aller directement à pied
     const bus = plusRapideQueAPied(depuis ? busDepuisGare(couverte, lieu) : busVersGare(couverte, lieu), metres);
     const carte = depuis ? lienCarte(pointGare, lieu) : lienCarte(lieu, pointGare);
+    // On retient ce trajet : si le voyageur préfère marcher, Nora pourra l'aider tout de suite
+    setDernierTrajet({
+      lieu: lieu.nom, gare: nomAffiche, metres, depuis,
+      lienPied: depuis ? lienAPied(pointGare, lieu) : lienAPied(lieu, pointGare),
+    });
     const source = `Lignes : ${reseau.reseau} · Lieux : © les contributeurs d'OpenStreetMap`;
     const kilometres = (metres / 1000).toFixed(1).replace(".", ",");
     if (bus.length === 0 && metres <= 1200) {
@@ -603,7 +614,7 @@ export default function NoraConversation({ contexte = null, accueil = null, sugg
             )}
             {m.lienTous && <Link to={m.lienTous} className="nora-lien">Voir tous les trains</Link>}
             {m.carte && (
-              <a href={m.carte} target="_blank" rel="noopener noreferrer" className="nora-lien">Voir sur la carte ↗</a>
+              <a href={m.carte} target="_blank" rel="noopener noreferrer" className="nora-lien">{m.libelleCarte || "Voir sur la carte ↗"}</a>
             )}
             {m.sourceBus && <p className="bulle__source">{m.sourceBus}</p>}
             {m.lienSncf && (

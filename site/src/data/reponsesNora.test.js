@@ -1,5 +1,5 @@
 import { describe, expect, test } from "vitest";
-import { reponseLocale, PRESENTATION } from "./reponsesNora";
+import { reponseLocale, PRESENTATION, demandeAPied, reponseAPied } from "./reponsesNora";
 
 describe("les réponses données par le site, sans Gemini", () => {
   test.each(["Bonjour Nora, à quoi tu sers ?", "A quoi sers-tu", "Qui es-tu ?", "tu fais quoi", "Présente-toi",
@@ -16,4 +16,16 @@ describe("les réponses données par le site, sans Gemini", () => {
     "« %s » : une vraie question, envoyée à Nora", (q) => {
       expect(reponseLocale(q)).toBeNull();
     });
+});
+
+
+describe("après un trajet, aller à pied (sans Gemini)", () => {
+  test.each(["Je vais à pied", "Adresse pour y aller", "comment y aller à pied ?", "le chemin ?", "je préfère marcher"])(
+    "« %s » : une demande à pied", (q) => expect(demandeAPied(q)).toBe(true));
+  test.each(["Merci", "Et pour revenir ?", "Je vais à l'hôpital", "Comment aller à Lille ?"])("« %s » : autre chose", (q) => expect(demandeAPied(q)).toBe(false));
+  test("la distance réelle et le temps de marche", () => {
+    const texte = reponseAPied({ lieu: "Université", gare: "Calais Ville", metres: 1400, depuis: true });
+    expect(texte).toBe("Pour rejoindre Université depuis la gare de Calais Ville à pied, comptez environ 22 min (1,8 km). "
+      + "Le bouton ci-dessous ouvre l'itinéraire à pied sur la carte.");
+  });
 });

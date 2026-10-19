@@ -460,3 +460,26 @@ def test_la_minute_passee_est_oubliee():
     module._minute["x"].extend([0, 1])
     module._minute_site.extend([0, 1])
     assert module.trop_rapide("x", maintenant=1000) is False
+
+
+
+@pytest.mark.parametrize("texte", [
+    "La gare de Calais Ville est située boulevard de la Résistance à Calais.",
+    "L'adresse de l'université est 50 rue Ferdinand Buisson à Calais.",
+    "Elle se trouve au 46, avenue Wilson.",
+    "La mairie est place d'Armes.".replace("est place", "se trouve place"),
+])
+def test_une_adresse_inventee_n_est_jamais_transmise(monkeypatch, texte):
+    """Retour du test : Nora a donné « boulevard de la Résistance » pour la gare de Calais Ville (46, avenue Wilson)."""
+    simuler_mistral(monkeypatch, json.dumps({"reponse": texte, "sources": [], "lien_sncf": False, "action": None}))
+    assert client.post("/api/nora", json=UNE_QUESTION).json()["reponse"] == module.REPONSE_SANS_ADRESSE
+
+
+@pytest.mark.parametrize("texte", [
+    "Le train de 7 h 04 a 17 % de risque de retard.",
+    "Prenez le train à Calais Ville, puis demandez-moi le bus pour la place de Lorraine.",
+    "Quai Nord estime le risque à partir des retards observés.",
+])
+def test_une_reponse_normale_n_est_pas_touchee(monkeypatch, texte):
+    simuler_mistral(monkeypatch, json.dumps({"reponse": texte, "sources": [], "lien_sncf": False, "action": None}))
+    assert client.post("/api/nora", json=UNE_QUESTION).json()["reponse"] == texte

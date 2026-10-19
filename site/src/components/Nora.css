@@ -580,3 +580,13 @@
 .nora-attente .bulle--nora { align-self: center; }
 /* Les retours à la ligne de Nora sont gardés (sa présentation est une petite liste) */
 .bulle__texte { white-space: pre-line; }
+
+/* « 📍 Ma position », sous la question « d'où partez-vous ? » */
+.nora-position { order: 1; display: flex; flex-direction: column; gap: 6px; margin-top: 8px; }
+.nora-position__bouton {
+  align-self: flex-start; display: inline-flex; align-items: center; gap: 8px; min-height: 48px; padding: 0 18px;
+  font: inherit; font-family: "Barlow", system-ui, sans-serif; font-size: 16px; font-weight: 700;
+  background: #FFFFFF; color: var(--nuit); border: 2px solid var(--nuit); border-radius: 999px; cursor: pointer;
+}
+.nora-position__bouton:hover { background: #F5F7F9; }
+.nora-position__note { font-family: "Barlow", system-ui, sans-serif; font-size: 13px; color: var(--texte-doux); }

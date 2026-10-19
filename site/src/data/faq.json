@@ -57,6 +57,13 @@
             "Oui, à Lille, Calais, Boulogne-sur-Mer, Dunkerque, Amiens et Arras, entre une gare et votre destination, dans les deux sens : par exemple « Je suis à la gare de Lille Flandres, je vais à l'université », ou « Je suis à la plage, quel bus pour la gare ? ». Nora indique les bus directs, et à Lille le métro et le tram : la ligne, les arrêts et la direction.",
             "Les lignes viennent des données ouvertes des réseaux ilévia (Lille), Imag'in (Calais), Marinéo (Boulogne-sur-Mer), DK'Bus (Dunkerque), Ametis (Amiens) et Artis (Arras), et les lieux d'OpenStreetMap. Vérifiez les horaires auprès du réseau avant de partir."
           ]
+        },
+        {
+          "question": "Nora utilise-t-elle ma position ?",
+          "reponse": [
+            "Seulement si vous touchez le bouton « Ma position », et après l'accord de votre téléphone.",
+            "Votre position reste sur votre téléphone : elle sert à trouver la gare et l'arrêt les plus proches, puis elle est oubliée. Elle n'est jamais envoyée à Nora, à Google ni à Quai Nord, et n'est jamais enregistrée."
+          ]
         }
       ]
     },

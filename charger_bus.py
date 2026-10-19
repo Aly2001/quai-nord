@@ -583,6 +583,22 @@ def etat_des_reseaux(reseaux):
     print("\nPour préparer un réseau : python charger_bus.py <code>   (ou : python charger_bus.py tous)")
 
 
+def ecrire_gares_couvertes(reseaux):
+    """La position des gares de tous les réseaux, dans un petit fichier pour le site (bouton « Ma position ») :
+    le téléphone trouve la gare la plus proche sans télécharger chaque réseau."""
+    gares = []
+    for code in reseaux:
+        chemin = DOSSIER_SORTIE / f"{code}.json"
+        if not chemin.exists():
+            continue
+        donnees = json.loads(chemin.read_text(encoding="utf-8"))
+        for nom, g in donnees.get("gares", {}).items():
+            gares.append({"nom": nom, "reseau": code, "lat": g["lat"], "lon": g["lon"]})
+    sortie = DOSSIER_SORTIE / "gares.json"
+    sortie.write_text(json.dumps({"gares": gares}, ensure_ascii=False), encoding="utf-8")
+    print(f"\n{len(gares)} gares couvertes -> {sortie}", flush=True)
+
+
 def main(arguments=None):
     arguments = sys.argv[1:] if arguments is None else arguments
     reseaux = lire_reseaux()
@@ -601,6 +617,7 @@ def main(arguments=None):
         except Exception as erreur:            # un réseau en panne n'empêche pas les autres
             erreurs += 1
             print(f"   ÉCHEC pour {reseaux[code]['nom']} : {erreur}", flush=True)
+    ecrire_gares_couvertes(reseaux)
     return 1 if erreurs else 0
 
 

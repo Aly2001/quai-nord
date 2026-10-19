@@ -5,7 +5,7 @@ import {
   nettoyerLieu, categorieDe, garesCorrespondantes, estUnLieuPrecis, dansLaCategorie, libelleGare,
   lieuxPrepares, chercherLieu, etapesSiteOfficiel, SITES_RESEAUX, seRessemblent, pertinent,
   reseauDeGare, reseauDeVille, transportsDuReseau, decrireLigne, nettoyerDirection, joliNom, RESEAUX_BUS,
-  estAdresse, arretsCorrespondants, estCentreVille, adressePertinente, motsAdresse, horairesPerimes,
+  estAdresse, arretsCorrespondants, estCentreVille, adressePertinente, motsAdresse, horairesPerimes, gareLaPlusProche, arretLePlusProche,
 } from "./bus";
 
 const reseau = {
@@ -476,5 +476,25 @@ describe("des horaires périmés", () => {
     expect(horairesPerimes(dunkerque, new Date("2026-12-31T12:00:00Z"))).toBeNull();
     expect(horairesPerimes(dunkerque, new Date("2027-01-02T12:00:00Z"))).toBe("31/12/2026");
     expect(horairesPerimes({}, new Date())).toBeNull();
+  });
+});
+
+
+describe("« Ma position » : calculé dans le téléphone", () => {
+  const gares = [
+    { nom: "Calais Ville", reseau: "calais", lat: 50.9535, lon: 1.8509 },
+    { nom: "Lille Flandres", reseau: "lille", lat: 50.6365, lon: 3.0705 },
+  ];
+  test("la gare couverte la plus proche, et sa distance", () => {
+    const g = gareLaPlusProche(gares, 50.958, 1.858);          // près de l'Alhambra, à Calais
+    expect(g.nom).toBe("Calais Ville");
+    expect(g.metres).toBeGreaterThan(500);
+    expect(g.metres).toBeLessThan(1000);
+    expect(gareLaPlusProche([], 50, 2)).toBeNull();
+  });
+  test("l'arrêt le plus proche, au nom lisible", () => {
+    const reseau = { arrets: { A: ["ALHAMBRA", 50.9578, 1.8578], B: ["GARE", 50.9535, 1.8509] } };
+    expect(arretLePlusProche(reseau, 50.958, 1.858)).toBe("Alhambra");
+    expect(arretLePlusProche(reseau, 51.5, 2.5)).toBeNull();
   });
 });

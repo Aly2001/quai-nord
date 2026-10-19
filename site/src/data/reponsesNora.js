@@ -48,3 +48,10 @@ export function reponseAPied(trajet) {
     : `la gare de ${trajet.gare} depuis ${trajet.lieu}`;
   return `Pour rejoindre ${trajetTexte} à pied, comptez environ ${minutes} min (${km} km). Le bouton ci-dessous ouvre l'itinéraire à pied sur la carte.`;
 }
+
+// Juste après une réponse à pied : « non, pour aller à la gare », « dans l'autre sens », « et pour revenir » = l'inverse
+const AUTRE_SENS = /\b(a la gare|vers la gare|jusqu a la gare|autre sens|l inverse|revenir|retour)\b/;
+export function demandeAutreSens(question) {
+  const texte = normaliser(question).replace(/[^a-z0-9 ]/g, " ").replace(/\s+/g, " ").trim();
+  return AUTRE_SENS.test(texte);
+}

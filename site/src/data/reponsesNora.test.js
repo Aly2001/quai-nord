@@ -1,5 +1,5 @@
 import { describe, expect, test } from "vitest";
-import { reponseLocale, PRESENTATION, demandeAPied, reponseAPied } from "./reponsesNora";
+import { reponseLocale, PRESENTATION, demandeAPied, reponseAPied, demandeAutreSens } from "./reponsesNora";
 
 describe("les réponses données par le site, sans Gemini", () => {
   test.each(["Bonjour Nora, à quoi tu sers ?", "A quoi sers-tu", "Qui es-tu ?", "tu fais quoi", "Présente-toi",
@@ -28,4 +28,13 @@ describe("après un trajet, aller à pied (sans Gemini)", () => {
     expect(texte).toBe("Pour rejoindre Université depuis la gare de Calais Ville à pied, comptez environ 22 min (1,8 km). "
       + "Le bouton ci-dessous ouvre l'itinéraire à pied sur la carte.");
   });
+});
+
+
+test.each(["Non pour aller à la gare", "dans l'autre sens", "et pour revenir ?"])("« %s » : l'autre sens, après une réponse à pied", (q) => {
+  expect(demandeAutreSens(q)).toBe(true);
+});
+test("le chemin inverse : du lieu vers la gare", () => {
+  expect(reponseAPied({ lieu: "Université", gare: "Calais Ville", metres: 1400, depuis: false }))
+    .toMatch(/^Pour rejoindre la gare de Calais Ville depuis Université à pied/);
 });

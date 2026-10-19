@@ -366,6 +366,22 @@ def reseau_de_gare(gare):
     return None
 
 
+# Une adresse postale dans une réponse de Gemini : « 46, avenue Wilson », « située boulevard de la Résistance ».
+# Les règles l'interdisent, mais une IA peut oublier une règle : le code, lui, n'oublie pas.
+_VOIE = r"(rue|avenue|av\.|boulevard|bd|place|quai|chemin|all[ée]e|impasse|route|square|cours|esplanade)"
+_ADRESSE = re.compile(
+    r"\b\d{1,4}\s*(bis|ter)?\s*,?\s+" + _VOIE + r"\b"                                   # « 46, avenue … »
+    r"|\b(situ[ée]e?s?|se trouve|se situe|adresse (est|:)|au)\s+(au\s+)?" + _VOIE + r"\s+(de|du|des|d'|la|le|l')",  # « située boulevard de … »
+    re.IGNORECASE)
+REPONSE_SANS_ADRESSE = ("Je ne donne pas d'adresse, pour ne pas risquer de me tromper. "
+                        "Demandez-moi plutôt le chemin depuis la gare : je vous indique la distance, le temps à pied "
+                        "et l'itinéraire sur la carte.")
+
+
+def contient_adresse(texte):
+    return bool(_ADRESSE.search(texte or ""))
+
+
 def mots_utiles(texte):
     return [m for m in sans_accents(texte).split() if m not in MOTS_GARE_INUTILES | {"a", "au", "pour", "vers", "la", "le", "les"}]
 
@@ -461,6 +477,10 @@ def lire_reponse(texte):
     action_proposee = donnees.get("action")
     action = verifier_action(action_proposee)
     reponse = "" if action else str(donnees.get("reponse", "")).strip()[:800]
+    if contient_adresse(reponse):
+        # Gemini a donné une adresse de mémoire (elle peut être fausse) : on ne la transmet jamais.
+        # (Vérifié AVANT nos propres messages, qui citent un exemple d'adresse.)
+        reponse = REPONSE_SANS_ADRESSE
     if action and action.get("type") == "itineraire_bus":
         action, reponse = corriger_bus(action, reponse)
     if action is None and isinstance(action_proposee, dict) and action_proposee.get("type") == "itineraire_bus" and not reponse:

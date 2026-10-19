@@ -65,6 +65,36 @@ const CATEGORIES_GRANDS_SITES = new Set(["universite", "hopital", "stade", "comm
 export const rayonMarche = (categorie) => (CATEGORIES_GRANDS_SITES.has(categorie) ? RAYON_GRANDS_SITES : RAYON_DESTINATION);
 const VITESSE_MARCHE = 80;       // mètres par minute (environ 5 km/h)
 
+// ---------- « Ma position » : tout se calcule dans le téléphone ----------
+// La position du voyageur n'est JAMAIS envoyée : ni au serveur de Nora, ni à Gemini.
+// La liste des gares couvertes (un petit fichier, préparé par charger_bus.py) suffit à trouver la plus proche.
+let garesCouvertes = null;
+export async function chargerGaresCouvertes() {
+  if (!garesCouvertes) {
+    garesCouvertes = fetch(`${DOSSIER_BUS}/gares.json`).then((r) => (r.ok ? r.json() : { gares: [] }))
+      .then((d) => d.gares || []).catch(() => { garesCouvertes = null; return []; });
+  }
+  return garesCouvertes;
+}
+
+export const DISTANCE_MAX_GARE = 15_000;      // au-delà, la position n'est près d'aucune ville couverte
+
+// La gare couverte la plus proche d'un point : { nom, reseau, lat, lon, metres }, ou null
+export function gareLaPlusProche(gares, lat, lon) {
+  let meilleure = null;
+  for (const g of gares) {
+    const metres = distance(lat, lon, g.lat, g.lon);
+    if (!meilleure || metres < meilleure.metres) meilleure = { ...g, metres };
+  }
+  return meilleure;
+}
+
+// Le nom de l'arrêt le plus proche d'un point (pour dire « vous êtes près de… »), ou null
+export function arretLePlusProche(reseau, lat, lon) {
+  const [premier] = arretsProches(reseau, lat, lon, 800);
+  return premier ? joliNom(reseau.arrets[premier[0]][0]) : null;
+}
+
 // La date de fin de validité du fichier d'un réseau, si elle est DÉPASSÉE (« 31/12/2026 »), sinon null.
 // charger_bus.py refuse un fichier expiré, mais un fichier valide le jour où il est préparé expire ensuite.
 export function horairesPerimes(reseau, aujourdhui = new Date()) {

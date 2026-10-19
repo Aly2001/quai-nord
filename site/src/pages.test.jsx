@@ -9,7 +9,7 @@ import Nora from "./pages/Nora";
 import Plus from "./pages/Plus";
 import Sources from "./pages/Sources";
 import Footer from "./components/Footer";
-import { sansEmojis, QUESTION_DEPART } from "./components/NoraConversation";
+import { sansEmojis, QUESTION_DEPART, DEPUIS_MA_POSITION, VERS_UNE_GARE } from "./components/NoraConversation";
 const rendre = (Page, url) => renderToString(<MemoryRouter initialEntries={[url]}><Page /></MemoryRouter>);
 test.each([
   [Trajet, "/trajet?de=Marquise+-+Rinxent&a=Calais+Ville&jour=2026-10-16&heure=17%3A52"],
@@ -71,4 +71,16 @@ test.each([
 ])("« %s » propose « Ma position »", (q) => expect(QUESTION_DEPART.test(q)).toBe(true));
 test("une autre question ne propose pas « Ma position »", () => {
   expect(QUESTION_DEPART.test("Où allez-vous depuis Lille Europe ?")).toBe(false);
+});
+
+test.each([
+  "Je vais à la gare de Boulogne depuis ma position",
+  "Non depuis ma position jusqu'à Boulogne ville",
+  "Ma position vers Lille Europe",
+])("« %s » : calculé par le site, sans Gemini", (q) => {
+  expect(DEPUIS_MA_POSITION.test(q) && VERS_UNE_GARE.test(q)).toBe(true);
+});
+test("« Nora a-t-elle ma position ? » reste une question pour Nora", () => {
+  const q = "Nora a-t-elle ma position ?";
+  expect(DEPUIS_MA_POSITION.test(q) && VERS_UNE_GARE.test(q)).toBe(false);
 });

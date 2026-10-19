@@ -21,6 +21,9 @@ export function sansEmojis(texte) {
 
 // Les questions de Nora sur le point de départ, sous lesquelles on propose « 📍 Ma position »
 // (« D'où partez-vous ? », « De quelle gare partez-vous ? », « Depuis quelle ville et quelle gare… », « Où êtes-vous ? »)
+// « Je vais à la gare de Boulogne depuis ma position », « ma position jusqu'à Lille Europe » : le site calcule
+export const DEPUIS_MA_POSITION = /\bma position\b/i;
+export const VERS_UNE_GARE = /(jusqu|vers |pour |aller|vais|rejoindre|\bgare\b)/i;
 export const QUESTION_DEPART = /(d.o[uù] partez|gare partez|depuis quel(le)? (ville|gare|lieu|endroit)|o[uù] [eê]tes.vous|d.o[uù] venez)/i;
 
 // Le pictogramme du type de transport, dans la pastille de la ligne (affiché sur téléphone, voir Nora.css)
@@ -155,7 +158,7 @@ export default function NoraConversation({ contexte = null, accueil = null, sugg
       return;
     }
     // « Depuis ma position jusqu'à Boulogne Ville » : la position reste dans le téléphone, le site calcule
-    if (/\bma position\b/i.test(question) && /(jusqu|vers|pour|aller)/i.test(question)) {
+    if (DEPUIS_MA_POSITION.test(question) && VERS_UNE_GARE.test(question)) {
       utiliserPosition("", question, true);
       return;
     }
@@ -286,7 +289,9 @@ export default function NoraConversation({ contexte = null, accueil = null, sugg
     // « la gare de Boulogne » peut désigner plusieurs gares : on ne choisit jamais à la place du voyageur.
     // Et si le nom n'est pas reconnu, on ne refuse pas : la ville est la bonne (le serveur l'a vérifiée),
     // on propose donc toutes ses gares.
-    let candidates = action.gare ? garesCorrespondantes(reseau, action.gare) : [];
+    // Le nom courant compte d'abord : « Boulogne Ville » est une seule gare (Boulogne sur Mer), pas « une gare de Boulogne »
+    const citee = action.gare ? gareCitee(Object.keys(reseau.gares), action.gare) : null;
+    let candidates = citee ? [citee] : action.gare ? garesCorrespondantes(reseau, action.gare) : [];
     if (candidates.length === 0) candidates = Object.keys(reseau.gares);
     if (!gare) {
       const gares = candidates;

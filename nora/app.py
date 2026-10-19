@@ -393,18 +393,39 @@ def contient_ligne_urbaine(texte):
     return bool(_LIGNE_URBAINE.search(texte or ""))
 
 
-# Les noms courants des gares (« Boulogne Ville » est « Boulogne sur Mer » pour la SNCF)
-ALIAS_GARES = {"boulogne ville": "Boulogne sur Mer"}
+# La gare nommée dans un texte, pour TOUS les réseaux (même règle que gareCitee dans le site) :
+# nom complet, mot distinctif (« Tintelleries »), ville à une seule gare (« Arras »),
+# ou « <ville> Ville » pour la gare principale (« Boulogne Ville » = « Boulogne sur Mer »).
+_PETITS_MOTS_GARE = {"la", "gare", "sncf", "de", "du", "d", "l", "le", "les", "a", "au", "en", "vers", "jusqu", "je", "vais", "suis", "pour"}
+
+
+def _mots(texte):
+    return re.sub(r"[^a-z0-9 ]", " ", sans_accents(texte)).split()
 
 
 def gare_citee(reseau, texte):
-    """La gare du réseau nommée dans le texte (« l'autre gare, Boulogne Ville »), ou None."""
-    cherche = sans_accents(texte)
-    for alias, gare in ALIAS_GARES.items():
-        if alias in cherche and gare in reseau["gares"]:
-            return gare
-    trouvees = [g for g in reseau["gares"] if sans_accents(g) and sans_accents(g) in cherche]
-    return max(trouvees, key=len) if trouvees else None
+    """La gare du réseau nommée dans le texte, ou None si aucune ou plusieurs."""
+    villes = {m for v in [reseau["ville"], *reseau["villes"]] for m in _mots(v)}
+    mots = set(_mots(texte))
+    phrase = f" {' '.join(_mots(texte))} "
+    gares = []
+    for nom in reseau["gares"]:
+        utiles = [m for m in _mots(nom) if m not in _PETITS_MOTS_GARE and m != "ville"]
+        ville = next((m for m in utiles if m in villes), utiles[0] if utiles else "")
+        gares.append((nom, ville, [m for m in utiles if m not in villes]))
+    complets = [nom for nom, _, _ in gares if f" {' '.join(_mots(nom))} " in phrase]
+    if complets:
+        return max(complets, key=len)
+    par_mot = [nom for nom, _, dist in gares if dist and all(m in mots for m in dist)]
+    if par_mot:
+        return par_mot[0] if len(par_mot) == 1 else None
+    dans_la_ville = [(nom, dist) for nom, ville, dist in gares if ville in mots]
+    if len(dans_la_ville) == 1:
+        return dans_la_ville[0][0]
+    if mots & {"ville", "centre"}:
+        principales = [nom for nom, dist in dans_la_ville if not dist]
+        return principales[0] if len(principales) == 1 else None
+    return None
 
 
 def mots_utiles(texte):

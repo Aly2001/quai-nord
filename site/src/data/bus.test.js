@@ -4,7 +4,7 @@ import {
   distance, arretsProches, busDirects, busDepuisGare, busVersGare, gareCouverte, lienCarte, plusRapideQueAPied,
   nettoyerLieu, categorieDe, garesCorrespondantes, estUnLieuPrecis, dansLaCategorie, libelleGare,
   lieuxPrepares, chercherLieu, etapesSiteOfficiel, SITES_RESEAUX, seRessemblent, pertinent,
-  reseauDeGare, reseauDeVille, transportsDuReseau, decrireLigne, nettoyerDirection, joliNom, RESEAUX_BUS,
+  reseauDeGare, reseauDeVille, transportsDuReseau, decrireLigne, nettoyerDirection, joliNom, RESEAUX_BUS, RESEAUX,
   estAdresse, arretsCorrespondants, estCentreVille, adressePertinente, motsAdresse, horairesPerimes, gareLaPlusProche, arretLePlusProche, gareCitee,
 } from "./bus";
 
@@ -508,4 +508,22 @@ describe("une gare nommée dans une phrase", () => {
     ["vers Lille Europe", "Lille Europe"],
   ])("« %s » -> %s", (phrase, gare) => expect(gareCitee(noms, phrase)).toBe(gare));
   test("aucune gare nommée", () => expect(gareCitee(noms, "jusqu'à l'université")).toBeNull());
+});
+
+test("« la gare de Boulogne ville » désigne UNE gare, pas les deux gares de Boulogne", () => {
+  expect(gareCitee(["Boulogne sur Mer", "Boulogne - Tintelleries"], "la gare de Boulogne ville")).toBe("Boulogne sur Mer");
+  expect(gareCitee(["Boulogne sur Mer", "Boulogne - Tintelleries"], "la gare de Boulogne")).toBeNull();   // vraiment ambiguë
+});
+
+
+describe("une gare nommée, pour toutes les villes", () => {
+  const toutes = RESEAUX.flatMap((r) => r.gares);
+  test.each([
+    ["la gare de Boulogne ville", "Boulogne sur Mer"], ["Tintelleries", "Boulogne - Tintelleries"],
+    ["Calais Ville", "Calais Ville"], ["je vais à Fréthun", "Calais - Fréthun"], ["calais frethun", "Calais - Fréthun"],
+    ["Lille Europe", "Lille Europe"], ["la gare Flandres", "Lille Flandres"], ["Roubaix", "Roubaix"],
+    ["la gare d'Arras", "Arras"], ["Dunkerque", "Dunkerque"], ["Amiens", "Amiens"], ["Longueau", "Longueau"],
+  ])("« %s » -> %s", (phrase, gare) => expect(gareCitee(toutes, phrase)).toBe(gare));
+  test.each(["la gare de Boulogne", "Lille", "Lille ville", "Calais", "l'université", "boulevard de Lille"])(
+    "« %s » : ambigu ou pas une gare, Nora demande", (phrase) => expect(gareCitee(toutes, phrase)).toBeNull());
 });

@@ -512,3 +512,16 @@ def test_d_une_gare_a_l_autre_gare_de_la_ville(monkeypatch):
                                              "action": action_bus(gare="Boulogne - Tintelleries", ville="Boulogne", lieu="Boulogne Ville")}))
     action = client.post("/api/nora", json=UNE_QUESTION).json()["action"]
     assert action and action["type"] == "itineraire_bus" and action["lieu"] == "Boulogne Ville"
+
+
+
+@pytest.mark.parametrize("code, texte, gare", [
+    ("boulogne", "Boulogne Ville", "Boulogne sur Mer"), ("boulogne", "Tintelleries", "Boulogne - Tintelleries"),
+    ("calais", "Fréthun", "Calais - Fréthun"), ("calais", "Calais Ville", "Calais Ville"),
+    ("lille", "Lille Europe", "Lille Europe"), ("lille", "Flandres", "Lille Flandres"), ("arras", "Arras", "Arras"),
+    ("amiens", "Longueau", "Longueau"), ("boulogne", "la gare de Boulogne", None), ("lille", "Lille", None),
+    ("lille", "boulevard de Lille", None),
+])
+def test_une_gare_nommee_pour_toutes_les_villes(code, texte, gare):
+    reseau = next(r for r in module.RESEAUX if r["code"] == code)
+    assert module.gare_citee(reseau, texte) == gare

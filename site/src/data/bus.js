@@ -158,17 +158,40 @@ export function garesCorrespondantes(reseau, texte) {
 const NOMS_COURANTS = { "boulogne sur mer": "Boulogne Ville (Boulogne-sur-Mer)" };
 export const libelleGare = (nom) => NOMS_COURANTS[normaliser(nom)] || nom;
 
-// La gare NOMMÉE dans une phrase (« jusqu'à Boulogne Ville », « l'autre gare, Lille Europe »), parmi des noms SNCF.
-// Accepte aussi le nom courant (« Boulogne Ville » pour « Boulogne sur Mer »). La plus longue l'emporte.
-const ALIAS_GARES = { "boulogne ville": "boulogne sur mer" };
+// La gare NOMMÉE dans une phrase, pour TOUS les réseaux, sans liste de noms à tenir à jour :
+//  1. son nom complet (« Lille Europe », « Calais - Fréthun ») ;
+//  2. son mot DISTINCTIF, ce qui la sépare du nom de la ville (« Tintelleries », « Fréthun », « Flandres », « Europe ») ;
+//  3. le nom de la ville seul, s'il n'y a qu'UNE gare dans cette ville (« la gare d'Arras ») ;
+//  4. « <ville> Ville » ou « <ville> centre » : la gare principale, celle sans mot distinctif
+//     (« Boulogne Ville » = « Boulogne sur Mer », « Calais Ville »).
+// « La gare de Boulogne », « Lille » : plusieurs gares possibles, donc aucune (Nora demande laquelle).
+const motsDe = (texte) => normaliser(texte || "").replace(/[^a-z0-9 ]/g, " ").split(" ").filter(Boolean);
+const PETITS_MOTS_GARE = new Set(["la", "gare", "sncf", "de", "du", "d", "l", "le", "les", "a", "au", "en", "vers", "jusqu", "je", "vais", "suis", "pour"]);
+
+function descriptionGare(nom) {
+  const reseau = RESEAUX.find((r) => r.gares.includes(nom));
+  const motsVilles = new Set((reseau ? [reseau.ville, ...reseau.villes] : []).flatMap(motsDe));
+  const mots = motsDe(nom).filter((m) => !PETITS_MOTS_GARE.has(m) && m !== "ville");
+  const villeDeLaGare = mots.find((m) => motsVilles.has(m)) || mots[0];
+  return { nom, ville: villeDeLaGare, distinctifs: mots.filter((m) => !motsVilles.has(m)) };
+}
+
 export function gareCitee(noms, texte) {
-  const phrase = ` ${normaliser(texte || "").replace(/[^a-z0-9 ]/g, " ").replace(/\s+/g, " ")} `;
-  const formes = (nom) => {
-    const n = normaliser(nom).replace(/[^a-z0-9 ]/g, " ").replace(/\s+/g, " ").trim();
-    return [n, ...Object.entries(ALIAS_GARES).filter(([, vrai]) => vrai === n).map(([alias]) => alias)];
-  };
-  const trouvees = noms.filter((nom) => formes(nom).some((f) => f && phrase.includes(` ${f} `)));
-  return trouvees.sort((x, y) => y.length - x.length)[0] || null;
+  const phrase = ` ${motsDe(texte).join(" ")} `;
+  const mots = new Set(motsDe(texte));
+  const gares = noms.map(descriptionGare);
+  const unique = (liste) => (liste.length === 1 ? liste[0].nom : null);
+  // 1. Le nom complet, le plus long d'abord
+  const complets = gares.filter((g) => phrase.includes(` ${motsDe(g.nom).join(" ")} `));
+  if (complets.length) return complets.sort((x, y) => y.nom.length - x.nom.length)[0].nom;
+  // 2. Un mot distinctif
+  const parMot = gares.filter((g) => g.distinctifs.length && g.distinctifs.every((m) => mots.has(m)));
+  if (parMot.length) return unique(parMot);
+  // 3 et 4. Le nom de la ville
+  const dansLaVille = gares.filter((g) => mots.has(g.ville));
+  if (dansLaVille.length === 1) return dansLaVille[0].nom;
+  if (mots.has("ville") || mots.has("centre")) return unique(dansLaVille.filter((g) => g.distinctifs.length === 0));
+  return null;
 }
 
 // ---------- Les distances ----------

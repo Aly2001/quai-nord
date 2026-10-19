@@ -15,12 +15,17 @@ const QUESTIONS_PRESENTATION = [
   /a quoi (tu )?sers?( tu)?/, /qui es tu/, /qui est tu/, /t es qui/, /tu es qui/, /(tu fais|tu sais faire|tu peux faire) quoi/,
   /que (sais|peux) tu faire/, /qu est ce que tu (fais|sais faire|peux faire)/, /presente toi/, /c est quoi nora/, /tu sers a quoi/,
 ];
+// « Je vais à la gare », sans dire laquelle : on demande d'où la personne part (le bouton « Ma position » s'affiche)
+export const ALLER_A_LA_GARE = "D'où partez-vous ? Touchez « Ma position », ou dites-moi le lieu où vous êtes : je vous indique le bus jusqu'à la gare la plus proche.";
+const VERS_LA_GARE = /^(je (vais|veux aller|dois aller|voudrais aller)|aller|comment (aller|rejoindre)|je cherche) (a |à )?(la )?gare( sncf)?$/;
+
 const SALUTS = /^(bonjour|bonsoir|salut|coucou|hello|bjr|slt|hey)( nora)?$/;
 const REMERCIEMENTS = /^(merci( beaucoup| bien)?|au revoir|bonne journee|bonne soiree|a bientot)( nora)?$/;
 
 export function reponseLocale(question) {
   const texte = normaliser(question).replace(/[^a-z0-9 ]/g, " ").replace(/\s+/g, " ").trim();
   if (!texte) return null;
+  if (VERS_LA_GARE.test(texte.replace(/\bvais vais\b/, "vais"))) return ALLER_A_LA_GARE;
   if (QUESTIONS_PRESENTATION.some((motif) => motif.test(texte))) return PRESENTATION;
   if (SALUTS.test(texte)) return BONJOUR;
   if (REMERCIEMENTS.test(texte)) return MERCI;

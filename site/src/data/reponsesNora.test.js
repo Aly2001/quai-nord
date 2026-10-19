@@ -1,5 +1,5 @@
 import { describe, expect, test } from "vitest";
-import { reponseLocale, PRESENTATION, demandeAPied, reponseAPied, demandeAutreSens } from "./reponsesNora";
+import { reponseLocale, PRESENTATION, demandeAPied, reponseAPied, demandeAutreSens, ALLER_A_LA_GARE } from "./reponsesNora";
 
 describe("les réponses données par le site, sans Gemini", () => {
   test.each(["Bonjour Nora, à quoi tu sers ?", "A quoi sers-tu", "Qui es-tu ?", "tu fais quoi", "Présente-toi",
@@ -37,4 +37,13 @@ test.each(["Non pour aller à la gare", "dans l'autre sens", "et pour revenir ?"
 test("le chemin inverse : du lieu vers la gare", () => {
   expect(reponseAPied({ lieu: "Université", gare: "Calais Ville", metres: 1400, depuis: false }))
     .toMatch(/^Pour rejoindre la gare de Calais Ville depuis Université à pied/);
+});
+
+
+test.each(["Je vais à la gare", "Je vais vais à la gare", "je veux aller à la gare SNCF", "Comment aller à la gare ?"])(
+  "« %s » : le site demande d'où l'on part (bus vers la gare), sans Gemini", (q) => {
+    expect(reponseLocale(q)).toBe(ALLER_A_LA_GARE);
+  });
+test.each(["Je vais à la gare de Lille Flandres", "Je vais à la gare depuis l'hôpital"])("« %s » : trop précis, envoyé à Nora", (q) => {
+  expect(reponseLocale(q)).toBeNull();
 });

@@ -8,7 +8,7 @@ import { SNCF_CONNECT } from "../data/faq";
 import {
   chargerReseau, reseauDeVille, infosReseau, chercherLieu, busDepuisGare, busVersGare, lienCarte, minutesAPied,
   distance, plusRapideQueAPied, garesCorrespondantes, libelleGare, SITES_RESEAUX, etapesSiteOfficiel, decrireLigne,
-  RESEAUX, horairesPerimes, lienAPied, chargerGaresCouvertes, gareLaPlusProche, arretLePlusProche, DISTANCE_MAX_GARE,
+  RESEAUX, horairesPerimes, lienAPied, chargerGaresCouvertes, gareLaPlusProche, arretLePlusProche, DISTANCE_MAX_GARE, gareCitee,
 } from "../data/bus";
 import { useTailleNora } from "./TailleNora";
 import { reponseLocale, demandeAPied, reponseAPied, demandeAutreSens } from "../data/reponsesNora";
@@ -18,6 +18,10 @@ import "./Nora.css";
 export function sansEmojis(texte) {
   return String(texte || "").replace(/[\p{Extended_Pictographic}\u{FE0F}\u{200D}]/gu, "").replace(/[ \t]{2,}/g, " ").trim();
 }
+
+// Les questions de Nora sur le point de départ, sous lesquelles on propose « 📍 Ma position »
+// (« D'où partez-vous ? », « De quelle gare partez-vous ? », « Depuis quelle ville et quelle gare… », « Où êtes-vous ? »)
+export const QUESTION_DEPART = /(d.o[uù] partez|gare partez|depuis quel(le)? (ville|gare|lieu|endroit)|o[uù] [eê]tes.vous|d.o[uù] venez)/i;
 
 // Le pictogramme du type de transport, dans la pastille de la ligne (affiché sur téléphone, voir Nora.css)
 const DESSINS_MODES = {
@@ -148,6 +152,11 @@ export default function NoraConversation({ contexte = null, accueil = null, sugg
     const locale = reponseLocale(question);
     if (locale) {
       ajouter({ auteur: "nora", texte: locale });
+      return;
+    }
+    // « Depuis ma position jusqu'à Boulogne Ville » : la position reste dans le téléphone, le site calcule
+    if (/\bma position\b/i.test(question) && /(jusqu|vers|pour|aller)/i.test(question)) {
+      utiliserPosition("", question, true);
       return;
     }
     // « Je vais à pied », « l'adresse » après un trajet : la distance et l'itinéraire à pied, sans Gemini.
@@ -300,8 +309,14 @@ export default function NoraConversation({ contexte = null, accueil = null, sugg
     const ville = infosReseau(code).ville;
     const nomAffiche = libelleGare(gare);              // le nom courant, pour les phrases ; « gare » reste le vrai nom
 
-    // 2. Le lieu : retrouvé, ou à choisir s'il y en a plusieurs bien distincts
+    // 2. Le lieu : retrouvé, ou à choisir s'il y en a plusieurs bien distincts.
+    // Une AUTRE gare de la ville (« de Tintelleries à Boulogne Ville ») : sa position est déjà connue.
     let lieu = lieuChoisi;
+    const autreGare = !lieu && gareCitee(Object.keys(reseau.gares).filter((g) => g !== gare), action.lieu);
+    if (autreGare) {
+      const g = reseau.gares[autreGare];
+      lieu = { nom: `la gare de ${libelleGare(autreGare)}`, lat: g.lat, lon: g.lon, cat: null };
+    }
     if (!lieu) {
       const lieux = await chercherLieu(action.lieu, couverte.gare, ville, reseau);
       if (lieux.length === 0) {
@@ -353,7 +368,8 @@ export default function NoraConversation({ contexte = null, accueil = null, sugg
         auteur: "nora",
         texte: `${depuis ? lieu.nom : `La gare de ${nomAffiche}`} est tout près : ${metres} m, environ ${minutesAPied(metres)} minutes à pied. `
           + "Le plus rapide est d'y aller à pied.",
-        carte, sourceBus: source,
+        carte: depuis ? lienAPied(pointGare, lieu) : lienAPied(lieu, pointGare), libelleCarte: "Itinéraire à pied ↗",
+        sourceBus: source,
       });
       return;
     }
@@ -387,8 +403,8 @@ export default function NoraConversation({ contexte = null, accueil = null, sugg
   // « 📍 Ma position » : la position reste dans le téléphone. Selon la question posée par Nora :
   //  - « de quelle gare partez-vous ? », un train : on donne seulement le NOM de la gare la plus proche ;
   //  - « d'où partez-vous ? » vers la gare : on calcule ici même le bus de la position jusqu'à la gare.
-  async function utiliserPosition(question) {
-    ajouter({ auteur: "vous", texte: "📍 Ma position" });
+  async function utiliserPosition(question, destination = "", dejaEcrit = false) {
+    if (!dejaEcrit) ajouter({ auteur: "vous", texte: "📍 Ma position" });
     if (!navigator.geolocation) {
       ajouter({ auteur: "nora", texte: "Votre appareil ne donne pas sa position. Dites-moi d'où vous partez." });
       return;
@@ -407,7 +423,12 @@ export default function NoraConversation({ contexte = null, accueil = null, sugg
       return;
     }
     const { latitude: lat, longitude: lon, accuracy } = position.coords;
-    const gare = gareLaPlusProche(await chargerGaresCouvertes(), lat, lon);
+    const toutes = await chargerGaresCouvertes();
+    // Une gare nommée (« jusqu'à Boulogne Ville ») passe avant la plus proche
+    const nommee = destination && gareCitee(toutes.map((g) => g.nom), destination);
+    const gare = nommee
+      ? gareLaPlusProche(toutes.filter((g) => g.nom === nommee), lat, lon)
+      : gareLaPlusProche(toutes, lat, lon);
     setEnAttente(false);
     if (!gare || gare.metres > DISTANCE_MAX_GARE) {
       ajouter({ auteur: "nora", texte: "Je ne connais pas encore les bus près de chez vous. De nouvelles villes arrivent au fil du temps : peut-être bientôt la vôtre. Pour votre train, dites-moi de quelle gare vous partez." });
@@ -415,7 +436,7 @@ export default function NoraConversation({ contexte = null, accueil = null, sugg
     }
     const approximatif = accuracy > 300
       ? `Votre position est approximative (à ${Math.round(accuracy / 100) * 100} m près, sans doute à l'intérieur). ` : "";
-    if (/gare partez|quel jour|train/i.test(question)) {
+    if (!nommee && /gare partez|quel jour|train/i.test(question)) {
       // Un train : seul le nom de la gare part vers Nora, jamais la position
       if (approximatif) ajouter({ auteur: "nora", texte: approximatif + `La gare la plus proche semble être ${libelleGare(gare.nom)}.` });
       envoyer(`Je pars de la gare de ${gare.nom}`);
@@ -423,8 +444,7 @@ export default function NoraConversation({ contexte = null, accueil = null, sugg
     }
     const reseau = await chargerReseau(gare.reseau);
     const arret = reseau ? arretLePlusProche(reseau, lat, lon) : null;
-    const km = (gare.metres / 1000).toFixed(1).replace(".", ",");
-    ajouter({ auteur: "nora", texte: `${approximatif}Vous êtes ${arret ? `près de l'arrêt ${arret}` : "ici"}, à environ ${km} km de la gare de ${libelleGare(gare.nom)}.` });
+    ajouter({ auteur: "nora", texte: `${approximatif}Vous êtes ${arret ? `près de l'arrêt ${arret}` : "près de la gare de " + libelleGare(gare.nom)}.` });
     await itineraireBus({ type: "itineraire_bus", sens: "vers_gare", reseau: gare.reseau, ville: "", gare: gare.nom, lieu: "votre position" },
       gare.nom, { nom: "votre position", lat, lon, cat: null });
   }
@@ -568,7 +588,7 @@ export default function NoraConversation({ contexte = null, accueil = null, sugg
           <div key={m.id} className="bulle bulle--nora">
             <div className="bulle__haut">
               <p className="bulle__texte">{m.texte}</p>
-              {m.id === messages[messages.length - 1]?.id && !enAttente && /(d.o[uù] partez|quelle gare partez)/i.test(m.texte || "") && (
+              {m.id === messages[messages.length - 1]?.id && !enAttente && QUESTION_DEPART.test(m.texte || "") && (
                 <div className="nora-position">
                   <button type="button" className="nora-position__bouton" onClick={() => utiliserPosition(m.texte)}>
                     <svg viewBox="0 0 24 24" width="20" height="20" aria-hidden="true" fill="none" stroke="currentColor"

@@ -5,7 +5,7 @@ import {
   nettoyerLieu, categorieDe, garesCorrespondantes, estUnLieuPrecis, dansLaCategorie, libelleGare,
   lieuxPrepares, chercherLieu, etapesSiteOfficiel, SITES_RESEAUX, seRessemblent, pertinent,
   reseauDeGare, reseauDeVille, transportsDuReseau, decrireLigne, nettoyerDirection, joliNom, RESEAUX_BUS,
-  estAdresse, arretsCorrespondants, estCentreVille, adressePertinente, motsAdresse, horairesPerimes, gareLaPlusProche, arretLePlusProche,
+  estAdresse, arretsCorrespondants, estCentreVille, adressePertinente, motsAdresse, horairesPerimes, gareLaPlusProche, arretLePlusProche, gareCitee,
 } from "./bus";
 
 const reseau = {
@@ -497,4 +497,15 @@ describe("« Ma position » : calculé dans le téléphone", () => {
     expect(arretLePlusProche(reseau, 50.958, 1.858)).toBe("Alhambra");
     expect(arretLePlusProche(reseau, 51.5, 2.5)).toBeNull();
   });
+});
+
+
+describe("une gare nommée dans une phrase", () => {
+  const noms = ["Boulogne sur Mer", "Boulogne - Tintelleries", "Lille Flandres", "Lille Europe"];
+  test.each([
+    ["Non depuis ma position jusqu'à Boulogne ville", "Boulogne sur Mer"],
+    ["je vais dans l'autre gare de Boulogne Tintelleries", "Boulogne - Tintelleries"],
+    ["vers Lille Europe", "Lille Europe"],
+  ])("« %s » -> %s", (phrase, gare) => expect(gareCitee(noms, phrase)).toBe(gare));
+  test("aucune gare nommée", () => expect(gareCitee(noms, "jusqu'à l'université")).toBeNull());
 });

@@ -483,3 +483,32 @@ def test_une_adresse_inventee_n_est_jamais_transmise(monkeypatch, texte):
 def test_une_reponse_normale_n_est_pas_touchee(monkeypatch, texte):
     simuler_mistral(monkeypatch, json.dumps({"reponse": texte, "sources": [], "lien_sncf": False, "action": None}))
     assert client.post("/api/nora", json=UNE_QUESTION).json()["reponse"] == texte
+
+
+
+@pytest.mark.parametrize("texte", [
+    "Vous pouvez prendre la ligne de bus A directement depuis l'arrêt Tintelleries.",
+    "Prenez le métro M1 jusqu'à la Cité scientifique.",
+    "Le bus 7 vous y emmène.",
+])
+def test_une_ligne_de_bus_de_memoire_n_est_jamais_transmise(monkeypatch, texte):
+    """Retour du test : Nora a inventé « la ligne de bus A » entre les deux gares de Boulogne."""
+    simuler_mistral(monkeypatch, json.dumps({"reponse": texte, "sources": [], "lien_sncf": False, "action": None}))
+    assert client.post("/api/nora", json=UNE_QUESTION).json()["reponse"] == module.REPONSE_SANS_LIGNE
+
+
+@pytest.mark.parametrize("texte", [
+    "Ce train de la ligne K21 a 17 % de risque de retard.",
+    "Je vous indique le bus, le tram ou le métro depuis la gare.",
+])
+def test_une_ligne_ter_ou_une_phrase_generale_passent(monkeypatch, texte):
+    simuler_mistral(monkeypatch, json.dumps({"reponse": texte, "sources": [], "lien_sncf": False, "action": None}))
+    assert client.post("/api/nora", json=UNE_QUESTION).json()["reponse"] == texte
+
+
+def test_d_une_gare_a_l_autre_gare_de_la_ville(monkeypatch):
+    """« Je vais dans l'autre gare, Boulogne Ville » depuis Tintelleries : un bus, pas « où allez-vous à Boulogne ? »."""
+    simuler_mistral(monkeypatch, json.dumps({"reponse": "", "sources": [], "lien_sncf": False,
+                                             "action": action_bus(gare="Boulogne - Tintelleries", ville="Boulogne", lieu="Boulogne Ville")}))
+    action = client.post("/api/nora", json=UNE_QUESTION).json()["action"]
+    assert action and action["type"] == "itineraire_bus" and action["lieu"] == "Boulogne Ville"

@@ -382,6 +382,31 @@ def contient_adresse(texte):
     return bool(_ADRESSE.search(texte or ""))
 
 
+# Une LIGNE de bus, de tram ou de métro dans le texte de Gemini (« la ligne de bus A », « le métro M1 ») :
+# elle viendrait de sa mémoire, pas des données. (Les lignes TER, « K21 », restent permises : elles viennent du contexte.)
+_LIGNE_URBAINE = re.compile(r"\b(ligne de bus|bus|tram(way)?|m[ée]tro)\s+(n°\s*)?([A-Z]{1,3}\d{0,3}|\d{1,3}[A-Z]?)\b")
+REPONSE_SANS_LIGNE = ("Je ne donne pas de ligne de bus de mémoire, pour ne pas me tromper. Dites-moi d'où vous partez "
+                      "et où vous allez (une gare, un lieu, ou « ma position ») : je calcule le trajet avec les vraies lignes.")
+
+
+def contient_ligne_urbaine(texte):
+    return bool(_LIGNE_URBAINE.search(texte or ""))
+
+
+# Les noms courants des gares (« Boulogne Ville » est « Boulogne sur Mer » pour la SNCF)
+ALIAS_GARES = {"boulogne ville": "Boulogne sur Mer"}
+
+
+def gare_citee(reseau, texte):
+    """La gare du réseau nommée dans le texte (« l'autre gare, Boulogne Ville »), ou None."""
+    cherche = sans_accents(texte)
+    for alias, gare in ALIAS_GARES.items():
+        if alias in cherche and gare in reseau["gares"]:
+            return gare
+    trouvees = [g for g in reseau["gares"] if sans_accents(g) and sans_accents(g) in cherche]
+    return max(trouvees, key=len) if trouvees else None
+
+
 def mots_utiles(texte):
     return [m for m in sans_accents(texte).split() if m not in MOTS_GARE_INUTILES | {"a", "au", "pour", "vers", "la", "le", "les"}]
 
@@ -412,6 +437,12 @@ def corriger_bus(action, reponse):
     if destination and action.get("sens") == "depuis_gare" and destination.split()[0] != depart.split()[0]:
         return ({"type": "rechercher_trajet", "de": action.get("gare") or action.get("ville"), "a": lieu.strip(),
                  "jour": "aujourd'hui", "heure": datetime.now(FUSEAU).strftime("%H:%M")}, "")
+    # « De Tintelleries à Boulogne Ville » : une AUTRE gare de la même ville, c'est un vrai trajet en bus
+    reseau = next((r for r in RESEAUX if r["code"] == action.get("reseau")), None)
+    cible = gare_citee(reseau, lieu) if reseau else None
+    depart_gare = gare_citee(reseau, action.get("gare", "")) if reseau else None
+    if cible and cible != depart_gare:
+        return action, reponse
     if lieu_est_la_ville(action):
         return None, (f"Où allez-vous à {action['ville']} ? Dites-moi un lieu ou une adresse, "
                       "par exemple « la mairie », « la plage » ou « 10 rue Royale ».")
@@ -481,6 +512,9 @@ def lire_reponse(texte):
         # Gemini a donné une adresse de mémoire (elle peut être fausse) : on ne la transmet jamais.
         # (Vérifié AVANT nos propres messages, qui citent un exemple d'adresse.)
         reponse = REPONSE_SANS_ADRESSE
+    elif contient_ligne_urbaine(reponse):
+        # Même chose pour une ligne de bus, de tram ou de métro citée de mémoire
+        reponse = REPONSE_SANS_LIGNE
     if action and action.get("type") == "itineraire_bus":
         action, reponse = corriger_bus(action, reponse)
     if action is None and isinstance(action_proposee, dict) and action_proposee.get("type") == "itineraire_bus" and not reponse:

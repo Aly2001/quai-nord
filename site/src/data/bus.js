@@ -158,6 +158,19 @@ export function garesCorrespondantes(reseau, texte) {
 const NOMS_COURANTS = { "boulogne sur mer": "Boulogne Ville (Boulogne-sur-Mer)" };
 export const libelleGare = (nom) => NOMS_COURANTS[normaliser(nom)] || nom;
 
+// La gare NOMMÉE dans une phrase (« jusqu'à Boulogne Ville », « l'autre gare, Lille Europe »), parmi des noms SNCF.
+// Accepte aussi le nom courant (« Boulogne Ville » pour « Boulogne sur Mer »). La plus longue l'emporte.
+const ALIAS_GARES = { "boulogne ville": "boulogne sur mer" };
+export function gareCitee(noms, texte) {
+  const phrase = ` ${normaliser(texte || "").replace(/[^a-z0-9 ]/g, " ").replace(/\s+/g, " ")} `;
+  const formes = (nom) => {
+    const n = normaliser(nom).replace(/[^a-z0-9 ]/g, " ").replace(/\s+/g, " ").trim();
+    return [n, ...Object.entries(ALIAS_GARES).filter(([, vrai]) => vrai === n).map(([alias]) => alias)];
+  };
+  const trouvees = noms.filter((nom) => formes(nom).some((f) => f && phrase.includes(` ${f} `)));
+  return trouvees.sort((x, y) => y.length - x.length)[0] || null;
+}
+
 // ---------- Les distances ----------
 // Distance à vol d'oiseau en mètres (formule de haversine)
 export function distance(lat1, lon1, lat2, lon2) {

@@ -9,7 +9,7 @@ import Nora from "./pages/Nora";
 import Plus from "./pages/Plus";
 import Sources from "./pages/Sources";
 import Footer from "./components/Footer";
-import { sansEmojis } from "./components/NoraConversation";
+import { sansEmojis, QUESTION_DEPART } from "./components/NoraConversation";
 const rendre = (Page, url) => renderToString(<MemoryRouter initialEntries={[url]}><Page /></MemoryRouter>);
 test.each([
   [Trajet, "/trajet?de=Marquise+-+Rinxent&a=Calais+Ville&jour=2026-10-16&heure=17%3A52"],
@@ -61,4 +61,14 @@ test("le sitemap et robots.txt listent les pages publiques", async () => {
 
 test("la lecture à voix haute retire les émojis, pas le texte", () => {
   expect(sansEmojis("Bonjour ! 👋 Je suis Nora.\n🚆 Je trouve votre train. 😊")).toBe("Bonjour ! Je suis Nora.\n Je trouve votre train.");
+});
+
+test.each([
+  "D'où partez-vous ? Dites-moi le lieu où vous êtes",
+  "De quelle gare partez-vous ?",
+  "Depuis quelle ville et quelle gare souhaitez-vous prendre le bus pour aller à la gare ?",
+  "Où êtes-vous en ce moment ?",
+])("« %s » propose « Ma position »", (q) => expect(QUESTION_DEPART.test(q)).toBe(true));
+test("une autre question ne propose pas « Ma position »", () => {
+  expect(QUESTION_DEPART.test("Où allez-vous depuis Lille Europe ?")).toBe(false);
 });

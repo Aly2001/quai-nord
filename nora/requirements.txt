@@ -1,5 +1,5 @@
+# Les librairies du serveur de Nora (installées dans l'image Docker ET pour les tests)
 fastapi
 uvicorn[standard]
 httpx
-pytest
 gtfs-realtime-bindings

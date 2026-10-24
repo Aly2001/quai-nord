@@ -56,7 +56,7 @@ jobs:
         run: python -m py_compile *.py
 
       - name: Installer les librairies de Nora
-        run: pip install -r nora/requirements.txt
+        run: pip install -r nora/requirements.txt pytest
 
       - name: Lancer les tests de Nora (Mistral simulé, aucune clé nécessaire)
         run: python -m pytest nora -q

@@ -8,9 +8,9 @@ FROM python:3.12-slim
 WORKDIR /app
 ENV PYTHONUNBUFFERED=1 PYTHONUTF8=1
 
-# Les librairies du serveur seulement (pas pytest, inutile en production)
-# (gtfs-realtime-bindings : pour lire le flux temps réel de la SNCF, /api/temps-reel)
-RUN pip install --no-cache-dir fastapi "uvicorn[standard]" httpx gtfs-realtime-bindings
+# Les librairies du serveur : UNE seule liste, nora/requirements.txt (la même pour les tests et l'image)
+COPY nora/requirements.txt nora/requirements.txt
+RUN pip install --no-cache-dir -r nora/requirements.txt
 
 COPY nora/ nora/
 COPY site/src/data/faq.json site/src/data/faq.json

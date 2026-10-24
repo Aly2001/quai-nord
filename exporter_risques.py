@@ -57,6 +57,7 @@ def main():
         SELECT numero_train, ligne, gare, heure_prevue, date_service, en_retard
         FROM retards
         WHERE type_observation = 'CONSTATE' AND heure_prevue IS NOT NULL
+          AND supprime = 0            -- les suppressions seront traitées à part, avec le modèle
     """, conn)
     conn.close()
     if df.empty:

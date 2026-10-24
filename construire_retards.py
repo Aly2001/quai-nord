@@ -100,12 +100,24 @@ def construire(conn, avec_meteo):
             CASE WHEN COALESCE(p.retard_arrivee, p.retard_depart) >= {SEUIL_RETARD}
                  THEN 1 ELSE 0 END                  AS en_retard,
 
+            -- Supprimé : le train entier, ou seulement cet arrêt (« sauté »). Un train supprimé
+            -- n'a pas de retard : sans cette colonne, les pires perturbations (tempêtes) seraient invisibles.
+            CASE WHEN p.statut_train = 'SUPPRIME' OR p.statut_arret = 'SAUTE'
+                 THEN 1 ELSE 0 END                  AS supprime,
+            -- Perturbé : ce qui compte pour le voyageur, en retard de 5 min ou plus OU supprimé
+            CASE WHEN p.statut_train = 'SUPPRIME' OR p.statut_arret = 'SAUTE'
+                      OR COALESCE(p.retard_arrivee, p.retard_depart) >= {SEUIL_RETARD}
+                 THEN 1 ELSE 0 END                  AS perturbe,
+
             -- Statuts
             p.statut_train,
             p.statut_arret,
 
             -- Le retard a-t-il été constaté, ou n'était-ce qu'une prévision ?
+            -- Une suppression est « constatée » dès que l'heure prévue du passage est dépassée
             CASE WHEN p.derniere_vue >= COALESCE(p.heure_arrivee, p.heure_depart)
+                      OR ((p.statut_train = 'SUPPRIME' OR p.statut_arret = 'SAUTE')
+                          AND CAST(strftime('%s', {heure_prevue}) AS INTEGER) <= CAST(strftime('%s', 'now') AS INTEGER))
                  THEN 'CONSTATE' ELSE 'PREVISION' END AS type_observation,
 
             -- Météo au lieu et à l'heure du passage
@@ -118,7 +130,9 @@ def construire(conn, avec_meteo):
         LEFT JOIN g.stop_times st ON st.trip_id = p.trip_id
                                  AND st.stop_id = p.stop_id
         {jointure_meteo}
-        WHERE COALESCE(p.retard_arrivee, p.retard_depart) IS NOT NULL;
+        -- Un retard mesuré, OU une suppression (qui n'a pas de retard, mais compte autant pour le voyageur)
+        WHERE COALESCE(p.retard_arrivee, p.retard_depart) IS NOT NULL
+           OR p.statut_train = 'SUPPRIME' OR p.statut_arret = 'SAUTE';
 
         CREATE INDEX a.idx_retards_gare ON retards(gare);
         CREATE INDEX a.idx_retards_date ON retards(date_service);
@@ -141,6 +155,9 @@ def resume(conn):
     print(f"   Retards constatés (fiables) : {100 * constates / total:5.1f} %")
     print(f"   Ligne connue                : {100 * avec_ligne / total:5.1f} %")
     print(f"   Passages Hauts-de-France    : {hdf}")
+    (supprimes,) = conn.execute(
+        "SELECT SUM(supprime) FROM a.retards WHERE hauts_de_france = 1 AND type_observation = 'CONSTATE'").fetchone()
+    print(f"   Passages supprimés (HdF)    : {supprimes or 0}")
 
     print("\n2. Ponctualité dans les Hauts-de-France (retards constatés)")
     print("   Heure | Passages | En retard (≥ 5 min)")
@@ -148,7 +165,7 @@ def resume(conn):
         SELECT strftime('%H', heure_prevue) AS h, COUNT(*),
                100.0 * SUM(en_retard) / COUNT(*)
         FROM a.retards
-        WHERE hauts_de_france = 1 AND type_observation = 'CONSTATE'
+        WHERE hauts_de_france = 1 AND type_observation = 'CONSTATE' AND supprime = 0
               AND heure_prevue IS NOT NULL
         GROUP BY h ORDER BY h
     """):

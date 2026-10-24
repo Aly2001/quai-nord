@@ -3,3 +3,5 @@ gtfs-realtime-bindings
 tzdata
 pandas
 matplotlib
+scikit-learn
+joblib

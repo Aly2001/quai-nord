@@ -35,3 +35,6 @@ desktop.ini
 # Secrets
 .env
 donnees_bus/
+
+# Le modèle entraîné chaque nuit sur la VM (refait à chaque fois)
+modele/

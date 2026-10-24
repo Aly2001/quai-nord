@@ -61,7 +61,7 @@ jobs:
       - name: Lancer les tests de Nora (Mistral simulé, aucune clé nécessaire)
         run: python -m pytest nora -q
 
-      - name: Lancer les tests de la préparation des bus (faux réseau, aucun téléchargement)
+      - name: Lancer les tests des bus et du modèle (fausses données, aucun téléchargement)
         run: |
-          pip install requests
+          pip install requests pandas scikit-learn joblib
           python -m pytest tests -q

@@ -9,7 +9,8 @@ WORKDIR /app
 ENV PYTHONUNBUFFERED=1 PYTHONUTF8=1
 
 # Les librairies du serveur seulement (pas pytest, inutile en production)
-RUN pip install --no-cache-dir fastapi "uvicorn[standard]" httpx
+# (gtfs-realtime-bindings : pour lire le flux temps réel de la SNCF, /api/temps-reel)
+RUN pip install --no-cache-dir fastapi "uvicorn[standard]" httpx gtfs-realtime-bindings
 
 COPY nora/ nora/
 COPY site/src/data/faq.json site/src/data/faq.json

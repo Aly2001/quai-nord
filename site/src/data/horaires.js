@@ -178,8 +178,18 @@ export function meteoDuTrain(meteo, stopId, jour, heure) {
   return { point, pluie, neige, temperature, rafales };
 }
 
-// ---------- Temps réel (temps_reel.json, écrit par le collecteur toutes les 5 min) ----------
-// actif = true seulement pour aujourd'hui. Le fichier est relu toutes les minutes.
+// ---------- Temps réel ----------
+// D'abord le DIRECT, lu par le serveur sur le flux de la SNCF (/api/temps-reel, frais de 2 minutes au plus).
+// En secours, le fichier temps_reel.json publié avec le site (écrit par le collecteur).
+// actif = true seulement pour aujourd'hui. Relu toutes les minutes.
+export async function chargerTempsReel(lire = fetch) {
+  try {
+    const direct = await lire(`/api/temps-reel?t=${Date.now()}`);
+    if (direct.ok) return await direct.json();
+  } catch { /* le serveur ne répond pas : on passe au secours */ }
+  const fichier = await lire(`${DOSSIER}/temps_reel.json?t=${Date.now()}`);
+  return fichier.json();
+}
 export function useTempsReel(actif) {
   const [tempsReel, setTempsReel] = useState(null);
 
@@ -187,9 +197,7 @@ export function useTempsReel(actif) {
     if (!actif) { setTempsReel(null); return; }
     let annule = false;
     function charger() {
-      // ?t=... : évite que le navigateur garde une ancienne version en mémoire
-      fetch(`${DOSSIER}/temps_reel.json?t=${Date.now()}`)
-        .then((reponse) => reponse.json())
+      chargerTempsReel()
         .then((donnees) => { if (!annule) setTempsReel(donnees); })
         .catch(() => {});
     }

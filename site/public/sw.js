@@ -9,7 +9,7 @@
 //  - les pages (/, /trajet, /carte...)  -> d'abord internet, sinon la page en mémoire
 //  - le temps réel                      -> jamais en mémoire (une info périmée serait trompeuse)
 // =====================================================================
-const VERSION = "quai-nord-v1";
+const VERSION = "quai-nord-v2";
 const ESSENTIEL = ["/", "/manifest.webmanifest", "/icons/icone-192.png", "/icons/favicon-32.png"];
 
 self.addEventListener("install", (evenement) => {
@@ -42,6 +42,7 @@ self.addEventListener("fetch", (evenement) => {
   const adresse = new URL(requete.url);
   if (requete.method !== "GET" || adresse.origin !== self.location.origin) return;  // autres sites : on ne touche à rien
   if (adresse.pathname.endsWith("temps_reel.json")) return;                           // jamais de direct périmé
+  if (adresse.pathname.startsWith("/api/")) return;                                   // le serveur (direct, Nora) : jamais en mémoire
 
   if (requete.mode === "navigate") {
     // Toutes les pages de l'application sont la même page index.html

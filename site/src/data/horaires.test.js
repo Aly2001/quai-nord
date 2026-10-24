@@ -7,10 +7,10 @@
 //  - test(...)     : un test, avec une phrase qui dit ce qu'il vérifie
 //  - expect(résultat).toBe(attendu) : la vérification elle-même
 // =====================================================================
-import { describe, test, expect } from "vitest";
+import { describe, test, expect, vi } from "vitest";
 import {
   duree, formatDuree, enMinutes, normaliser, trouverGare, niveauRisque, garderMeilleurs,
-} from "./horaires";
+ chargerTempsReel } from "./horaires";
 
 // ---------- 1. Les durées ----------
 describe("duree", () => {
@@ -99,5 +99,23 @@ describe("garderMeilleurs", () => {
     const lent = trajet("08:00", 120, false);
     const rapide = trajet("08:05", 60, false);
     expect(garderMeilleurs([lent, rapide], [])).toHaveLength(2);
+  });
+});
+
+
+describe("le temps réel : le direct d'abord, le fichier en secours", () => {
+  const reponse = (ok, corps) => Promise.resolve({ ok, json: () => Promise.resolve(corps) });
+  test("le serveur répond : on prend le direct", async () => {
+    const lire = vi.fn((url) => (url.startsWith("/api/") ? reponse(true, { source: "direct" }) : reponse(true, { source: "fichier" })));
+    expect(await chargerTempsReel(lire)).toEqual({ source: "direct" });
+    expect(lire).toHaveBeenCalledTimes(1);
+  });
+  test("le serveur ne répond pas : on prend le fichier publié", async () => {
+    const lire = vi.fn((url) => (url.startsWith("/api/") ? Promise.reject(new Error("hors ligne")) : reponse(true, { source: "fichier" })));
+    expect(await chargerTempsReel(lire)).toEqual({ source: "fichier" });
+  });
+  test("le serveur répond une erreur (503) : le fichier aussi", async () => {
+    const lire = vi.fn((url) => (url.startsWith("/api/") ? reponse(false, {}) : reponse(true, { source: "fichier" })));
+    expect(await chargerTempsReel(lire)).toEqual({ source: "fichier" });
   });
 });

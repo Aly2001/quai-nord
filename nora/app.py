@@ -30,6 +30,8 @@ from zoneinfo import ZoneInfo
 import httpx
 from fastapi import FastAPI, HTTPException, Request
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.middleware.gzip import GZipMiddleware
+from google.transit import gtfs_realtime_pb2
 from pydantic import BaseModel, Field
 
 # ----------------------------------------------------------------------
@@ -564,6 +566,8 @@ def lire_reponse(texte):
 # ----------------------------------------------------------------------
 app = FastAPI(title="Nora, l'assistante de Quai Nord")
 app.add_middleware(CORSMiddleware, allow_origins=ORIGINES, allow_methods=["POST", "GET"], allow_headers=["*"])
+# Les réponses de plus de 1 Ko sont compressées : le temps réel arrive vite sur un téléphone en 4G
+app.add_middleware(GZipMiddleware, minimum_size=1000)
 
 
 @app.get("/api/sante")
@@ -591,3 +595,53 @@ def nora(question: Question, requete: Request):
     # Un journal minimal, sans le contenu des questions (vie privée)
     print(f"Nora : réponse en {time.time() - debut:.1f} s, action={bool(resultat['action'])}", flush=True)
     return {**resultat, "questions_restantes": restantes}
+
+
+
+# ======================================================================
+#  Le temps réel EN DIRECT pour le site : /api/temps-reel
+# ======================================================================
+# Le flux ouvert de la SNCF (le même que lit le collecteur), relu au plus toutes les 2 minutes.
+# Il ne montre que le présent : l'historique, lui, vient de la collecte sur la VM.
+URL_FLUX_SNCF = os.environ.get("NORA_URL_FLUX", "https://proxy.transport.data.gouv.fr/resource/sncf-gtfs-rt-trip-updates")
+DUREE_CACHE = int(os.environ.get("NORA_DUREE_CACHE_DIRECT", "120"))       # secondes
+STATUTS_TRAIN = {0: "PREVU", 1: "AJOUTE", 2: "NON_PLANIFIE", 3: "SUPPRIME"}
+_cache_direct = {"lu_a": 0.0, "contenu": None}
+
+
+def decoder_flux(octets, maintenant):
+    """Le flux GTFS-RT (binaire) -> la même structure que temps_reel.json, que le site sait déjà lire :
+    {"maj": ..., "trajets": {trip_id: {"statut": ..., "arrets": {stop_id: [retard arrivée, retard départ, sauté]}}}}"""
+    flux = gtfs_realtime_pb2.FeedMessage()
+    flux.ParseFromString(octets)
+    trajets = {}
+    for entite in flux.entity:
+        if not entite.HasField("trip_update"):
+            continue
+        maj = entite.trip_update
+        arrets = {}
+        for arret in maj.stop_time_update:
+            arrivee = arret.arrival.delay if arret.HasField("arrival") and arret.arrival.HasField("delay") else None
+            depart = arret.departure.delay if arret.HasField("departure") and arret.departure.HasField("delay") else None
+            arrets[arret.stop_id] = [arrivee, depart, 1 if arret.schedule_relationship == 1 else 0]
+        trajets[maj.trip.trip_id] = {"statut": STATUTS_TRAIN.get(maj.trip.schedule_relationship, "INCONNU"), "arrets": arrets}
+    return {"maj": maintenant, "trajets": trajets}
+
+
+@app.get("/api/temps-reel")
+def temps_reel():
+    """L'état du réseau à la minute : retards et suppressions. Sans Gemini, sans quota de questions."""
+    maintenant = time.time()
+    if _cache_direct["contenu"] and maintenant - _cache_direct["lu_a"] < DUREE_CACHE:
+        return _cache_direct["contenu"]
+    try:
+        reponse = httpx.get(URL_FLUX_SNCF, timeout=20, follow_redirects=True)
+        reponse.raise_for_status()
+        contenu = decoder_flux(reponse.content, int(maintenant))
+    except Exception as erreur:                       # la SNCF ne répond pas : la dernière version connue
+        print(f"Temps réel : flux SNCF indisponible ({erreur})", flush=True)
+        if _cache_direct["contenu"]:
+            return _cache_direct["contenu"]
+        raise HTTPException(503, "Le temps réel de la SNCF est momentanément indisponible.")
+    _cache_direct.update(lu_a=maintenant, contenu=contenu)
+    return contenu

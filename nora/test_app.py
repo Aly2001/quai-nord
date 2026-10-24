@@ -22,6 +22,7 @@ def preparer(monkeypatch):
     module._total.clear()
     module._minute.clear()
     module._minute_site.clear()
+    module._cache_direct.update(lu_a=0.0, contenu=None)
 
 
 def simuler_mistral(monkeypatch, contenu, statut=200):
@@ -525,3 +526,67 @@ def test_d_une_gare_a_l_autre_gare_de_la_ville(monkeypatch):
 def test_une_gare_nommee_pour_toutes_les_villes(code, texte, gare):
     reseau = next(r for r in module.RESEAUX if r["code"] == code)
     assert module.gare_citee(reseau, texte) == gare
+
+
+
+# ---------- Le temps réel en direct : /api/temps-reel ----------
+def faux_flux():
+    from google.transit import gtfs_realtime_pb2 as pb
+    flux = pb.FeedMessage()
+    flux.header.gtfs_realtime_version = "2.0"
+    def train(identifiant, statut=0, arrets=()):
+        e = flux.entity.add(); e.id = identifiant
+        e.trip_update.trip.trip_id = identifiant
+        e.trip_update.trip.schedule_relationship = statut
+        for stop, retard, saute in arrets:
+            a = e.trip_update.stop_time_update.add(); a.stop_id = stop
+            if retard is not None:
+                a.arrival.delay = retard
+            if saute:
+                a.schedule_relationship = 1
+    train("NORMAL", arrets=[("S1", 60, False)])
+    train("RETARD", arrets=[("S1", 420, False), ("S2", 600, False)])
+    train("SUPPRIME", statut=3)
+    train("SAUTE", arrets=[("S1", None, True)])
+    return flux.SerializeToString()
+
+
+def simuler_sncf(monkeypatch, octets=None, erreur=False):
+    appels = []
+    def faux_get(url, timeout, follow_redirects):
+        appels.append(url)
+        if erreur:
+            raise httpx.ConnectError("réseau coupé")
+        return httpx.Response(200, request=httpx.Request("GET", url), content=octets or faux_flux())
+    monkeypatch.setattr(module.httpx, "get", faux_get)
+    return appels
+
+
+def test_le_direct_donne_retards_et_suppressions(monkeypatch):
+    simuler_sncf(monkeypatch)
+    corps = client.get("/api/temps-reel").json()
+    t = corps["trajets"]
+    assert t["NORMAL"] == {"statut": "PREVU", "arrets": {"S1": [60, None, 0]}}
+    assert t["RETARD"]["arrets"]["S2"] == [600, None, 0]
+    assert t["SUPPRIME"]["statut"] == "SUPPRIME"
+    assert t["SAUTE"]["arrets"]["S1"] == [None, None, 1]
+    assert corps["maj"] > 0
+
+
+def test_le_direct_est_garde_deux_minutes(monkeypatch):
+    appels = simuler_sncf(monkeypatch)
+    client.get("/api/temps-reel"); client.get("/api/temps-reel"); client.get("/api/temps-reel")
+    assert len(appels) == 1                                        # une seule lecture du flux SNCF
+    module._cache_direct["lu_a"] -= module.DUREE_CACHE + 1          # 2 minutes plus tard
+    client.get("/api/temps-reel")
+    assert len(appels) == 2
+
+
+def test_sncf_indisponible(monkeypatch):
+    simuler_sncf(monkeypatch, erreur=True)
+    assert client.get("/api/temps-reel").status_code == 503        # rien en mémoire : erreur propre
+    simuler_sncf(monkeypatch)
+    client.get("/api/temps-reel")
+    module._cache_direct["lu_a"] -= module.DUREE_CACHE + 1
+    simuler_sncf(monkeypatch, erreur=True)
+    assert "SUPPRIME" in client.get("/api/temps-reel").json()["trajets"]   # la dernière version connue

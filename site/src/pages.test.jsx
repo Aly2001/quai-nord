@@ -3,7 +3,7 @@ import { test, expect } from "vitest";
 import { renderToString } from "react-dom/server";
 import { MemoryRouter } from "react-router-dom";
 import Trajet from "./pages/Trajet";
-import { questionsDuTrain, accueilDuTrain } from "./data/questionsTrain";
+import { questionsDuTrain, accueilDuTrain, accueilSupprime } from "./data/questionsTrain";
 import Accueil from "./pages/Accueil";
 import Nora from "./pages/Nora";
 import Plus from "./pages/Plus";
@@ -83,4 +83,9 @@ test.each([
 test("« Nora a-t-elle ma position ? » reste une question pour Nora", () => {
   const q = "Nora a-t-elle ma position ?";
   expect(DEPUIS_MA_POSITION.test(q) && VERS_UNE_GARE.test(q)).toBe(false);
+});
+
+test("un train supprimé : Nora le dit d'abord, et propose le suivant", () => {
+  expect(accueilSupprime("17:10", true, "18:10")).toBe("Le train de 17:10 est supprimé aujourd'hui, d'après la SNCF. 👉 Le prochain : 18:10.");
+  expect(accueilSupprime("17:10", false)).toBe("Le train de 17:10 est déjà annoncé supprimé par la SNCF.");
 });

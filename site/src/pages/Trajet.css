@@ -598,3 +598,25 @@
   text-decoration: none;
 }
 .risque-boite__aide:hover { color: var(--signal); }
+
+/* ---------- Le direct : suppressions, retards annoncés, alerte ---------- */
+.direct--supprime { display: flex; flex-direction: column; gap: 6px; }
+.direct--supprime .direct__ligne { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; margin: 0; padding: 8px 10px;
+  border-radius: 8px; background: #FDE2E2; color: #B91C1C; font-weight: 700; }
+.direct--supprime .direct__puce { background: #B91C1C; color: #FFFFFF; text-transform: uppercase; letter-spacing: 0.04em; }
+.direct__suivant { align-self: flex-start; min-height: 40px; padding: 0; font: inherit; font-weight: 700; background: none;
+  border: 0; color: var(--nuit); text-decoration: underline; cursor: pointer; }
+.direct--prevu { margin: 0; font-size: 14px; color: var(--texte-doux); }
+.direct--retard .direct__puce { background: #C2410C; color: #FFFFFF; }
+.direct--retard { color: #C2410C; font-weight: 700; }
+.trajet-carte--supprime { opacity: 1; }
+.trajet-carte--supprime .trajet-carte__horaires { opacity: 0.55; }
+.trajet-carte--supprime { border-left-color: #B91C1C !important; }
+.trajet-carte__heure-direct { display: inline-flex; flex-direction: column; line-height: 1; }
+.trajet-carte__heure-direct--fin { align-items: flex-end; }
+.trajet-carte__heure-direct s { font-size: 15px; color: var(--texte-doux); }
+.trajet-carte__heure--retard { color: #C2410C; }
+.alerte-reseau { display: flex; gap: 10px; margin: 0 0 14px; padding: 12px 14px; border-radius: 12px;
+  background: #FDE2E2; border: 1.5px solid #F5B5B5; color: #7F1D1D; font-size: 15px; line-height: 1.4; }
+.alerte-reseau p { margin: 0; }
+.alerte-reseau__titre { font-weight: 700; color: #B91C1C; font-size: 16px; margin-bottom: 2px !important; }

@@ -22,7 +22,7 @@ function Marque({ type, pastilles }) {
   );
 }
 
-export default function Fraicheur({ tempsReel = null, sombre = false, partie = "tout", pastilles = false }) {
+export default function Fraicheur({ tempsReel = null, sombre = false, partie = "tout", pastilles = false, libelleDirect = "En direct" }) {
   const { index } = useIndexHoraires();
   const risques = useRisques();
   const meteo = useMeteo();
@@ -50,7 +50,7 @@ export default function Fraicheur({ tempsReel = null, sombre = false, partie = "
         {tempsReelFrais(tempsReel) && (
           <li className="fraicheur__direct">
             <span className="fraicheur__point fraicheur__point--direct" aria-hidden="true" />
-            En direct : {ilYa(new Date(tempsReel.maj * 1000))}
+            {libelleDirect} : {ilYa(new Date(tempsReel.maj * 1000))}
           </li>
         )}
       </ul>}

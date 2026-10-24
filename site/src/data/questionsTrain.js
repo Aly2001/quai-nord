@@ -30,3 +30,11 @@ export function accueilDuTrain(heure, texteRisque) {
     ? `Le train de ${heure} a ${texteRisque} de risque de retard. Que voulez-vous savoir ?`
     : `Que voulez-vous savoir sur le train de ${heure} ?`;
 }
+
+// Un train annoncé supprimé : Nora le dit tout de suite (sans Gemini), et propose le suivant
+export function accueilSupprime(heure, aujourdhui, heureSuivant = null) {
+  const debut = aujourdhui
+    ? `Le train de ${heure} est supprimé aujourd'hui, d'après la SNCF.`
+    : `Le train de ${heure} est déjà annoncé supprimé par la SNCF.`;
+  return heureSuivant ? `${debut} 👉 Le prochain : ${heureSuivant}.` : debut;
+}

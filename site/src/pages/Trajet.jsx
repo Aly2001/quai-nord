@@ -7,10 +7,10 @@ import { BoutonFavori } from "../components/Favoris";
 import NoraPanneau from "../components/NoraPanneau";
 import { AvatarNora } from "../components/NoraConversation";
 import { reseauDeGare, transportsDuReseau, infosReseau, libelleGare } from "../data/bus";
-import { questionsDuTrain, accueilDuTrain } from "../data/questionsTrain";
+import { questionsDuTrain, accueilDuTrain, accueilSupprime } from "../data/questionsTrain";
 import {
   DOSSIER, useIndexHoraires, useRisques, trouverGare, normaliser, dateLongue, etiquetteJour,
-  joursAVenir, aujourdhuiIso, heureActuelle, risqueDuTrain, niveauRisque,
+  joursAVenir, aujourdhuiIso, ajouterJours, heureActuelle, risqueDuTrain, niveauRisque,
   useMeteo, meteoDuTrain, useTempsReel, infoDirect, ajouterMinutes,
   trajetsDirects, trajetsAvecCorrespondance, garderMeilleurs, formatDuree,
 } from "../data/horaires";
@@ -44,7 +44,8 @@ export default function Trajet() {
   // Jamais de train avant l'heure choisie. Et aujourd'hui, jamais de train déjà parti.
   const maintenant = heureActuelle();
   const debut = jour === aujourdhuiIso() && maintenant > heure ? maintenant : heure;
-  const tempsReel = useTempsReel(jourValide && jour === aujourdhuiIso());
+  const aujourdhui = jour === aujourdhuiIso();
+  const tempsReel = useTempsReel(jourValide);           // aujourd'hui : retards et suppressions ; après : suppressions
 
   // ---------- 1. Charger les départs de la gare choisie ----------
   useEffect(() => {
@@ -114,7 +115,7 @@ export default function Trajet() {
               {etiquetteJour(jour)}, {dateLongue(jour)} · départ à partir de {debut}
             </p>
           )}
-          <Fraicheur tempsReel={tempsReel} sombre pastilles />
+          <Fraicheur tempsReel={tempsReel} sombre pastilles libelleDirect={aujourdhui ? "En direct" : "Informations SNCF"} />
           {gareDepart && a && <BoutonFavori de={gareDepart.nom} a={nomArrivee} />}
         </div>
       </section>
@@ -179,15 +180,23 @@ export default function Trajet() {
                 </p>
               )}
 
+              <AlerteReseau trajets={trajets} tempsReel={tempsReel} aujourdhui={aujourdhui} />
+
               <ol className="liste-trajets">
-                {trajets.map((t, i) => (
-                  <CarteTrajet key={`${t.heure}-${t.arrivee}-${i}`} cle={`${t.heure}-${t.arrivee}-${i}`}
-                               choisie={nora?.cle === `${t.heure}-${t.arrivee}-${i}`} trajet={t} jour={jour}
-                               risques={risques} meteo={meteo} tempsReel={tempsReel}
-                               onDemanderNora={setNora}
-                               reseauArrivee={reseauDeGare(t.gareArrivee)}
-                               rapide={trajets.length > 1 && i === indexRapide} />
-                ))}
+                {trajets.map((t, i) => {
+                  // Le prochain trajet qui n'est pas supprimé : proposé quand celui-ci l'est
+                  const suivant = trajets.slice(i + 1).findIndex((u) => !trajetSupprime(u, tempsReel));
+                  const iSuivant = suivant === -1 ? null : i + 1 + suivant;
+                  return (
+                    <CarteTrajet key={`${t.heure}-${t.arrivee}-${i}`} cle={`${t.heure}-${t.arrivee}-${i}`} rang={i}
+                                 choisie={nora?.cle === `${t.heure}-${t.arrivee}-${i}`} trajet={t} jour={jour}
+                                 risques={risques} meteo={meteo} tempsReel={tempsReel} aujourdhui={aujourdhui}
+                                 suivant={iSuivant === null ? null : { rang: iSuivant, heure: trajets[iSuivant].heure }}
+                                 onDemanderNora={setNora}
+                                 reseauArrivee={reseauDeGare(t.gareArrivee)}
+                                 rapide={trajets.length > 1 && i === indexRapide} />
+                  );
+                })}
               </ol>
 
               <div className="a-propos">
@@ -260,7 +269,29 @@ function CarteNoraArrivee({ gare, reseau, onOuvrir }) {
   );
 }
 
-function CarteTrajet({ trajet: t, jour, risques, meteo, tempsReel, onDemanderNora, reseauArrivee = null, cle, choisie = false, rapide = false }) {
+// Un trajet dont un des trains est annoncé supprimé par la SNCF (d'après le direct)
+function trajetSupprime(t, tempsReel) {
+  return t.troncons.some((tr) => infoDirect(tempsReel, tr.train.trip_id, tr.depart.stop_id, tr.arrivee.stop_id)?.supprime);
+}
+
+// Le bandeau d'alerte, aujourd'hui seulement : au moins 3 trajets supprimés, et au moins 1 sur 5
+function AlerteReseau({ trajets, tempsReel, aujourdhui }) {
+  if (!aujourdhui || !tempsReel) return null;
+  const supprimes = trajets.filter((t) => trajetSupprime(t, tempsReel)).length;
+  if (supprimes < 3 || supprimes / trajets.length < 0.2) return null;
+  return (
+    <section className="alerte-reseau" role="alert">
+      <span aria-hidden="true">⚠️</span>
+      <div>
+        <p className="alerte-reseau__titre">Réseau très perturbé en ce moment</p>
+        <p>{supprimes} trajets sur {trajets.length} de cette recherche sont supprimés. Vérifiez votre train juste avant de partir.</p>
+      </div>
+    </section>
+  );
+}
+
+function CarteTrajet({ trajet: t, jour, risques, meteo, tempsReel, onDemanderNora, reseauArrivee = null, cle, choisie = false, rapide = false,
+                       aujourdhui = true, suivant = null, rang = 0 }) {
   const [details, setDetails] = useState(false);
   const [premier, dernier] = [t.troncons[0], t.troncons[t.troncons.length - 1]];
 
@@ -278,22 +309,25 @@ function CarteTrajet({ trajet: t, jour, risques, meteo, tempsReel, onDemanderNor
 
   const meteoDepart = meteoDuTrain(meteo, premier.depart.stop_id, jour, t.heure);
   const questions = questionsDuTrain(t, pourcentage, meteoDepart, reseauArrivee);
+  const directs = t.troncons.map((tr) => infoDirect(tempsReel, tr.train.trip_id, tr.depart.stop_id, tr.arrivee.stop_id));
+  const supprime = directs.some((d) => d?.supprime);
   const ouvrirNora = (question = null) => onDemanderNora({
     cle,
     titre: `${premier.train.transport} ${premier.train.numero} · ${t.heure} ${t.gareDepart} → ${t.gareArrivee}`,
-    contexte: contexteNora(t, jour, risque, pourcentage, niveau, meteoDepart),
-    accueil: accueilDuTrain(t.heure, texteRisque),
+    contexte: (supprime ? "IMPORTANT : d'après le temps réel de la SNCF, ce train est annoncé SUPPRIMÉ. "
+      + "Ne parle pas de son risque de retard : dis qu'il est supprimé, et propose le train suivant. " : "")
+      + contexteNora(t, jour, risque, pourcentage, niveau, meteoDepart),
+    // Le direct passe avant le risque : un train supprimé n'a pas de « risque », il ne roule pas
+    accueil: supprime ? accueilSupprime(t.heure, aujourdhui, suivant?.heure) : accueilDuTrain(t.heure, texteRisque),
     suggestions: questions,
     question,
   });
-  const directs = t.troncons.map((tr) => infoDirect(tempsReel, tr.train.trip_id, tr.depart.stop_id, tr.arrivee.stop_id));
-  const supprime = directs.some((d) => d?.supprime);
   const classes = ["trajet-carte", `trajet-carte--${niveau ? niveau.classe : "inconnu"}`];
   if (supprime) classes.push("trajet-carte--supprime");
   if (choisie) classes.push("trajet-carte--choisie");          // le train dont parle Nora
 
   return (
-    <li className={classes.join(" ")}>
+    <li className={classes.join(" ")} id={`trajet-${rang}`}>
       <div className="trajet-carte__principal">
         {rapide && (
           <span className="trajet-carte__rapide">
@@ -302,11 +336,11 @@ function CarteTrajet({ trajet: t, jour, risques, meteo, tempsReel, onDemanderNor
           </span>
         )}
         <div className="trajet-carte__horaires">
-          <span className="trajet-carte__heure">{t.heure}</span>
+          <Heure prevue={t.heure} retard={aujourdhui && !supprime ? directs[0]?.retardDepart : null} />
           <span className="trajet-carte__ligne" aria-hidden="true">
             <span className="trajet-carte__duree">{formatDuree(t.dureeMin)}</span>
           </span>
-          <span className="trajet-carte__heure">{t.arrivee}</span>
+          <Heure prevue={t.arrivee} retard={aujourdhui && !supprime ? directs[directs.length - 1]?.retardArrivee : null} fin />
         </div>
         <div className="trajet-carte__gares">
           <span>{t.gareDepart}</span>
@@ -351,7 +385,8 @@ function CarteTrajet({ trajet: t, jour, risques, meteo, tempsReel, onDemanderNor
           </p>
         )}
 
-        <LigneDirect directs={directs} trajet={t} />
+        <LigneDirect directs={directs} trajet={t} aujourdhui={aujourdhui} jour={jour} frais={Boolean(tempsReel)}
+                     suivant={suivant} />
 
         {details && (
           <ol className="arrets">
@@ -412,18 +447,43 @@ function CarteTrajet({ trajet: t, jour, risques, meteo, tempsReel, onDemanderNor
   );
 }
 
-// ---------- L'état en direct (seulement pour aujourd'hui) ----------
-function LigneDirect({ directs, trajet: t }) {
-  if (directs.every((d) => !d)) return null;              // aucun train dans le flux : on ne dit rien
+// Une heure : prévue, ou, s'il y a un retard annoncé (1 min ou plus), l'heure prévue barrée et la nouvelle en orange
+function Heure({ prevue, retard, fin = false }) {
+  const minutes = Math.round((retard ?? 0) / 60);
+  if (minutes < 1) return <span className="trajet-carte__heure">{prevue}</span>;
+  return (
+    <span className={`trajet-carte__heure-direct${fin ? " trajet-carte__heure-direct--fin" : ""}`}>
+      <s>{prevue}</s>
+      <span className="trajet-carte__heure trajet-carte__heure--retard">{ajouterMinutes(prevue, minutes)}</span>
+    </span>
+  );
+}
 
+// ---------- L'état en direct : aujourd'hui, tout ; demain et après-demain, seulement les suppressions ----------
+function LigneDirect({ directs, trajet: t, aujourdhui = true, jour, frais = false, suivant = null }) {
   if (directs.some((d) => d?.supprime)) {
+    const quand = aujourdhui ? "Ce train ne circule pas aujourd'hui."
+      : `Annoncé supprimé par la SNCF pour ${jour === ajouterJours(aujourdhuiIso(), 1) ? "demain" : "ce jour-là"}.`;
     return (
-      <p className="direct direct--supprime">
-        <span className="direct__puce">Supprimé</span>
-        {t.correspondance ? "Un des trains de ce trajet est annoncé supprimé." : "Ce train est annoncé supprimé sur ce trajet."}
-      </p>
+      <div className="direct direct--supprime">
+        <p className="direct__ligne">
+          <span className="direct__puce">Supprimé</span>
+          {t.correspondance ? `Un des trains de ce trajet est annoncé supprimé. ${aujourdhui ? "" : "(SNCF)"}` : quand}
+        </p>
+        {suivant && (
+          <button type="button" className="direct__suivant"
+                  onClick={() => document.getElementById(`trajet-${suivant.rang}`)?.scrollIntoView({ behavior: "smooth", block: "center" })}>
+            Voir le train suivant ({suivant.heure}) →
+          </button>
+        )}
+      </div>
     );
   }
+  if (!aujourdhui) {
+    // Pour un autre jour, aucun retard « en direct » n'a de sens : seulement l'absence d'annonce
+    return frais ? <p className="direct direct--prevu">Prévu · aucune annonce de la SNCF</p> : null;
+  }
+  if (directs.every((d) => !d)) return null;              // aucun train dans le flux : on ne dit rien
 
   const minutes = (s) => Math.round((s ?? 0) / 60);
   const [d1, d2] = [directs[0], directs[directs.length - 1]];
@@ -449,8 +509,7 @@ function LigneDirect({ directs, trajet: t }) {
     return (
       <p className="direct direct--retard">
         <span className="direct__puce">+{pire} min</span>
-        Départ prévu à {ajouterMinutes(t.heure, retardDepart)}
-        {d2 ? `, arrivée à ${ajouterMinutes(t.arrivee, retardArrivee)}` : ""}
+        Retard annoncé en ce moment
       </p>
     );
   }

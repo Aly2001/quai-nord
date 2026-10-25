@@ -56,7 +56,7 @@ export function etapesSiteOfficiel(code, depart, arrivee) {
     "Choisissez votre heure de départ pour voir les trajets, avec les changements si besoin.",
   ];
 }
-const DOSSIER_BUS = `${import.meta.env.BASE_URL}bus`;
+export const DOSSIER_BUS = `${import.meta.env.BASE_URL}bus`;
 const RAYON_DESTINATION = 500;   // mètres à pied, au maximum, entre l'arrêt et la destination
 // Un GRAND site (campus, hôpital) est décrit par son point central, souvent loin de l'entrée :
 // on accepte une marche un peu plus longue jusqu'à ce point (même règle que charger_bus.py)
@@ -273,6 +273,7 @@ export function busDirects(reseau, departs, arrivees, nombre = 3) {
         const cle = `${p.ligne}|${p.direction}`;
         if (!meilleurs.has(cle) || cout < meilleurs.get(cle).cout) {
           meilleurs.set(cle, {
+            ligneId: p.ligne,                       // pour retrouver ses horaires
             ligne: { nom: ligne.nom, couleur: ligne.couleur, texte: ligne.texte, mode: description.mode, long: ligne.long || "" },
             direction: nettoyerDirection(p.direction, ligne.nom),
             nuit: description.nuit,

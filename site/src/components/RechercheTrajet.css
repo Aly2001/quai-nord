@@ -130,3 +130,20 @@
 /* Safari (iPhone) centre l'heure dans son champ : on l'aligne à gauche comme les autres */
 .boite__contenu input[type="time"] { text-align: left; }
 .boite__contenu input[type="time"]::-webkit-date-and-time-value { text-align: left; }
+
+/* ---------- Les propositions de gares, sous le champ ---------- */
+.champ-gare { position: relative; }
+.champ-gare__effacer { flex: none; width: 40px; height: 40px; align-self: center; font: inherit; font-size: 18px;
+  background: none; border: 0; color: var(--texte-doux); cursor: pointer; }
+.champ-gare__liste { position: absolute; z-index: 20; left: 0; right: 0; top: calc(100% + 4px); margin: 0; padding: 0;
+  list-style: none; background: #FFFFFF; border-radius: 12px; overflow: hidden; box-shadow: 0 10px 28px rgba(20, 33, 61, 0.18);
+  max-height: 320px; overflow-y: auto; }
+.champ-gare__titre { padding: 8px 14px; font-size: 12px; font-weight: 700; letter-spacing: 0.06em; text-transform: uppercase; color: var(--texte-doux); }
+.champ-gare__option { display: flex; align-items: center; gap: 12px; min-height: 52px; padding: 6px 14px; cursor: pointer;
+  border-top: 1px solid #E3E8EE; color: #3E485C; font-size: 17px; }
+.champ-gare__option strong { color: var(--nuit); }
+.champ-gare__option small { display: block; font-size: 13px; color: var(--texte-doux); }
+.champ-gare__option--actif, .champ-gare__option:hover { background: #EEF6F9; }
+.champ-gare__pictogramme { flex: none; width: 32px; height: 32px; display: flex; align-items: center; justify-content: center;
+  border-radius: 50%; background: #EEF1F5; font-size: 15px; }
+.champ-gare__message { margin: 4px 0 0; font-size: 13px; color: var(--texte-doux); }

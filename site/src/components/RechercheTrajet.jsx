@@ -1,4 +1,6 @@
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
+import ChampGare from "./ChampGare";
+import { lireRecents, retenirGares } from "../data/suggestionsGares";
 import { useIndexHoraires, joursAVenir, etiquetteJour, dateCourte, heureActuelle } from "../data/horaires";
 import "./RechercheTrajet.css";
 
@@ -28,6 +30,9 @@ export default function RechercheTrajet({ initial = {}, onRechercher, texteBouto
   const [jour, setJour] = useState(initial.jour || "");
   // Par défaut : l'heure actuelle (on ne cherche pas un train déjà parti)
   const [heure, setHeure] = useState(initial.heure || heureActuelle());
+  const recents = useMemo(() => lireRecents(), []);
+  const nomsDepart = useMemo(() => index?.gares.map((g) => g.nom) || [], [index]);
+  const nomsArrivee = useMemo(() => index?.destinations || [], [index]);
 
   // Seulement aujourd'hui, demain et après-demain
   const jours = index ? joursAVenir(index.jours) : [];
@@ -44,6 +49,7 @@ export default function RechercheTrajet({ initial = {}, onRechercher, texteBouto
 
   function envoyer(evenement) {
     evenement.preventDefault();          // empêche le navigateur de recharger la page
+    retenirGares(de, a);                 // les gares récentes, gardées sur ce téléphone
     onRechercher({ de, a, jour, heure });
   }
 
@@ -51,25 +57,10 @@ export default function RechercheTrajet({ initial = {}, onRechercher, texteBouto
     <form className="recherche" onSubmit={envoyer}>
       {/* ---------- Départ et arrivée ---------- */}
       <div className="recherche__gares">
-        <div className="boite">
-          <IconeGare />
-          <div className="boite__contenu">
-            <label htmlFor="rt-de">Gare de départ</label>
-            <input id="rt-de" type="text" list="rt-liste-depart" required autoComplete="off"
-                   placeholder="Ex. : Calais Ville" value={de}
-                   onChange={(e) => setDe(e.target.value)} />
-          </div>
-        </div>
-
-        <div className="boite">
-          <IconeGare />
-          <div className="boite__contenu">
-            <label htmlFor="rt-a">Gare d'arrivée</label>
-            <input id="rt-a" type="text" list="rt-liste-arrivee" required autoComplete="off"
-                   placeholder="Ex. : Dunkerque" value={a}
-                   onChange={(e) => setA(e.target.value)} />
-          </div>
-        </div>
+        <ChampGare id="rt-de" label="Gare de départ" valeur={de} onChange={setDe} noms={nomsDepart} recents={recents}
+                   placeholder="Une gare, une ville" position icone={<IconeGare />} />
+        <ChampGare id="rt-a" label="Gare d'arrivée" valeur={a} onChange={setA} noms={nomsArrivee} recents={recents}
+                   placeholder="Une gare, une ville" icone={<IconeGare />} />
 
         <button type="button" className="recherche__inverser" onClick={inverser}
                 aria-label="Inverser le départ et l'arrivée">
@@ -119,13 +110,6 @@ export default function RechercheTrajet({ initial = {}, onRechercher, texteBouto
         <button type="submit" className="recherche__bouton" disabled={!jour}>{texteBouton}</button>
       </div>
 
-      {/* Les suggestions qui s'affichent pendant la saisie */}
-      <datalist id="rt-liste-depart">
-        {index?.gares.map((g) => <option key={g.slug} value={g.nom} />)}
-      </datalist>
-      <datalist id="rt-liste-arrivee">
-        {index?.destinations.map((nom) => <option key={nom} value={nom} />)}
-      </datalist>
     </form>
   );
 }

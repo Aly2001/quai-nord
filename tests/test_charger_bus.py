@@ -293,3 +293,34 @@ def test_lignes_scolaires_de_calais_et_boulogne():
     assert cb.ligne_exclue({"route_short_name": "153"}, reseaux["boulogne"]["exclure"])
     for nom in ("A", "B1", "K2", "NEMO", "NAV1", "TH02"):
         assert not cb.ligne_exclue({"route_short_name": nom}, reseaux["boulogne"]["exclure"])
+
+
+
+def test_les_horaires_des_bus_sont_gardes(reseau_test, tmp_path):
+    """Chaque parcours garde l'heure de départ de ses voyages, et ses jours de circulation (un calendrier)."""
+    from datetime import date
+    donnees = reseau_test(faux_gtfs())
+    horaires = json.loads((tmp_path / "bus" / "test_horaires.json").read_text(encoding="utf-8"))
+    assert len(horaires["departs"]) == len(donnees["parcours"])          # un tableau par parcours, dans le même ordre
+    metro = donnees["parcours"].index(next(p for p in donnees["parcours"] if p["ligne"] == "M1"))
+    assert horaires["departs"][metro] == {"0": [480]}                    # 8:00 = 480 minutes, calendrier n° 0
+    assert horaires["debut"] == "2026-09-01"
+    jours = horaires["jours"][0]
+    rang = lambda j: (j - date(2026, 9, 1)).days
+    assert jours[rang(date(2026, 12, 24))] == "1"                         # un jeudi : le bus circule
+    assert jours[rang(date(2026, 12, 25))] == "0"                         # Noël : retiré
+    assert jours[rang(date(2026, 12, 26))] == "0"                         # un samedi : pas de bus
+
+
+def test_des_services_identiques_partagent_un_calendrier():
+    from datetime import date
+    archive = zipfile.ZipFile(io.BytesIO(faux_gtfs()))
+    services = cb.lire_services(archive)
+    a = cb.jours_du_service(services["S"], date(2026, 9, 1), date(2026, 9, 30))
+    assert len(a) == 22                                                   # les jours de semaine de septembre 2026
+
+
+def test_horaires_sans_calendrier(reseau_test, tmp_path):
+    reseau_test(faux_gtfs(avec_calendrier=False))
+    horaires = json.loads((tmp_path / "bus" / "test_horaires.json").read_text(encoding="utf-8"))
+    assert horaires["jours"] == [] and all(p == {} for p in horaires["departs"])

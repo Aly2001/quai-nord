@@ -38,7 +38,7 @@ import time
 import unicodedata
 import zipfile
 from collections import Counter, defaultdict
-from datetime import date, datetime
+from datetime import date, datetime, timedelta
 from pathlib import Path
 from zoneinfo import ZoneInfo
 
@@ -66,6 +66,77 @@ def lire_reseaux(chemin=FICHIER_RESEAUX):
     """{code: réseau} depuis reseaux.json."""
     donnees = json.loads(Path(chemin).read_text(encoding="utf-8"))
     return {r["code"]: r for r in donnees["reseaux"]}
+
+
+# ---------- Les HORAIRES : à quelle heure passe chaque bus ----------
+# Un bus suit toujours le même parcours, avec les mêmes durées entre les arrêts (déjà gardées dans
+# « minutes »). On garde donc seulement, pour chaque parcours, l'heure de départ de CHAQUE voyage au
+# premier arrêt, et ses jours de circulation. Le site calcule le reste : départ 14:32 + 4 min = 14:36.
+# Un fichier à part ({code}_horaires.json), chargé seulement quand on cherche un bus.
+
+def lire_services(archive):
+    """Les jours de circulation : {service: [jours « 1111100 », du, au, [jours ajoutés], [jours retirés]]}."""
+    services = {}
+    noms = set(archive.namelist())
+    if "calendar.txt" in noms:
+        semaine = ["monday", "tuesday", "wednesday", "thursday", "friday", "saturday", "sunday"]
+        for c in lire_csv_flux(archive, "calendar.txt"):
+            services[c["service_id"].strip()] = ["".join((c.get(j) or "0").strip() for j in semaine),
+                                                 (c.get("start_date") or "").strip(), (c.get("end_date") or "").strip(), [], []]
+    if "calendar_dates.txt" in noms:
+        for c in lire_csv_flux(archive, "calendar_dates.txt"):
+            service = services.setdefault(c["service_id"].strip(), ["0000000", "", "", [], []])
+            (service[3] if (c.get("exception_type") or "").strip() == "1" else service[4]).append(c["date"].strip())
+    return services
+
+
+def jours_du_service(service, debut, fin):
+    """L'ensemble des jours (dates) où circule un service, entre debut et fin."""
+    semaine, du, au, ajoutes, retires = service
+    jours = set()
+    d, f = en_date(du), en_date(au)
+    if d and f:
+        jour = max(d, debut)
+        while jour <= min(f, fin):
+            if semaine[jour.weekday()] == "1":
+                jours.add(jour)
+            jour += timedelta(days=1)
+    jours |= {j for j in map(en_date, ajoutes) if j and debut <= j <= fin}
+    return jours - {j for j in map(en_date, retires) if j}
+
+
+def ecrire_horaires(code, archive, cles, departs, debut, fin):
+    """Le fichier des horaires, compact : les services qui circulent EXACTEMENT les mêmes jours sont réunis
+    (Lille en décrit des milliers, pour seulement quelques dizaines de calendriers différents).
+    Chaque calendrier est une suite de 0 et de 1, un caractère par jour depuis « debut »."""
+    chemin = DOSSIER_SORTIE / f"{code}_horaires.json"
+    services = lire_services(archive)
+    if not (debut and fin):
+        chemin.write_text(json.dumps({"debut": None, "jours": [], "departs": [{} for _ in cles]}), encoding="utf-8")
+        return
+    nb_jours = (fin - debut).days + 1
+    calendriers, numero_calendrier, calendrier_du_service = [], {}, {}
+    for nom, service in services.items():
+        actifs = jours_du_service(service, debut, fin)
+        if not actifs:
+            continue
+        motif = "".join("1" if debut + timedelta(days=i) in actifs else "0" for i in range(nb_jours))
+        if motif not in numero_calendrier:
+            numero_calendrier[motif] = len(calendriers)
+            calendriers.append(motif)
+        calendrier_du_service[nom] = numero_calendrier[motif]
+    par_parcours = []
+    for cle in cles:
+        groupes = defaultdict(set)
+        for service, minute in departs[cle]:
+            if service in calendrier_du_service:
+                groupes[str(calendrier_du_service[service])].add(minute)
+        par_parcours.append({n: sorted(m) for n, m in groupes.items()})
+    horaires = {"debut": debut.isoformat(), "jours": calendriers, "departs": par_parcours}
+    chemin.write_text(json.dumps(horaires, ensure_ascii=False, separators=(",", ":")), encoding="utf-8")
+    total = sum(len(m) for p in par_parcours for m in p.values())
+    print(f"   {total} départs de bus, {len(services)} services réunis en {len(calendriers)} calendriers "
+          f"-> {chemin} ({chemin.stat().st_size / 1024:.0f} Ko)", flush=True)
 
 
 # ---------- La validité du fichier GTFS ----------
@@ -450,7 +521,7 @@ def preparer(code, reseau):
 
     # ---------- Les voyages, regroupés en parcours ----------
     # (seulement les voyages des lignes gardées)
-    voyages = {t["trip_id"]: (t["route_id"], (t.get("trip_headsign") or "").strip())
+    voyages = {t["trip_id"]: (t["route_id"], (t.get("trip_headsign") or "").strip(), (t.get("service_id") or "").strip())
                for t in lire_csv_flux(archive, "trips.txt") if t["route_id"] in lignes}
     suites = defaultdict(list)                     # trip_id -> [(ordre, stop_id, minutes)]
     reserves = Counter()                           # trip_id -> nombre d'arrêts « sur réservation »
@@ -476,8 +547,9 @@ def preparer(code, reseau):
 
     compte = Counter()
     temps = {}                                     # parcours -> minutes depuis le 1er arrêt
+    departs = defaultdict(list)                    # parcours -> [(service, heure de départ au 1er arrêt)]
     for trip_id, suite in suites.items():
-        route_id, direction = voyages[trip_id]
+        route_id, direction, service = voyages[trip_id]
         suite.sort()
         ordre = tuple(stop_id for _, stop_id, _ in suite)
         if len(ordre) >= 2:
@@ -488,10 +560,13 @@ def preparer(code, reseau):
             minutes = [m for _, _, m in suite]
             if cle not in temps and None not in minutes:
                 temps[cle] = [m - minutes[0] for m in minutes]
+            if minutes[0] is not None:
+                departs[cle].append((service, minutes[0]))
 
-    parcours = [{"ligne": route_id, "direction": direction, "arrets": list(ordre), "voyages": n,
+    cles = [cle for cle in compte if cle[0] in lignes]
+    parcours = [{"ligne": route_id, "direction": direction, "arrets": list(ordre), "voyages": compte[(route_id, direction, ordre)],
                  "minutes": temps.get((route_id, direction, ordre))}
-                for (route_id, direction, ordre), n in compte.items() if route_id in lignes]
+                for (route_id, direction, ordre) in cles]
     print(f"   {len(suites)} voyages regroupés en {len(parcours)} parcours "
           f"(dont {sum(1 for p in parcours if p['voyages'] < 3)} peu fréquents, pénalisés dans le classement)", flush=True)
 
@@ -561,6 +636,7 @@ def preparer(code, reseau):
     }
     DOSSIER_SORTIE.mkdir(parents=True, exist_ok=True)
     chemin.write_text(json.dumps(sortie, ensure_ascii=False, separators=(",", ":")), encoding="utf-8")
+    ecrire_horaires(code, archive, cles, departs, debut, fin)
     print(f"   {len(lignes)} lignes, {len(arrets)} arrêts -> {chemin} "
           f"({chemin.stat().st_size / 1024:.0f} Ko)", flush=True)
 

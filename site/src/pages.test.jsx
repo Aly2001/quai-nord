@@ -89,3 +89,15 @@ test("un train supprimé : Nora le dit d'abord, et propose le suivant", () => {
   expect(accueilSupprime("17:10", true, "18:10")).toBe("Le train de 17:10 est supprimé aujourd'hui, d'après la SNCF. 👉 Le prochain : 18:10.");
   expect(accueilSupprime("17:10", false)).toBe("Le train de 17:10 est déjà annoncé supprimé par la SNCF.");
 });
+
+import { menuActif, PRINCIPAUX, GROUPES } from "./components/navigation";
+test("la navigation : quatre menus principaux, et le bon menu allumé", () => {
+  expect(PRINCIPAUX.map((p) => p.label)).toEqual(["Trains", "Bus", "Nora", "Favoris"]);
+  expect(menuActif("/")).toBe("/");
+  expect(menuActif("/trajet")).toBe("/");            // les résultats appartiennent à « Trains »
+  expect(menuActif("/bus")).toBe("/bus");
+  expect(menuActif("/favoris")).toBe("/favoris");
+  expect(menuActif("/carte")).toBeNull();            // dans le menu ☰
+  const autres = GROUPES.flatMap((g) => g.pages.map((p) => p.lien.split("#")[0]));
+  expect(autres).toEqual(expect.arrayContaining(["/carte", "/prediction", "/analyses", "/faq", "/plus"]));
+});

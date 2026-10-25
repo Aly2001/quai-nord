@@ -22,7 +22,7 @@ export default function Sources() {
   ];
   return (
     <div className="plus sources">
-      <Link to="/plus" className="sources__retour">‹ Plus</Link>
+      <Link to="/plus" className="sources__retour">‹ À propos</Link>
       <h1 className="plus__titre">Sources et licences</h1>
       <p className="sources__intro">
         Quai Nord est un projet personnel, <strong>sans lien avec la SNCF</strong>. Il réutilise des données ouvertes :

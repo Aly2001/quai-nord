@@ -1,35 +1,34 @@
 import { NavLink, useLocation } from "react-router-dom";
+import { PRINCIPAUX, menuActif } from "./navigation";
+import { AvatarNora } from "./NoraConversation";
 import "./BarreOnglets.css";
 
-// Barre d'onglets en bas de l'écran, comme dans une vraie application.
-// Visible seulement sur téléphone (voir BarreOnglets.css) ; sur ordinateur, le menu du haut reste.
-const ONGLETS = [
-  { label: "Accueil", lien: "/", icone: <path d="M3 11l9-7 9 7v9a1 1 0 0 1-1 1h-5v-6h-6v6H4a1 1 0 0 1-1-1z" /> },
-  { label: "Carte", lien: "/carte", icone: <><path d="M9 4L3 6v14l6-2 6 2 6-2V4l-6 2z" /><path d="M9 4v14M15 6v14" /></> },
-  { label: "Prédiction", lien: "/prediction", icone: <><path d="M4 16a8 8 0 0 1 16 0" /><path d="M12 16l-4-5" /></> },
-  { label: "Analyses", lien: "/analyses", icone: <path d="M5 20V11M12 20V5M19 20v-6" /> },
-  { label: "Plus", lien: "/plus", icone: <><circle cx="5" cy="12" r="1.5" /><circle cx="12" cy="12" r="1.5" /><circle cx="19" cy="12" r="1.5" /></> },
-];
+// La barre du bas, sur téléphone : les quatre choses qu'on fait tous les jours.
+// Le reste (carte, analyses, aide…) est dans le menu ☰, en haut à droite.
+const ICONES = {
+  "/": <><rect x="5" y="3" width="14" height="14" rx="3" /><path d="M5 10h14M9 21l-2-4M15 21l2-4" /></>,
+  "/bus": <><rect x="4" y="3" width="16" height="15" rx="3" /><path d="M4 11h16M8 18v2M16 18v2" /></>,
+  "/favoris": <path d="M12 3l2.8 5.7 6.2.9-4.5 4.4 1 6.2-5.5-2.9-5.5 2.9 1-6.2L3 9.6l6.2-.9z" />,
+};
 
 export default function BarreOnglets() {
-  // Les résultats (/trajet) sont la suite d'une recherche lancée depuis l'accueil :
-  // l'onglet Accueil reste allumé. Idem pour la FAQ et les sources, rangées dans « Plus ».
   const { pathname } = useLocation();
-  const parent = pathname.startsWith("/trajet") ? "/"
-    : pathname.startsWith("/faq") || pathname.startsWith("/sources") ? "/plus" : null;
-  // Sur la page Nora, la zone de saisie occupe le bas de l'écran : pas de barre d'onglets
+  // Sur la page Nora, la zone de saisie occupe le bas de l'écran : pas de barre
   if (pathname.startsWith("/nora")) return null;
+  const actif = menuActif(pathname);
 
   return (
     <nav aria-label="Navigation principale" className="onglets">
-      {ONGLETS.map((o) => (
-        <NavLink key={o.lien} to={o.lien} end
-                 className={({ isActive }) => (isActive || parent === o.lien ? "onglet onglet--actif" : "onglet")}>
+      {PRINCIPAUX.map((o) => (
+        <NavLink key={o.lien} to={o.lien} end className={o.lien === actif ? "onglet onglet--actif" : "onglet"}
+                 aria-current={o.lien === actif ? "page" : undefined}>
           <span className="onglet__icone">
-            <svg viewBox="0 0 24 24" width="22" height="22" aria-hidden="true" fill="none"
-                 stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-              {o.icone}
-            </svg>
+            {o.lien === "/nora" ? <AvatarNora taille={26} /> : (
+              <svg viewBox="0 0 24 24" width="22" height="22" aria-hidden="true" fill="none"
+                   stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                {ICONES[o.lien]}
+              </svg>
+            )}
           </span>
           {o.label}
         </NavLink>

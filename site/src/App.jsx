@@ -12,6 +12,8 @@ import Faq from "./pages/Faq";
 import Plus from "./pages/Plus";
 import Nora from "./pages/Nora";
 import Sources from "./pages/Sources";
+import Favoris from "./pages/Favoris";
+import Bus from "./pages/Bus";
 
 export default function App() {
   return (
@@ -31,6 +33,8 @@ export default function App() {
           <Route path="/plus" element={<Plus />} />
           <Route path="/nora" element={<Nora />} />
           <Route path="/sources" element={<Sources />} />
+          <Route path="/favoris" element={<Favoris />} />
+          <Route path="/bus" element={<Bus />} />
         </Routes>
       </main>
 

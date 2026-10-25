@@ -1,0 +1,29 @@
+/* ---------- Ordinateur : le menu d'avant, rangé à droite ---------- */
+.entete .menu { margin-left: auto; align-items: center; }
+
+/* ---------- Le menu ☰ : SEULEMENT sur téléphone (l'ordinateur garde son menu d'avant) ---------- */
+.entete__droite { position: relative; display: flex; align-items: center; gap: 10px; }
+.entete__plus { display: none; }
+
+.menu-plus__groupe { margin: 12px 0 4px; font-size: 12px; font-weight: 700; letter-spacing: 0.08em; text-transform: uppercase;
+  color: #1F6F8B; }
+.menu-plus__lien { display: flex; align-items: center; gap: 12px; min-height: 54px; padding: 4px 2px; border-top: 1px solid #E3E8EE;
+  color: var(--nuit); text-decoration: none; }
+.menu-plus__lien:hover { background: #F5F7F9; }
+.menu-plus__lien strong { display: block; font-size: 16px; }
+.menu-plus__lien small { font-size: 13px; color: var(--texte-doux); }
+.menu-plus__emoji { flex: none; width: 38px; height: 38px; display: flex; align-items: center; justify-content: center;
+  border-radius: 10px; background: #EEF1F5; font-size: 18px; }
+
+@media (max-width: 640px) {
+  .entete__plus { display: inline-flex; align-items: center; justify-content: center; width: 44px; height: 44px; padding: 0;
+    color: #FFFFFF; background: transparent; border: 1.5px solid #3A4A6B; border-radius: 10px; cursor: pointer; }
+  .entete .entete__nora { display: none; }                 /* Nora est dans la barre du bas */
+  /* Le menu prend toute la largeur, juste sous l'en-tête, et laisse voir la barre du bas */
+  .menu-plus { position: fixed; z-index: 40; top: var(--hauteur-entete, 80px); left: 0; right: 0; padding: 8px 18px 12px;
+    max-height: calc(100dvh - var(--hauteur-entete, 80px) - 72px); overflow-y: auto; background: #FFFFFF; color: var(--nuit);
+    border-radius: 0 0 18px 18px; box-shadow: 0 0 0 100vmax rgba(20, 33, 61, 0.35); }
+}
+
+.visuellement-cache { position: absolute; width: 1px; height: 1px; padding: 0; margin: -1px; overflow: hidden;
+  clip: rect(0, 0, 0, 0); white-space: nowrap; border: 0; }

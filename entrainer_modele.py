@@ -18,6 +18,7 @@ avec plus de semaines de données. Ce script prépare ce moment.
 
 Lancement : python entrainer_modele.py   (ou automatiquement par mettre_a_jour.py)
 """
+import csv
 import json
 import sqlite3
 import sys
@@ -113,13 +114,28 @@ def evaluer(df, jours):
     constante = apprentissage["perturbe"].mean()
     par_ligne = apprentissage.groupby("ligne")["perturbe"].agg(["sum", "count"])
     taux_ligne = (par_ligne["sum"] + 20 * constante) / (par_ligne["count"] + 20)      # lissé, comme la référence
+    probabilites = modele.predict_proba(preparer(test))[:, 1]
     scores = {
         "constante": brier(constante, test["perturbe"]),
         "taux_de_la_ligne": brier(test["ligne"].map(taux_ligne).fillna(constante), test["perturbe"]),
-        "modele": brier(modele.predict_proba(preparer(test))[:, 1], test["perturbe"]),
+        "modele": brier(probabilites, test["perturbe"]),
     }
     scores["gain_sur_la_ligne_pct"] = round(100 * (1 - scores["modele"] / scores["taux_de_la_ligne"]), 2)
-    return scores, [d.strftime("%Y-%m-%d") for d in jours_test]
+    # La calibration, en résumé : le risque moyen ANNONCÉ, comparé à la part VRAIMENT perturbée
+    calibration = {"annonce_pct": round(100 * float(probabilites.mean()), 1),
+                   "reel_pct": round(100 * float(test["perturbe"].mean()), 1)}
+    return scores, calibration, [d.strftime("%Y-%m-%d") for d in jours_test]
+
+
+def ajouter_historique(chemin, ligne):
+    """Une ligne par nuit, sans jamais effacer les précédentes : c'est sur cet historique qu'on décidera
+    de brancher le modèle sur le site (au moins 2 semaines de gains réguliers)."""
+    nouveau = not chemin.exists()
+    with open(chemin, "a", newline="", encoding="utf-8") as fichier:
+        ecrivain = csv.DictWriter(fichier, fieldnames=list(ligne))
+        if nouveau:
+            ecrivain.writeheader()
+        ecrivain.writerow(ligne)
 
 
 # ----------------------------------------------------------------------
@@ -136,10 +152,11 @@ def main():
         return 0
     df = df[df["date"].isin(jours)]
 
-    scores, jours_test = evaluer(df, jours)
+    scores, calibration, jours_test = evaluer(df, jours)
     print(f"2. Évaluation sur {', '.join(jours_test)} (jamais vus) :")
     for nom, valeur in scores.items():
         print(f"   {nom:<24} {valeur}")
+    print(f"   risque moyen annoncé {calibration['annonce_pct']} %, réellement perturbés {calibration['reel_pct']} %")
 
     modele = construire_modele().fit(preparer(df), df["perturbe"])        # le modèle final : tous les jours
     DOSSIER_MODELE.mkdir(exist_ok=True)
@@ -150,10 +167,18 @@ def main():
         "cible": "perturbé (retard de 5 min ou plus, ou supprimé)",
         "variables": CATEGORIES + NOMBRES,
         "journees": len(jours), "premiere": f"{jours[0]:%Y-%m-%d}", "derniere": f"{jours[-1]:%Y-%m-%d}",
-        "passages": int(len(df)), "jours_test": jours_test, "scores_brier": scores,
+        "passages": int(len(df)), "jours_test": jours_test, "scores_brier": scores, "calibration": calibration,
     }
     (DOSSIER_MODELE / "rapport_modele.json").write_text(json.dumps(rapport, ensure_ascii=False, indent=2), encoding="utf-8")
+    ajouter_historique(DOSSIER_MODELE / "historique.csv", {
+        "date": datetime.now().strftime("%Y-%m-%d"),
+        "examen": f"{jours_test[0][8:10]}/{jours_test[0][5:7]}-{jours_test[-1][8:10]}/{jours_test[-1][5:7]}",
+        "journees": len(jours), "constante": scores["constante"], "ligne": scores["taux_de_la_ligne"],
+        "modele": scores["modele"], "gain_pct": scores["gain_sur_la_ligne_pct"],
+        "annonce_pct": calibration["annonce_pct"], "reel_pct": calibration["reel_pct"],
+    })
     print(f"3. Modèle enregistré dans {DOSSIER_MODELE}/ (gain sur la référence : {scores['gain_sur_la_ligne_pct']} %)")
+    print(f"   Historique : column -s, -t < {DOSSIER_MODELE}/historique.csv")
     return 0
 
 

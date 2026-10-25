@@ -60,3 +60,16 @@ def test_le_modele_bat_la_constante_et_le_rapport_est_ecrit(base, tmp_path, monk
     assert rapport["scores_brier"]["modele"] < rapport["scores_brier"]["constante"]
     assert len(rapport["jours_test"]) == em.JOURS_TEST
     assert (tmp_path / "modele" / "modele_perturbations.joblib").exists()
+
+
+
+def test_chaque_nuit_ajoute_une_ligne_a_l_historique(base, tmp_path, monkeypatch):
+    monkeypatch.setattr(em, "BASE_ANALYSE", str(base))
+    monkeypatch.setattr(em, "DOSSIER_MODELE", tmp_path / "modele")
+    em.main()
+    em.main()                                                   # la nuit suivante
+    lignes = (tmp_path / "modele" / "historique.csv").read_text(encoding="utf-8").splitlines()
+    assert lignes[0].startswith("date,examen,journees")         # l'en-tête, une seule fois
+    assert len(lignes) == 3                                      # en-tête + 2 nuits, rien n'est effacé
+    rapport = json.loads((tmp_path / "modele" / "rapport_modele.json").read_text(encoding="utf-8"))
+    assert 0 < rapport["calibration"]["annonce_pct"] < 100

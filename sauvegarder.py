@@ -34,7 +34,11 @@ A_GARDER = 14
 
 
 def gcloud(*arguments, capturer=False):
-    programme = shutil.which("gcloud")
+    # Le service systemd (le collecteur) a un PATH réduit : gcloud n'y est pas toujours trouvé.
+    # On cherche donc aussi aux emplacements habituels de Google Cloud sur une VM.
+    programme = shutil.which("gcloud") or next(
+        (chemin for chemin in ("/usr/bin/gcloud", "/snap/bin/gcloud", "/usr/lib/google-cloud-sdk/bin/gcloud",
+                               "/usr/local/bin/gcloud") if Path(chemin).exists()), None)
     if programme is None:
         raise RuntimeError("outil gcloud introuvable")
     resultat = subprocess.run([programme, *arguments], capture_output=capturer, text=True, check=True)

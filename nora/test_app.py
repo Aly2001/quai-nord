@@ -23,6 +23,7 @@ def preparer(monkeypatch):
     module._minute.clear()
     module._minute_site.clear()
     module._cache_direct.update(lu_a=0.0, contenu=None)
+    module._cache_bus.clear()
 
 
 def simuler_mistral(monkeypatch, contenu, statut=200):
@@ -590,3 +591,35 @@ def test_sncf_indisponible(monkeypatch):
     module._cache_direct["lu_a"] -= module.DUREE_CACHE + 1
     simuler_sncf(monkeypatch, erreur=True)
     assert "SUPPRIME" in client.get("/api/temps-reel").json()["trajets"]   # la dernière version connue
+
+
+
+# ---------- Le direct des bus : /api/bus-direct/{code} ----------
+def faux_flux_bus(maintenant):
+    from google.transit import gtfs_realtime_pb2 as pb
+    flux = pb.FeedMessage(); flux.header.gtfs_realtime_version = "2.0"
+    def voyage(identifiant, ligne, arrets, statut=0):
+        e = flux.entity.add(); e.id = identifiant
+        e.trip_update.trip.trip_id = identifiant; e.trip_update.trip.route_id = ligne
+        e.trip_update.trip.schedule_relationship = statut
+        for stop, dans in arrets:
+            a = e.trip_update.stop_time_update.add(); a.stop_id = stop; a.arrival.time = int(maintenant + dans)
+    voyage("V1", "L4", [("ROU024", 240), ("HOM001", 330)])
+    voyage("V2", "L4", [("ROU024", 840)])
+    voyage("V3", "L6", [("ROU024", 99999)])                 # trop loin dans le temps
+    voyage("V4", "L6", [("VCH001", 120)], statut=3)         # supprimé
+    return flux.SerializeToString()
+
+
+def test_le_direct_des_bus_de_lille(monkeypatch):
+    maintenant = module.time.time()
+    monkeypatch.setattr(module.httpx, "get", lambda url, timeout, follow_redirects:
+                        httpx.Response(200, request=httpx.Request("GET", url), content=faux_flux_bus(maintenant)))
+    corps = client.get("/api/bus-direct/lille").json()
+    assert [h - int(maintenant) for h in corps["passages"]["L4|ROU024"]] in ([240, 840], [239, 839], [240, 839], [239, 840])
+    assert "L4|HOM001" in corps["passages"]
+    assert "L6|ROU024" not in corps["passages"] and "L6|VCH001" not in corps["passages"]
+
+
+def test_un_reseau_sans_direct():
+    assert client.get("/api/bus-direct/boulogne").status_code == 404

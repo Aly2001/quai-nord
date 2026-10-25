@@ -7,7 +7,8 @@ import {
   lieuxPrepares, arretsCorrespondants, chercherLieu, distance, libelleGare, reseauDeVille, lienCarte, lienAPied, nettoyerLieu,
 } from "../data/bus";
 import { aujourdhuiIso, heureActuelle, enMinutes } from "../data/horaires";
-import { chargerHoraires, trajetEntrePoints, minutesEnHeure, arretsDeLaCourse, passagesALArret, arretsAutour } from "../data/trajetBus";
+import { chargerHoraires, trajetEntrePoints, minutesEnHeure, arretsDeLaCourse, passagesALArret, arretsAutour,
+  chargerDirectBus, busAvecDirect, relierAuDirect } from "../data/trajetBus";
 import { normaliser } from "../data/horaires";
 import { joliNom } from "../data/bus";
 import "../components/RechercheTrajet.css";
@@ -181,10 +182,12 @@ export default function Bus() {
       setEtat({ type: "autreVille", de, vers });
       return;
     }
-    const horaires = await chargerHoraires(code);
+    const [horaires, direct] = await Promise.all([chargerHoraires(code), chargerDirectBus(code)]);
     const maintenant = enMinutes(heureActuelle());
-    const trajet = trajetEntrePoints(reseau, horaires, a.lieu, b.lieu, aujourdhuiIso(), maintenant);
-    setEtat({ type: "resultat", A: a.lieu, B: b.lieu, trajet, maintenant, horaires: Boolean(horaires) });
+    const brut = trajetEntrePoints(reseau, horaires, a.lieu, b.lieu, aujourdhuiIso(), maintenant);
+    // Le direct (Lille) : les heures attendues remplacent les heures prévues, quand on sait les relier
+    const trajet = direct ? { ...brut, bus: brut.bus.map((x) => busAvecDirect(x, direct, aujourdhuiIso())) } : brut;
+    setEtat({ type: "resultat", A: a.lieu, B: b.lieu, trajet, maintenant, horaires: Boolean(horaires), direct: Boolean(direct) });
   }
 
   function raccourci(r) {
@@ -277,11 +280,12 @@ function CarteLigne({ b, maintenant, rapide, onDetail }) {
       {rapide && <span className="bus__badge">Le plus rapide</span>}
       <div className="bus__ligne"><PuceLigne ligne={b.ligne} />
         <strong>{nomTransport(b.ligne)} {b.ligne.nom} · direction {b.direction}</strong>
-        {dans && <span className="bus__dans">{dans}</span>}</div>
+        {dans && <span className={p?.direct ? "bus__dans bus__dans--direct" : "bus__dans"}>{p?.direct && <SignalDirect />}{dans}</span>}</div>
       {b.marcheAvant > 0 && <p className="bus__detail">🚶 {b.marcheAvant} min à pied jusqu'à l'arrêt {b.depart.nom}</p>}
       {p ? (
         <>
-          <p>Passe à <strong>{b.depart.nom} {dans}, à {minutesEnHeure(p.depart)}</strong></p>
+          <p>Passe à <strong>{b.depart.nom} {dans}, à {minutesEnHeure(p.depart)}</strong>
+            {p.direct && p.prevue !== p.depart && <span className="bus__prevu"> (prévu {minutesEnHeure(p.prevue)})</span>}</p>
           <p>Arrivée à <strong>{b.arrivee.nom} à {minutesEnHeure(p.arrivee)}</strong>
             {b.marcheApres ? `, puis ${b.marcheApres} min à pied` : ""} · {b.arrets} arrêt{b.arrets > 1 ? "s" : ""}</p>
           {b.passages.length > 1 && (
@@ -363,7 +367,10 @@ function Resultat({ etat, reseau, ville, code, onDetail }) {
         </section>
       )}
 
-      <p className="bus__source">Horaires prévus par {reseau?.reseau || ville.nom}{etat.horaires ? "" : " (indisponibles pour l'instant)"}. Le direct arrivera bientôt.</p>
+      <p className="bus__source">
+        {etat.direct ? <>Avec le direct de {reseau?.reseau || ville.nom} (<SignalDirect /> en direct), sinon les horaires prévus.</>
+          : <>Horaires prévus par {reseau?.reseau || ville.nom}{etat.horaires ? "" : " (indisponibles pour l'instant)"}.</>}
+      </p>
     </div>
   );
 }
@@ -455,12 +462,15 @@ function PassagesArret({ reseau, code, position, onLocaliser }) {
   const [texte, setTexte] = useState("");
   const [choisi, setChoisi] = useState(null);           // { nom, ids }
   const [horaires, setHoraires] = useState(null);
+  const [direct, setDirect] = useState(null);
   const [maintenant, setMaintenant] = useState(() => enMinutes(heureActuelle()));
   useEffect(() => { let annule = false; chargerHoraires(code).then((h) => { if (!annule) setHoraires(h); }); return () => { annule = true; }; }, [code]);
   useEffect(() => {                                       // le panneau se met à jour toutes les 30 secondes
-    const minuterie = setInterval(() => setMaintenant(enMinutes(heureActuelle())), 30_000);
+    const relire = () => chargerDirectBus(code).then(setDirect);
+    relire();
+    const minuterie = setInterval(() => { setMaintenant(enMinutes(heureActuelle())); relire(); }, 30_000);
     return () => clearInterval(minuterie);
-  }, []);
+  }, [code]);
 
   // Avec la position : les arrêts autour, et le plus proche choisi d'office
   const autour = useMemo(() => (reseau && position ? arretsAutour(reseau, position.lat, position.lon) : []), [reseau, position]);
@@ -477,7 +487,15 @@ function PassagesArret({ reseau, code, position, onLocaliser }) {
     }
     return [...groupes.entries()].slice(0, 6).map(([nom, ids]) => ({ nom, ids }));
   }, [reseau, texte]);
-  const passages = reseau && horaires && arret ? passagesALArret(reseau, horaires, arret.ids, aujourdhuiIso(), maintenant) : [];
+  const prevus = reseau && horaires && arret ? passagesALArret(reseau, horaires, arret.ids, aujourdhuiIso(), maintenant - 3, 3) : [];
+  // Avec le direct : chaque heure prévue prend son heure attendue, quand on sait la relier
+  const passages = prevus.map((g) => {
+    if (!direct) return { ...g, enDirect: false, heures: g.heures.filter((h) => h >= maintenant).slice(0, 2) };
+    const attendues = arret.ids.flatMap((id) => direct.passages[`${g.ligneId}|${id}`] || []).sort((x, y) => x - y);
+    const liens = relierAuDirect(g.heures, attendues, aujourdhuiIso());
+    const heures = liens.map((l) => l.attendue ?? l.prevue).filter((h) => h >= maintenant).sort((x, y) => x - y).slice(0, 2);
+    return { ...g, enDirect: liens.some((l) => l.attendue !== null), heures };
+  }).filter((g) => g.heures.length).sort((x, y) => x.heures[0] - y.heures[0]);
   const metres = arret && autour.find((a) => a.nom === arret.nom)?.metres;
 
   return (
@@ -508,7 +526,7 @@ function PassagesArret({ reseau, code, position, onLocaliser }) {
           <p className="panneau-arret__lieu">{metres !== undefined ? `Près de vous · à ${metres} m` : "Arrêt choisi"}</p>
           <h2 className="panneau-arret__nom">{arret.nom}</h2>
           <div className="panneau-arret__tableau">
-            <div className="panneau-arret__entete"><span>LIGNE · DIRECTION</span><span>PRÉVU</span></div>
+            <div className="panneau-arret__entete"><span>LIGNE · DIRECTION</span><span>{direct ? <><SignalDirect /> EN DIRECT</> : "PRÉVU"}</span></div>
             {passages.length === 0 && <p className="panneau-arret__vide">Aucun passage dans les 3 prochaines heures.</p>}
             {passages.map((g) => {
               const attente = (m) => { const d = Math.round(m - maintenant); return d <= 0 ? "à l'arrêt" : `${d} min`; };
@@ -522,7 +540,7 @@ function PassagesArret({ reseau, code, position, onLocaliser }) {
               );
             })}
           </div>
-          <p className="bus__source">Horaires prévus, mis à jour toutes les 30 secondes. Le direct arrivera bientôt.</p>
+          <p className="bus__source">{direct ? "En direct quand le réseau le publie, sinon les horaires prévus." : "Horaires prévus."} Mis à jour toutes les 30 secondes.</p>
         </section>
       )}
 
@@ -537,5 +555,13 @@ function PassagesArret({ reseau, code, position, onLocaliser }) {
         </section>
       )}
     </div>
+  );
+}
+
+function SignalDirect() {
+  return (
+    <svg className="signal-direct" viewBox="0 0 24 24" width="14" height="14" aria-label="en direct" role="img" fill="none"
+         stroke="currentColor" strokeWidth="2.4" strokeLinecap="round"><path d="M5 12a7 7 0 0 1 14 0M8.5 12a3.5 3.5 0 0 1 7 0" />
+      <circle cx="12" cy="12" r="1.4" fill="currentColor" /></svg>
   );
 }

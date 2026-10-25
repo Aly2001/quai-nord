@@ -1,5 +1,5 @@
 import { describe, test, expect } from "vitest";
-import { calendriersDuJour, prochainsPassages, trajetEntrePoints, minutesEnHeure, arretsDeLaCourse, passagesALArret, arretsAutour } from "./trajetBus";
+import { calendriersDuJour, prochainsPassages, trajetEntrePoints, minutesEnHeure, arretsDeLaCourse, passagesALArret, arretsAutour, relierAuDirect, busAvecDirect } from "./trajetBus";
 
 // Un petit réseau : la ligne 5 va de A1 (près de A) à B1 (près de B) en 10 min, 3 arrêts.
 const reseau = {
@@ -96,5 +96,24 @@ describe("le panneau d'un arrêt", () => {
     const autour = arretsAutour(reseau, 50.7201, 1.6001);
     expect(autour[0].nom).toBe("Place de Lorraine");
     expect(autour[0].ids).toEqual(["A1"]);
+  });
+});
+
+
+describe("le direct des bus", () => {
+  const jour = "2026-10-21";
+  const sec = (h, m) => new Date(`${jour}T00:00:00`).getTime() / 1000 + (h * 60 + m) * 60;
+  test("chaque passage prévu prend l'heure attendue la plus proche", () => {
+    // prévus 14:30 et 14:45 ; attendus 14:33 et 14:46
+    const liens = relierAuDirect([870, 885], [sec(14, 33), sec(14, 46)], jour);
+    expect(liens.map((l) => minutesEnHeure(l.attendue))).toEqual(["14:33", "14:46"]);
+  });
+  test("une heure attendue trop éloignée n'est pas reliée", () => {
+    expect(relierAuDirect([870], [sec(16, 0)], jour)[0].attendue).toBeNull();
+  });
+  test("le bus proposé passe au direct, avec 3 minutes de retard", () => {
+    const b = { ligneId: "L5", depart: { id: "A1" }, marcheApres: 2, passages: [{ depart: 870, arrivee: 880, origine: 870 }], arriveeFinale: 882 };
+    const d = busAvecDirect(b, { passages: { "L5|A1": [sec(14, 33)] } }, jour);
+    expect([d.passages[0].direct, d.passages[0].prevue, d.passages[0].depart, d.arriveeFinale]).toEqual([true, 870, 873, 885]);
   });
 });

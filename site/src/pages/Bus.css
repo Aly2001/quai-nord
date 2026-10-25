@@ -131,3 +131,9 @@ a.bus__voir-arrets { text-decoration: none; }
 .passages__arret { display: flex; align-items: center; justify-content: space-between; min-height: 56px; padding: 0 14px; font: inherit;
   text-align: left; background: #FFFFFF; color: var(--nuit); border: 1px solid #E3E8EE; border-radius: 12px; cursor: pointer; }
 .passages__arret small { display: block; font-size: 13px; color: var(--texte-doux); }
+
+/* ---------- Le direct ---------- */
+.bus__dans--direct { display: inline-flex; align-items: center; gap: 4px; }
+.bus__prevu { font-size: 14px; color: var(--texte-doux); }
+.signal-direct { vertical-align: -2px; margin-right: 2px; }
+.panneau-arret__entete .signal-direct { color: #6FD39A; }

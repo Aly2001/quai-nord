@@ -645,3 +645,57 @@ def temps_reel():
         raise HTTPException(503, "Le temps réel de la SNCF est momentanément indisponible.")
     _cache_direct.update(lu_a=maintenant, contenu=contenu)
     return contenu
+
+
+
+# ======================================================================
+#  Le direct des BUS, réseau par réseau : /api/bus-direct/{code}
+# ======================================================================
+# Le flux donne, pour chaque voyage, l'heure ATTENDUE à chaque arrêt (souvent sans le retard).
+# On renvoie, pour chaque « ligne|arrêt », les heures attendues (secondes) dans les 2 prochaines heures :
+# le site les compare à ses horaires prévus pour en déduire le vrai « dans 4 min ».
+FLUX_BUS = {
+    "lille": "https://proxy.transport.data.gouv.fr/resource/ilevia-lille-gtfs-rt",
+}
+_cache_bus = {}
+
+
+def decoder_flux_bus(octets, maintenant):
+    flux = gtfs_realtime_pb2.FeedMessage()
+    flux.ParseFromString(octets)
+    passages = {}
+    for entite in flux.entity:
+        if not entite.HasField("trip_update"):
+            continue
+        maj = entite.trip_update
+        if maj.trip.schedule_relationship == 3 or not maj.trip.route_id:      # supprimé, ou ligne inconnue
+            continue
+        for arret in maj.stop_time_update:
+            if arret.schedule_relationship == 1:                             # arrêt sauté
+                continue
+            heure = (arret.departure.time if arret.HasField("departure") and arret.departure.time else 0) \
+                or (arret.arrival.time if arret.HasField("arrival") else 0)
+            if heure and maintenant - 60 <= heure <= maintenant + 7200:
+                passages.setdefault(f"{maj.trip.route_id}|{arret.stop_id}", []).append(int(heure))
+    return {"maj": int(maintenant), "passages": {c: sorted(set(h)) for c, h in passages.items()}}
+
+
+@app.get("/api/bus-direct/{code}")
+def bus_direct(code: str):
+    if code not in FLUX_BUS:
+        raise HTTPException(404, "Pas de direct pour ce réseau.")
+    maintenant = time.time()
+    garde = _cache_bus.get(code)
+    if garde and maintenant - garde["lu_a"] < 60:
+        return garde["contenu"]
+    try:
+        reponse = httpx.get(FLUX_BUS[code], timeout=20, follow_redirects=True)
+        reponse.raise_for_status()
+        contenu = decoder_flux_bus(reponse.content, maintenant)
+    except Exception as erreur:
+        print(f"Direct des bus ({code}) indisponible : {erreur}", flush=True)
+        if garde:
+            return garde["contenu"]
+        raise HTTPException(503, "Le direct de ce réseau est momentanément indisponible.")
+    _cache_bus[code] = {"lu_a": maintenant, "contenu": contenu}
+    return contenu

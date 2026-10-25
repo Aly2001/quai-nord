@@ -175,3 +175,54 @@ export function arretsAutour(reseau, lat, lon, rayon = 600) {
   }
   return [...groupes.values()].sort((a, b) => a.metres - b.metres);
 }
+
+// ---------- Le DIRECT des bus (Lille pour l'instant) ----------
+// Le serveur renvoie, pour chaque « ligne|arrêt », les heures ATTENDUES (en secondes) des prochains bus.
+// On les relie à nos horaires prévus : pour chaque passage prévu, l'heure attendue la plus proche
+// (entre 3 min d'avance et 30 min de retard), chacune utilisée une seule fois.
+export const RESEAUX_EN_DIRECT = ["lille"];
+const directEnCours = new Map();
+export function chargerDirectBus(code) {
+  if (!RESEAUX_EN_DIRECT.includes(code)) return Promise.resolve(null);
+  const garde = directEnCours.get(code);
+  if (garde && Date.now() - garde.a < 60_000) return garde.promesse;
+  const promesse = fetch(`/api/bus-direct/${code}?t=${Date.now()}`).then((r) => (r.ok ? r.json() : null)).catch(() => null);
+  directEnCours.set(code, { a: Date.now(), promesse });
+  return promesse;
+}
+
+// Minuit (heure locale) du jour, en secondes : pour passer des minutes du jour aux heures du flux
+const minuitDe = (dateIso) => new Date(`${dateIso}T00:00:00`).getTime() / 1000;
+
+// Les heures attendues pour une liste de minutes prévues : [{ prevue, attendue|null }]
+export function relierAuDirect(prevues, attendues, dateIso) {
+  if (!attendues?.length) return prevues.map((prevue) => ({ prevue, attendue: null }));
+  const minuit = minuitDe(dateIso);
+  const libres = attendues.map((sec) => (sec - minuit) / 60);
+  const pris = new Set();
+  return prevues.map((prevue) => {
+    let meilleure = -1;
+    libres.forEach((m, i) => {
+      const ecart = m - prevue;
+      if (pris.has(i) || ecart < -3 || ecart > 30) return;
+      if (meilleure < 0 || Math.abs(ecart) < Math.abs(libres[meilleure] - prevue)) meilleure = i;
+    });
+    if (meilleure < 0) return { prevue, attendue: null };
+    pris.add(meilleure);
+    return { prevue, attendue: Math.round(libres[meilleure]) };
+  });
+}
+
+// Un bus proposé, avec le direct : ses passages prennent l'heure attendue (et gardent l'heure prévue)
+export function busAvecDirect(b, direct, dateIso) {
+  if (!direct) return b;
+  const liens = relierAuDirect(b.passages.map((p) => p.depart), direct.passages[`${b.ligneId}|${b.depart.id}`], dateIso);
+  const passages = b.passages.map((p, i) => {
+    const attendue = liens[i].attendue;
+    if (attendue === null) return p;
+    const retard = attendue - p.depart;
+    return { ...p, prevue: p.depart, depart: attendue, arrivee: p.arrivee + retard, origine: p.origine + retard, direct: true };
+  });
+  const premier = passages[0];
+  return { ...b, passages, arriveeFinale: premier ? premier.arrivee + b.marcheApres : b.arriveeFinale };
+}

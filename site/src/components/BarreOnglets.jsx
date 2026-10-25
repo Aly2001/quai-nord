@@ -6,8 +6,8 @@ import "./BarreOnglets.css";
 // La barre du bas, sur téléphone : les quatre choses qu'on fait tous les jours.
 // Le reste (carte, analyses, aide…) est dans le menu ☰, en haut à droite.
 const ICONES = {
-  "/": <><rect x="5" y="3" width="14" height="14" rx="3" /><path d="M5 10h14M9 21l-2-4M15 21l2-4" /></>,
-  "/bus": <><rect x="4" y="3" width="16" height="15" rx="3" /><path d="M4 11h16M8 18v2M16 18v2" /></>,
+  "/": <path d="M3 11l9-7 9 7v9a1 1 0 0 1-1 1h-5v-6h-6v6H4a1 1 0 0 1-1-1z" />,
+  "/bus": <><path d="M12 21s-6-5.3-6-10a6 6 0 0 1 12 0c0 4.7-6 10-6 10z" /><circle cx="12" cy="11" r="2.2" /><path d="M3 21h18" /></>,
   "/favoris": <path d="M12 3l2.8 5.7 6.2.9-4.5 4.4 1 6.2-5.5-2.9-5.5 2.9 1-6.2L3 9.6l6.2-.9z" />,
 };
 

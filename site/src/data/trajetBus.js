@@ -61,7 +61,10 @@ export function prochainsPassages(reseau, horaires, ligneId, idDepart, idArrivee
         if (!actifs.has(calendrier)) continue;
         for (const d of departs) {
           const depart = d + aI + decalage;
-          if (depart >= apres && depart < MINUTES_PAR_JOUR * 1.5) passages.set(depart, { depart, arrivee: depart + (aJ - aI) });
+          // origine : le départ de la course à son premier arrêt (pour afficher toute la course)
+          if (depart >= apres && depart < MINUTES_PAR_JOUR * 1.5) {
+            passages.set(depart, { depart, arrivee: depart + (aJ - aI), parcours: k, montee: i, descente: j, origine: d + decalage });
+          }
         }
       }
     }
@@ -78,7 +81,7 @@ export function prochainsPassages(reseau, horaires, ligneId, idDepart, idArrivee
 //   "aucun"      : aucune ligne directe, et c'est loin à pied.
 const lendemainIso = (iso) => new Date(Date.UTC(+iso.slice(0, 4), +iso.slice(5, 7) - 1, +iso.slice(8, 10) + 1)).toISOString().slice(0, 10);
 
-export function trajetEntrePoints(reseau, horaires, A, B, dateIso, maintenant, nombre = 3) {
+export function trajetEntrePoints(reseau, horaires, A, B, dateIso, maintenant, nombre = 12) {
   const metres = Math.round(distance(A.lat, A.lon, B.lat, B.lon));
   const aPied = minutesAPied(metres);
   const prochesA = arretsProches(reseau, A.lat, A.lon, rayonMarche(A.cat));
@@ -86,7 +89,8 @@ export function trajetEntrePoints(reseau, horaires, A, B, dateIso, maintenant, n
   // Les arrêts du côté de B, sans ceux qui sont aussi près de A (monter et descendre au même endroit)
   const prochesB = arretsProches(reseau, B.lat, B.lon, rayonMarche(B.cat)).filter(([id]) => !idsA.has(id));
 
-  const lignes = busDirects(reseau, prochesA, prochesB, 6).map((b) => {
+  // TOUTES les lignes directes (jusqu'à 12) : c'est au voyageur de choisir, on conseille seulement la plus rapide
+  const lignes = busDirects(reseau, prochesA, prochesB, 12).map((b) => {
     const marcheAvant = minutesAPied(b.depart.marche);
     const marcheApres = minutesAPied(b.arrivee.marche);
     const passages = prochainsPassages(reseau, horaires, b.ligneId, b.depart.id, b.arrivee.id, dateIso, maintenant + marcheAvant);
@@ -98,7 +102,7 @@ export function trajetEntrePoints(reseau, horaires, A, B, dateIso, maintenant, n
   const aujourdhui = lignes.filter((b) => !horaires || b.passages.length > 0).sort((x, y) => duree(x) - duree(y));
   const plusRapides = aujourdhui.filter((b) => duree(b) < aPied);
 
-  if (plusRapides.length) return { metres, minutesAPied: aPied, bus: plusRapides.slice(0, nombre), conseil: "bus" };
+  if (plusRapides.length) return { metres, minutesAPied: aPied, bus: aujourdhui.slice(0, nombre), conseil: "bus" };
   if (aujourdhui.length) return { metres, minutesAPied: aPied, bus: aujourdhui.slice(0, nombre), conseil: "pied" };
   if (lignes.length && horaires && aPied > MARCHE_CONSEILLEE) {
     // Une ligne existe, mais plus de bus aujourd'hui : le premier de demain
@@ -108,4 +112,17 @@ export function trajetEntrePoints(reseau, horaires, A, B, dateIso, maintenant, n
     if (premiers.length) return { metres, minutesAPied: aPied, bus: [], conseil: "demain", lendemain: premiers[0] };
   }
   return { metres, minutesAPied: aPied, bus: [], conseil: aPied <= MARCHE_CONSEILLEE ? "pied" : "aucun" };
+}
+
+// ---------- Le détail d'une course : tous ses arrêts, avec l'heure de passage ----------
+// role : « avant » (avant la montée), « montee », « trajet », « descente », « apres »
+export function arretsDeLaCourse(reseau, passage, joli = (n) => n) {
+  const p = reseau.parcours[passage.parcours];
+  return p.arrets.map((id, x) => ({
+    id,
+    nom: joli(reseau.arrets[id]?.[0] || id),
+    minute: passage.origine + (p.minutes ? p.minutes[x] : x * 2),
+    role: x < passage.montee ? "avant" : x === passage.montee ? "montee" : x < passage.descente ? "trajet"
+      : x === passage.descente ? "descente" : "apres",
+  }));
 }

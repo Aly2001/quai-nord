@@ -3,8 +3,8 @@
 // =====================================================================
 // Les menus PRINCIPAUX : ce qu'on fait tous les jours (la barre du bas sur téléphone, l'en-tête sur ordinateur)
 export const PRINCIPAUX = [
-  { label: "Trains", lien: "/", aussi: ["/trajet"] },
-  { label: "Bus", lien: "/bus" },
+  { label: "Accueil", lien: "/", aussi: ["/trajet"] },
+  { label: "En ville", lien: "/bus" },
   { label: "Nora", lien: "/nora" },
   { label: "Favoris", lien: "/favoris" },
 ];

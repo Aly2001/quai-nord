@@ -1,5 +1,5 @@
 import { describe, test, expect } from "vitest";
-import { calendriersDuJour, prochainsPassages, trajetEntrePoints, minutesEnHeure } from "./trajetBus";
+import { calendriersDuJour, prochainsPassages, trajetEntrePoints, minutesEnHeure, arretsDeLaCourse } from "./trajetBus";
 
 // Un petit réseau : la ligne 5 va de A1 (près de A) à B1 (près de B) en 10 min, 3 arrêts.
 const reseau = {
@@ -70,4 +70,13 @@ describe("le trajet de A à B", () => {
     const t = trajetEntrePoints(reseau, horaires, A, { lat: 50.7215, lon: 1.6010 }, "2026-10-21", 860);
     expect(t.conseil).toBe("pied");
   });
+});
+
+
+test("le détail de la course : chaque arrêt, son heure, et son rôle", () => {
+  const [p] = prochainsPassages(reseau, horaires, "L5", "M1", "B1", "2026-10-21", 860);
+  const arrets = arretsDeLaCourse(reseau, p);
+  expect(arrets.map((a) => [a.nom, minutesEnHeure(a.minute), a.role])).toEqual([
+    ["Place de Lorraine", "14:30", "avant"], ["Milieu", "14:34", "montee"], ["Gare", "14:40", "descente"],
+  ]);
 });

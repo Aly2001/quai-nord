@@ -6,7 +6,8 @@ import {
   lieuxPrepares, arretsCorrespondants, chercherLieu, distance, libelleGare, reseauDeVille, lienCarte, lienAPied, nettoyerLieu,
 } from "../data/bus";
 import { aujourdhuiIso, heureActuelle, enMinutes } from "../data/horaires";
-import { chargerHoraires, trajetEntrePoints, minutesEnHeure } from "../data/trajetBus";
+import { chargerHoraires, trajetEntrePoints, minutesEnHeure, arretsDeLaCourse } from "../data/trajetBus";
+import { joliNom } from "../data/bus";
 import "../components/RechercheTrajet.css";
 import "./Bus.css";
 
@@ -80,13 +81,14 @@ function ChampLieu({ label, champ, onChange, reseau, repere, position = false, o
 }
 
 export default function Bus() {
-  useTitrePage("Bus, tram et métro", "Le bus, le tram ou le métro, d'un endroit à un autre, dans six villes des Hauts-de-France.");
+  useTitrePage("En ville", "Bus, tram, métro ou à pied, d'un endroit à un autre, dans six villes des Hauts-de-France.");
   const [code, setCode] = useState(RESEAUX[0].code);
   const [parPosition, setParPosition] = useState(false);
   const [charge, setCharge] = useState({ code: null, reseau: null });   // le réseau téléchargé, et pour quelle ville
   const [depart, setDepart] = useState({ texte: "", lieu: null });
   const [arrivee, setArrivee] = useState({ texte: "", lieu: null });
   const [etat, setEtat] = useState({ type: "formulaire" });
+  const [course, setCourse] = useState(null);          // le détail d'une course ouvert, ou null
   const ville = RESEAUX.find((r) => r.code === code);
 
   useEffect(() => {
@@ -147,6 +149,7 @@ export default function Bus() {
     e?.preventDefault();
     if (!reseau) return;
     setEtat({ type: "calcul" });
+    setCourse(null);
     const [a, b] = await Promise.all([retrouver(depart), retrouver(arrivee)]);
     if (a.erreur === "vide" || b.erreur === "vide") { setEtat({ type: "formulaire", message: "Indiquez d'où vous partez et où vous allez." }); return; }
     for (const r of [a, b]) {
@@ -172,21 +175,11 @@ export default function Bus() {
 
   return (
     <div className="bus">
-      <h1 className="bus__titre">Bus, tram et métro</h1>
+      <h1 className="bus__titre">En ville</h1>
+      <p className="bus__sous-titre">Bus, tram, métro ou à pied, d'un endroit à un autre.</p>
 
       <form className="bus__formulaire" onSubmit={chercher}>
-        <fieldset className="bus__villes">
-          <legend>Ville</legend>
-          <div className="bus__villes-liste">
-            {RESEAUX.map((r) => (
-              <button key={r.code} type="button" aria-pressed={r.code === code}
-                      className={r.code === code ? "bus__ville bus__ville--active" : "bus__ville"} onClick={() => choisirVille(r.code)}>
-                {r.ville.replace(/-sur-Mer$/, "")}
-              </button>
-            ))}
-          </div>
-          {parPosition && <p className="bus__ville-note">📍 Choisie avec votre position</p>}
-        </fieldset>
+        <ChampVille code={code} onChoix={choisirVille} onLocaliser={maPosition} parPosition={parPosition} />
 
         <div className="bus__champs">
           <ChampLieu label="D'où partez-vous ?" champ={depart} onChange={setDepart} reseau={reseau} repere={repere}
@@ -214,7 +207,8 @@ export default function Bus() {
         <p className="bus__note">Votre position reste sur votre téléphone.</p>
       </form>
 
-      {etat.type === "resultat" && <Resultat etat={etat} reseau={reseau} ville={ville} />}
+      {course && <DetailCourse course={course} reseau={reseau} ville={ville} onFermer={() => setCourse(null)} onChoix={setCourse} />}
+      {!course && etat.type === "resultat" && <Resultat key={`${etat.A.nom}|${etat.B.nom}|${etat.maintenant}`} etat={etat} reseau={reseau} ville={ville} onDetail={setCourse} />}
       {etat.type === "autreVille" && (
         <section className="bus__carte">
           <p className="bus__carte-titre">{etat.vers.ville} est dans une autre ville : prenez le train</p>
@@ -232,58 +226,88 @@ function PuceLigne({ ligne }) {
   return <span className="bus__puce" style={{ background: ligne.couleur, color: ligne.texte }}>{ligne.nom}</span>;
 }
 
-function Resultat({ etat, reseau, ville }) {
+const VISIBLES = 4;          // au-delà, « Voir les autres possibilités »
+
+function nomTransport(ligne) {
+  return ligne.mode === "metro" ? "Métro" : ligne.mode === "tram" ? "Tram" : "Bus";
+}
+
+// Une possibilité en bus, tram ou métro : chaque minute dit OÙ et QUAND
+function CarteLigne({ b, maintenant, rapide, onDetail }) {
+  const p = b.passages[0];
+  const attente = p ? Math.round(p.depart - maintenant) : null;
+  const dans = attente === null ? null : attente <= 0 ? "maintenant" : `dans ${attente} min`;
+  return (
+    <section className={rapide ? "bus__carte bus__carte--meilleur" : "bus__carte bus__carte--option"}>
+      {rapide && <span className="bus__badge">Le plus rapide</span>}
+      <div className="bus__ligne"><PuceLigne ligne={b.ligne} />
+        <strong>{nomTransport(b.ligne)} {b.ligne.nom} · direction {b.direction}</strong>
+        {dans && <span className="bus__dans">{dans}</span>}</div>
+      {b.marcheAvant > 0 && <p className="bus__detail">🚶 {b.marcheAvant} min à pied jusqu'à l'arrêt {b.depart.nom}</p>}
+      {p ? (
+        <>
+          <p>Passe à <strong>{b.depart.nom} {dans}, à {minutesEnHeure(p.depart)}</strong></p>
+          <p>Arrivée à <strong>{b.arrivee.nom} à {minutesEnHeure(p.arrivee)}</strong>
+            {b.marcheApres ? `, puis ${b.marcheApres} min à pied` : ""} · {b.arrets} arrêt{b.arrets > 1 ? "s" : ""}</p>
+          {b.passages.length > 1 && (
+            <p className="bus__detail">Puis à {b.depart.nom} : {b.passages.slice(1).map((x) => minutesEnHeure(x.depart)).join(" · ")}</p>
+          )}
+          <button type="button" className="bus__voir-arrets" onClick={() => onDetail({ bus: b, passage: p })}>
+            Voir les arrêts <span aria-hidden="true">›</span>
+          </button>
+        </>
+      ) : (
+        <p>De l'arrêt {b.depart.nom} à l'arrêt {b.arrivee.nom} · {b.arrets} arrêt{b.arrets > 1 ? "s" : ""}</p>
+      )}
+    </section>
+  );
+}
+
+function CartePied({ A, B, minutes, arrivee, rapide }) {
+  return (
+    <section className={rapide ? "bus__carte bus__carte--meilleur" : "bus__carte bus__carte--option"}>
+      {rapide && <span className="bus__badge">Le plus rapide</span>}
+      <div className="bus__ligne"><span className="bus__pied" aria-hidden="true">🚶</span><strong>À pied</strong></div>
+      <p>Arrivée à <strong>{minutesEnHeure(arrivee)}</strong> · {minutes} min</p>
+      <a className="bus__voir-arrets" href={lienAPied(A, B)} target="_blank" rel="noopener noreferrer">
+        Itinéraire à pied <span aria-hidden="true">↗</span>
+      </a>
+    </section>
+  );
+}
+
+function Resultat({ etat, reseau, ville, onDetail }) {
   const { A, B, trajet, maintenant } = etat;
+  const [tout, setTout] = useState(false);
   const nomA = A.cat === "position" ? "Ma position" : A.nom;
-  // Le bus en vedette seulement s'il fait gagner du temps ; sinon la marche passe devant
-  const [meilleur, ...autres] = trajet.conseil === "bus" ? trajet.bus : [];
-  const dans = (m) => { const d = Math.round(m - maintenant); return d <= 0 ? "maintenant" : `dans ${d} min`; };
+  // Toutes les possibilités, la marche comprise, de la plus rapide à la plus lente
+  const arriveePied = maintenant + trajet.minutesAPied;
+  const possibilites = trajet.bus.length ? [
+    ...trajet.bus.map((b) => ({ type: "ligne", b, arrivee: b.arriveeFinale ?? maintenant + b.minutesTotal })),
+    { type: "pied", arrivee: arriveePied },
+  ].sort((x, y) => x.arrivee - y.arrivee) : [];
+  const visibles = tout ? possibilites : possibilites.slice(0, VISIBLES);
+
   return (
     <div className="bus__resultat">
       <section className="bus__entete">
         <p>{nomA} → {B.nom}</p>
-        {meilleur?.arriveeFinale && (
-          <p className="bus__entete-grand">Arrivée vers {minutesEnHeure(meilleur.arriveeFinale)} · {Math.round(meilleur.arriveeFinale - maintenant)} min</p>
+        {possibilites.length > 0 && (
+          <p className="bus__entete-grand">{possibilites.length} possibilité{possibilites.length > 1 ? "s" : ""}</p>
         )}
       </section>
 
-      {meilleur && (
-        <section className="bus__carte bus__carte--meilleur">
-          <div className="bus__ligne"><PuceLigne ligne={meilleur.ligne} /><strong>Direction {meilleur.direction}</strong>
-            {meilleur.passages[0] && <span className="bus__dans">{dans(meilleur.passages[0].depart)}</span>}</div>
-          <ol className="bus__etapes">
-            <li>🚶 <span><strong>Marchez {meilleur.marcheAvant} min</strong> jusqu'à l'arrêt {meilleur.depart.nom}</span></li>
-            <li>🚌 <span><strong>{meilleur.ligne.mode === "metro" ? "Métro" : meilleur.ligne.mode === "tram" ? "Tram" : "Bus"} {meilleur.ligne.nom}
-              {meilleur.passages[0] ? ` à ${minutesEnHeure(meilleur.passages[0].depart)}` : ""}</strong> · {meilleur.arrets} arrêt{meilleur.arrets > 1 ? "s" : ""}</span></li>
-            <li>📍 <span><strong>Descendez à {meilleur.arrivee.nom}{meilleur.passages[0] ? ` à ${minutesEnHeure(meilleur.passages[0].arrivee)}` : ""}</strong>
-              {meilleur.marcheApres ? `, puis ${meilleur.marcheApres} min à pied` : ""}</span></li>
-          </ol>
-          {meilleur.passages.length > 1 && (
-            <p className="bus__suivants"><strong>Les suivants :</strong> {meilleur.passages.slice(1).map((p) => minutesEnHeure(p.depart)).join(" · ")}</p>
-          )}
-          <div className="bus__boutons">
-            <a className="bus__bouton" href={lienCarte(A, B)} target="_blank" rel="noopener noreferrer">Voir sur la carte ↗</a>
-            <a className="bus__bouton" href={lienAPied(A, B)} target="_blank" rel="noopener noreferrer">À pied : {trajet.minutesAPied} min</a>
-          </div>
-        </section>
+      {visibles.map((o, i) => (o.type === "pied"
+        ? <CartePied key="pied" A={A} B={B} minutes={trajet.minutesAPied} arrivee={o.arrivee} rapide={i === 0} />
+        : <CarteLigne key={`${o.b.ligne.nom}-${o.b.depart.id}-${o.b.direction}`} b={o.b} maintenant={maintenant} rapide={i === 0} onDetail={onDetail} />))}
+      {!tout && possibilites.length > VISIBLES && (
+        <button type="button" className="bus__plus" onClick={() => setTout(true)}>
+          Voir {possibilites.length - VISIBLES} autre{possibilites.length - VISIBLES > 1 ? "s" : ""} possibilité{possibilites.length - VISIBLES > 1 ? "s" : ""} ▾
+        </button>
       )}
 
-      {autres.map((b) => (
-        <section key={`${b.ligne.nom}-${b.depart.id}`} className="bus__carte bus__carte--autre">
-          <PuceLigne ligne={b.ligne} /><span>Direction {b.direction}{b.arriveeFinale ? ` · arrivée ${minutesEnHeure(b.arriveeFinale)}` : ""}</span>
-          {b.passages[0] && <span className="bus__heure">{minutesEnHeure(b.passages[0].depart)}</span>}
-        </section>
-      ))}
-
-      {trajet.conseil === "pied" && (
-        <section className="bus__carte">
-          <p className="bus__carte-titre">🚶 Le plus rapide : à pied, {trajet.minutesAPied} min</p>
-          {trajet.bus[0]?.passages[0] ? (
-            <p>Le prochain bus direct, le <strong>{trajet.bus[0].ligne.nom}</strong>, part à {minutesEnHeure(trajet.bus[0].passages[0].depart)} de
-              l'arrêt {trajet.bus[0].depart.nom} : vous arriveriez vers {minutesEnHeure(trajet.bus[0].arriveeFinale)}.</p>
-          ) : <p>Aucun bus n'est plus rapide pour ce trajet.</p>}
-          <a className="bus__bouton bus__bouton--plein" href={lienAPied(A, B)} target="_blank" rel="noopener noreferrer">Itinéraire à pied ↗</a>
-        </section>
+      {trajet.conseil === "pied" && !trajet.bus.length && (
+        <CartePied A={A} B={B} minutes={trajet.minutesAPied} arrivee={arriveePied} rapide />
       )}
       {trajet.conseil === "demain" && (
         <section className="bus__carte">
@@ -303,5 +327,87 @@ function Resultat({ etat, reseau, ville }) {
 
       <p className="bus__source">Horaires prévus par {reseau?.reseau || ville.nom}{etat.horaires ? "" : " (indisponibles pour l'instant)"}. Le direct arrivera bientôt.</p>
     </div>
+  );
+}
+
+// ---------- Le champ Ville : une liste, avec « Me localiser » tout en haut ----------
+function ChampVille({ code, onChoix, onLocaliser, parPosition }) {
+  const [ouvert, setOuvert] = useState(false);
+  const actuelle = RESEAUX.find((r) => r.code === code);
+  return (
+    <div className="bus__ville-champ">
+      <button type="button" className="boite bus__ville-bouton" aria-haspopup="listbox" aria-expanded={ouvert}
+              onClick={() => setOuvert((o) => !o)} onBlur={() => setTimeout(() => setOuvert(false), 150)}>
+        <span className="boite__contenu"><span className="bus__ville-etiquette">Ville</span><strong>{actuelle.ville}</strong></span>
+        <span aria-hidden="true">{ouvert ? "▴" : "▾"}</span>
+      </button>
+      {parPosition && <p className="bus__ville-note">📍 Choisie avec votre position</p>}
+      {ouvert && (
+        <ul className="champ-gare__liste" role="listbox" aria-label="Ville">
+          <li role="option" aria-selected={false} className="champ-gare__option" onMouseDown={(e) => e.preventDefault()}
+              onClick={() => { setOuvert(false); onLocaliser(); }}>
+            <span className="champ-gare__pictogramme" aria-hidden="true">📍</span>
+            <span><strong>Me localiser</strong><small>La ville se choisit seule</small></span>
+          </li>
+          {RESEAUX.map((r) => (
+            <li key={r.code} role="option" aria-selected={r.code === code}
+                className={r.code === code ? "champ-gare__option champ-gare__option--actif" : "champ-gare__option"}
+                onMouseDown={(e) => e.preventDefault()} onClick={() => { setOuvert(false); onChoix(r.code); }}>
+              <span className="champ-gare__pictogramme" aria-hidden="true">{r.code === "lille" ? "🚇" : "🚌"}</span>
+              <span><strong>{r.ville}</strong><small>{r.nom.replace(/\s*\(.*\)$/, "")}</small></span>
+            </li>
+          ))}
+        </ul>
+      )}
+    </div>
+  );
+}
+
+// ---------- Le détail de la course : le plan de la ligne, avec l'heure à chaque arrêt ----------
+function DetailCourse({ course, reseau, ville, onFermer, onChoix }) {
+  const { bus, passage } = course;
+  const [toutVoir, setToutVoir] = useState(false);
+  const tous = arretsDeLaCourse(reseau, passage, joliNom);
+  // Les arrêts AVANT la montée ne servent pas au voyageur : repliés, pour que son trajet soit tout de suite visible
+  const avant = tous.filter((a) => a.role === "avant").length;
+  const arrets = toutVoir ? tous : tous.filter((a) => a.role !== "avant");
+  return (
+    <section className="course" aria-label="Détail de la course">
+      <button type="button" className="course__retour" onClick={onFermer}>‹ Retour au trajet</button>
+      <div className="course__entete">
+        <PuceLigne ligne={bus.ligne} />
+        <div><strong>Direction {bus.direction}</strong>
+          <small>Départ de {bus.depart.nom} à {minutesEnHeure(passage.depart)} · {reseau?.reseau || ville.nom}</small></div>
+      </div>
+      {bus.passages.length > 1 && (
+        <div className="course__departs" role="group" aria-label="Choisir un départ">
+          {bus.passages.map((p) => (
+            <button key={p.depart} type="button" aria-pressed={p.depart === passage.depart}
+                    className={p.depart === passage.depart ? "course__depart course__depart--actif" : "course__depart"}
+                    onClick={() => onChoix({ bus, passage: p })}>{minutesEnHeure(p.depart)}</button>
+          ))}
+        </div>
+      )}
+      <ol className="course__arrets" style={{ "--couleur-ligne": bus.ligne.couleur }}>
+        {avant > 0 && !toutVoir && (
+          <li className="course__replie">
+            <button type="button" onClick={() => setToutVoir(true)}>
+              ▴ Voir les {avant} arrêt{avant > 1 ? "s" : ""} d'avant (depuis {tous[0].nom})
+            </button>
+          </li>
+        )}
+        {arrets.map((a) => (
+          <li key={a.id + a.minute} className={`course__arret course__arret--${a.role}`}>
+            <span className="course__heure">{minutesEnHeure(a.minute)}</span>
+            <span className="course__rond" aria-hidden="true" />
+            <span className="course__nom">{a.nom}
+              {a.role === "montee" && <span className="course__etiquette course__etiquette--montee">Montée</span>}
+              {a.role === "descente" && <span className="course__etiquette course__etiquette--descente">Descente</span>}
+            </span>
+          </li>
+        ))}
+      </ol>
+      <p className="bus__source">Horaires prévus. En gras : votre trajet.</p>
+    </section>
   );
 }

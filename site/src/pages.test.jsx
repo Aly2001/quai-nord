@@ -92,7 +92,7 @@ test("un train supprimé : Nora le dit d'abord, et propose le suivant", () => {
 
 import { menuActif, PRINCIPAUX, GROUPES } from "./components/navigation";
 test("la navigation : quatre menus principaux, et le bon menu allumé", () => {
-  expect(PRINCIPAUX.map((p) => p.label)).toEqual(["Trains", "Bus", "Nora", "Favoris"]);
+  expect(PRINCIPAUX.map((p) => p.label)).toEqual(["Accueil", "En ville", "Nora", "Favoris"]);
   expect(menuActif("/")).toBe("/");
   expect(menuActif("/trajet")).toBe("/");            // les résultats appartiennent à « Trains »
   expect(menuActif("/bus")).toBe("/bus");
@@ -105,7 +105,8 @@ test("la navigation : quatre menus principaux, et le bon menu allumé", () => {
 import Bus from "./pages/Bus";
 test("la page Bus s'affiche, avec les six villes et les deux champs", () => {
   const html = renderToString(<MemoryRouter><Bus /></MemoryRouter>);
-  for (const ville of ["Calais", "Boulogne", "Lille", "Dunkerque", "Amiens", "Arras"]) expect(html).toContain(ville);
+  expect(html).toContain("En ville");
+  expect(html).toContain("Calais");                    // la ville choisie au départ
   expect(html).toContain("D&#x27;où partez-vous ?");
   expect(html).toContain("Chercher le trajet");
 });

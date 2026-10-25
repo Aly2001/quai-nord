@@ -71,7 +71,13 @@ export function prochainsPassages(reseau, horaires, ligneId, idDepart, idArrivee
 
 // ---------- Le trajet complet : de A à B ----------
 // A et B : { lat, lon, cat? }. maintenant : minutes depuis minuit. Renvoie :
-//   { metres, minutesAPied, bus: [proposition avec ses prochains passages], conseil: "bus" | "pied" | "aucun" }
+//   { metres, minutesAPied, bus, conseil, lendemain }, avec conseil :
+//   "bus"        : un bus fait gagner du temps ;
+//   "pied"       : à pied, c'est plus rapide (bus : les bus possibles, s'il y en a, plus lents) ;
+//   "demain"     : une ligne directe existe, mais plus aucun bus aujourd'hui (lendemain : le premier de demain) ;
+//   "aucun"      : aucune ligne directe, et c'est loin à pied.
+const lendemainIso = (iso) => new Date(Date.UTC(+iso.slice(0, 4), +iso.slice(5, 7) - 1, +iso.slice(8, 10) + 1)).toISOString().slice(0, 10);
+
 export function trajetEntrePoints(reseau, horaires, A, B, dateIso, maintenant, nombre = 3) {
   const metres = Math.round(distance(A.lat, A.lon, B.lat, B.lon));
   const aPied = minutesAPied(metres);
@@ -80,21 +86,26 @@ export function trajetEntrePoints(reseau, horaires, A, B, dateIso, maintenant, n
   // Les arrêts du côté de B, sans ceux qui sont aussi près de A (monter et descendre au même endroit)
   const prochesB = arretsProches(reseau, B.lat, B.lon, rayonMarche(B.cat)).filter(([id]) => !idsA.has(id));
 
-  const bus = busDirects(reseau, prochesA, prochesB, 6)
-    .map((b) => {
-      const marcheAvant = minutesAPied(b.depart.marche);
-      const marcheApres = minutesAPied(b.arrivee.marche);
-      const passages = prochainsPassages(reseau, horaires, b.ligneId, b.depart.id, b.arrivee.id, dateIso, maintenant + marcheAvant);
-      const premier = passages[0];
-      return { ...b, marcheAvant, marcheApres, passages, arriveeFinale: premier ? premier.arrivee + marcheApres : null };
-    })
-    // Sans horaires (fichier absent) on garde la proposition ; avec, il faut un bus aujourd'hui
-    .filter((b) => !horaires || b.passages.length > 0)
-    // Le bus doit faire gagner du temps sur la marche (départ attendu compris)
-    .filter((b) => (b.arriveeFinale === null ? b.minutesTotal : b.arriveeFinale - maintenant) < aPied)
-    .sort((x, y) => (x.arriveeFinale ?? x.minutesTotal) - (y.arriveeFinale ?? y.minutesTotal))
-    .slice(0, nombre);
+  const lignes = busDirects(reseau, prochesA, prochesB, 6).map((b) => {
+    const marcheAvant = minutesAPied(b.depart.marche);
+    const marcheApres = minutesAPied(b.arrivee.marche);
+    const passages = prochainsPassages(reseau, horaires, b.ligneId, b.depart.id, b.arrivee.id, dateIso, maintenant + marcheAvant);
+    const premier = passages[0];
+    return { ...b, marcheAvant, marcheApres, passages, arriveeFinale: premier ? premier.arrivee + marcheApres : null };
+  });
+  const duree = (b) => (b.arriveeFinale === null ? b.minutesTotal : b.arriveeFinale - maintenant);
+  // Sans fichier d'horaires, on garde les lignes (sans heures) ; avec, il faut un bus aujourd'hui
+  const aujourdhui = lignes.filter((b) => !horaires || b.passages.length > 0).sort((x, y) => duree(x) - duree(y));
+  const plusRapides = aujourdhui.filter((b) => duree(b) < aPied);
 
-  const conseil = bus.length ? "bus" : aPied <= MARCHE_CONSEILLEE ? "pied" : "aucun";
-  return { metres, minutesAPied: aPied, bus, conseil };
+  if (plusRapides.length) return { metres, minutesAPied: aPied, bus: plusRapides.slice(0, nombre), conseil: "bus" };
+  if (aujourdhui.length) return { metres, minutesAPied: aPied, bus: aujourdhui.slice(0, nombre), conseil: "pied" };
+  if (lignes.length && horaires && aPied > MARCHE_CONSEILLEE) {
+    // Une ligne existe, mais plus de bus aujourd'hui : le premier de demain
+    const demain = lendemainIso(dateIso);
+    const premiers = lignes.map((b) => ({ ...b, passages: prochainsPassages(reseau, horaires, b.ligneId, b.depart.id, b.arrivee.id, demain, 0, 1) }))
+      .filter((b) => b.passages.length).sort((x, y) => x.passages[0].depart - y.passages[0].depart);
+    if (premiers.length) return { metres, minutesAPied: aPied, bus: [], conseil: "demain", lendemain: premiers[0] };
+  }
+  return { metres, minutesAPied: aPied, bus: [], conseil: aPied <= MARCHE_CONSEILLEE ? "pied" : "aucun" };
 }

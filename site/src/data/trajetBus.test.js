@@ -48,10 +48,23 @@ describe("le trajet de A à B", () => {
     expect(t.bus[0].passages.length).toBe(2);
     expect(t.minutesAPied).toBeGreaterThan(20);
   });
-  test("le soir, plus de bus : rien à proposer, et c'est trop loin à pied", () => {
+  test("le soir, plus de bus aujourd'hui : le premier de demain", () => {
     const t = trajetEntrePoints(reseau, horaires, A, B, "2026-10-21", 1200);
     expect(t.bus).toEqual([]);
-    expect(t.conseil).toBe("aucun");
+    expect(t.conseil).toBe("demain");
+    expect(minutesEnHeure(t.lendemain.passages[0].depart)).toBe("06:20");
+  });
+  test("un bus existe, mais l'attente le rend plus lent que la marche : on conseille la marche, et on montre le bus", () => {
+    // B à environ 10 min à pied ; le prochain bus part dans 1 h
+    const presDeB = { lat: 50.7262, lon: 1.6062 };
+    const reseauCourt = { ...reseau, arrets: { ...reseau.arrets, B1: ["Gare", 50.7262, 1.6062] } };
+    const t = trajetEntrePoints(reseauCourt, horaires, A, presDeB, "2026-10-21", 810);
+    expect(t.conseil).toBe("pied");
+    expect(t.bus.length).toBe(1);
+  });
+  test("aucune ligne directe, et loin : aucun", () => {
+    const loin = { lat: 50.80, lon: 1.70 };
+    expect(trajetEntrePoints(reseau, horaires, A, loin, "2026-10-21", 860).conseil).toBe("aucun");
   });
   test("deux points tout proches : à pied", () => {
     const t = trajetEntrePoints(reseau, horaires, A, { lat: 50.7215, lon: 1.6010 }, "2026-10-21", 860);

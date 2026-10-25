@@ -101,3 +101,11 @@ test("la navigation : quatre menus principaux, et le bon menu allumé", () => {
   const autres = GROUPES.flatMap((g) => g.pages.map((p) => p.lien.split("#")[0]));
   expect(autres).toEqual(expect.arrayContaining(["/carte", "/prediction", "/analyses", "/faq", "/plus"]));
 });
+
+import Bus from "./pages/Bus";
+test("la page Bus s'affiche, avec les six villes et les deux champs", () => {
+  const html = renderToString(<MemoryRouter><Bus /></MemoryRouter>);
+  for (const ville of ["Calais", "Boulogne", "Lille", "Dunkerque", "Amiens", "Arras"]) expect(html).toContain(ville);
+  expect(html).toContain("D&#x27;où partez-vous ?");
+  expect(html).toContain("Chercher le trajet");
+});

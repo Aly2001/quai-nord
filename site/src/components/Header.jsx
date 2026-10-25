@@ -3,9 +3,10 @@ import { Link, NavLink, useLocation } from "react-router-dom";
 import { AvatarNora } from "./NoraConversation";
 import { GROUPES } from "./navigation";
 
-// Ordinateur : les mêmes pages qu'avant, sans icônes, rangées à droite
+// Ordinateur : les pages d'avant, plus « En ville », sans icônes, rangées à droite
 const PAGES_ORDINATEUR = [
   { label: "Accueil", lien: "/" },
+  { label: "En ville", lien: "/bus" },          // le bus, le tram, le métro : on peut aussi les chercher sur ordinateur
   { label: "Carte", lien: "/carte" },
   { label: "Prédiction", lien: "/prediction" },
   { label: "Analyses", lien: "/analyses" },

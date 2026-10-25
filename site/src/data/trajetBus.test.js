@@ -1,5 +1,5 @@
 import { describe, test, expect } from "vitest";
-import { calendriersDuJour, prochainsPassages, trajetEntrePoints, minutesEnHeure, arretsDeLaCourse } from "./trajetBus";
+import { calendriersDuJour, prochainsPassages, trajetEntrePoints, minutesEnHeure, arretsDeLaCourse, passagesALArret, arretsAutour } from "./trajetBus";
 
 // Un petit réseau : la ligne 5 va de A1 (près de A) à B1 (près de B) en 10 min, 3 arrêts.
 const reseau = {
@@ -79,4 +79,22 @@ test("le détail de la course : chaque arrêt, son heure, et son rôle", () => {
   expect(arrets.map((a) => [a.nom, minutesEnHeure(a.minute), a.role])).toEqual([
     ["Place de Lorraine", "14:30", "avant"], ["Milieu", "14:34", "montee"], ["Gare", "14:40", "descente"],
   ]);
+});
+
+
+describe("le panneau d'un arrêt", () => {
+  test("les prochains passages, ligne par ligne", () => {
+    const p = passagesALArret(reseau, horaires, ["M1"], "2026-10-21", 860);
+    expect(p.length).toBe(1);
+    expect(p[0].direction).toBe("Gare");
+    expect(p[0].heures.map(minutesEnHeure)).toEqual(["14:34", "14:49"]);   // 14:30 + 4 min, puis 14:45 + 4 min
+  });
+  test("au terminus, aucun départ", () => {
+    expect(passagesALArret(reseau, horaires, ["B1"], "2026-10-21", 860)).toEqual([]);
+  });
+  test("les arrêts autour d'un point, du plus proche au plus loin", () => {
+    const autour = arretsAutour(reseau, 50.7201, 1.6001);
+    expect(autour[0].nom).toBe("Place de Lorraine");
+    expect(autour[0].ids).toEqual(["A1"]);
+  });
 });

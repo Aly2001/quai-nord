@@ -105,3 +105,29 @@ a.bus__voir-arrets { text-decoration: none; }
 
 .bus__entete { display: flex; flex-direction: column; gap: 8px; }
 .bus__entete .bouton-favori { align-self: flex-start; }
+
+/* ---------- Les deux usages : un trajet, ou les prochains passages ---------- */
+.bus__modes { display: flex; gap: 6px; margin-bottom: 14px; padding: 4px; border-radius: 12px; background: #EEF1F5; }
+.bus__mode { flex: 1; min-height: 44px; font: inherit; font-weight: 700; border: 0; border-radius: 9px; background: transparent;
+  color: var(--texte-doux); cursor: pointer; }
+.bus__mode--actif { background: #FFFFFF; color: var(--nuit); box-shadow: 0 1px 4px rgba(20, 33, 61, 0.12); }
+
+/* ---------- Le panneau d'un arrêt ---------- */
+.passages { display: flex; flex-direction: column; gap: 12px; margin-top: 12px; }
+.panneau-arret__lieu { margin: 0; font-size: 14px; color: var(--texte-doux); }
+.panneau-arret__nom { margin: 2px 0 10px; font-family: var(--police-titre); font-weight: 700; font-size: 30px; }
+.panneau-arret__tableau { border-radius: 14px; overflow: hidden; background: #0E1830; box-shadow: inset 0 0 0 1px #22305A; }
+.panneau-arret__entete { display: flex; justify-content: space-between; padding: 10px 12px; font-family: ui-monospace, monospace;
+  font-size: 12px; letter-spacing: 0.06em; color: #9FB1CC; }
+.panneau-arret__rang { display: grid; grid-template-columns: auto 1fr auto; align-items: center; gap: 10px; padding: 12px;
+  border-top: 1px solid #22305A; }
+.panneau-arret__direction { font-family: ui-monospace, monospace; font-weight: 700; font-size: 15px; color: var(--signal);
+  text-transform: uppercase; }
+.panneau-arret__temps { text-align: right; font-family: ui-monospace, monospace; color: var(--signal); }
+.panneau-arret__temps strong { font-size: 20px; }
+.panneau-arret__temps small { display: block; font-size: 12px; color: #9FB1CC; }
+.panneau-arret__vide { margin: 0; padding: 14px 12px; color: #C9D3E3; border-top: 1px solid #22305A; }
+.passages__autour { display: flex; flex-direction: column; gap: 8px; }
+.passages__arret { display: flex; align-items: center; justify-content: space-between; min-height: 56px; padding: 0 14px; font: inherit;
+  text-align: left; background: #FFFFFF; color: var(--nuit); border: 1px solid #E3E8EE; border-radius: 12px; cursor: pointer; }
+.passages__arret small { display: block; font-size: 13px; color: var(--texte-doux); }

@@ -7,7 +7,8 @@ import {
   lieuxPrepares, arretsCorrespondants, chercherLieu, distance, libelleGare, reseauDeVille, lienCarte, lienAPied, nettoyerLieu,
 } from "../data/bus";
 import { aujourdhuiIso, heureActuelle, enMinutes } from "../data/horaires";
-import { chargerHoraires, trajetEntrePoints, minutesEnHeure, arretsDeLaCourse } from "../data/trajetBus";
+import { chargerHoraires, trajetEntrePoints, minutesEnHeure, arretsDeLaCourse, passagesALArret, arretsAutour } from "../data/trajetBus";
+import { normaliser } from "../data/horaires";
 import { joliNom } from "../data/bus";
 import "../components/RechercheTrajet.css";
 import "./Bus.css";
@@ -90,6 +91,7 @@ export default function Bus() {
   const [arrivee, setArrivee] = useState({ texte: "", lieu: null });
   const [etat, setEtat] = useState({ type: "formulaire" });
   const [course, setCourse] = useState(null);          // le détail d'une course ouvert, ou null
+  const [mode, setMode] = useState("trajet");          // « trajet » (de A à B) ou « passages » (le panneau d'un arrêt)
   // Un favori « En ville » rouvert : ?t={code, A, B} -> les champs remplis, puis la recherche relancée
   const [parametres] = useSearchParams();
   const [aRelancer, setARelancer] = useState(false);
@@ -195,6 +197,21 @@ export default function Bus() {
       <h1 className="bus__titre">En ville</h1>
       <p className="bus__sous-titre">Bus, tram, métro ou à pied, d'un endroit à un autre.</p>
 
+      <div className="bus__modes" role="tablist" aria-label="Que voulez-vous faire ?">
+        <button type="button" role="tab" aria-selected={mode === "trajet"} className={mode === "trajet" ? "bus__mode bus__mode--actif" : "bus__mode"}
+                onClick={() => setMode("trajet")}>Un trajet</button>
+        <button type="button" role="tab" aria-selected={mode === "passages"} className={mode === "passages" ? "bus__mode bus__mode--actif" : "bus__mode"}
+                onClick={() => setMode("passages")}>Prochains passages</button>
+      </div>
+
+      {mode === "passages" && (
+        <>
+          <ChampVille code={code} onChoix={choisirVille} onLocaliser={maPosition} parPosition={parPosition} />
+          <PassagesArret reseau={reseau} code={code} position={depart.lieu?.cat === "position" ? depart.lieu : null} onLocaliser={maPosition} />
+        </>
+      )}
+
+      {mode === "trajet" && (<>
       <form className="bus__formulaire" onSubmit={chercher}>
         <ChampVille code={code} onChoix={choisirVille} onLocaliser={maPosition} parPosition={parPosition} />
 
@@ -223,10 +240,11 @@ export default function Bus() {
         </button>
         <p className="bus__note">Votre position reste sur votre téléphone.</p>
       </form>
+      </>)}
 
-      {course && <DetailCourse course={course} reseau={reseau} ville={ville} onFermer={() => setCourse(null)} onChoix={setCourse} />}
-      {!course && etat.type === "resultat" && <Resultat key={`${etat.A.nom}|${etat.B.nom}|${etat.maintenant}`} etat={etat} reseau={reseau} ville={ville} code={code} onDetail={setCourse} />}
-      {etat.type === "autreVille" && (
+      {mode === "trajet" && course && <DetailCourse course={course} reseau={reseau} ville={ville} onFermer={() => setCourse(null)} onChoix={setCourse} />}
+      {mode === "trajet" && !course && etat.type === "resultat" && <Resultat key={`${etat.A.nom}|${etat.B.nom}|${etat.maintenant}`} etat={etat} reseau={reseau} ville={ville} code={code} onDetail={setCourse} />}
+      {mode === "trajet" && etat.type === "autreVille" && (
         <section className="bus__carte">
           <p className="bus__carte-titre">{etat.vers.ville} est dans une autre ville : prenez le train</p>
           <Link className="bus__bouton bus__bouton--jaune"
@@ -429,5 +447,95 @@ function DetailCourse({ course, reseau, ville, onFermer, onChoix }) {
       </ol>
       <p className="bus__source">Horaires prévus. En gras : votre trajet.</p>
     </section>
+  );
+}
+
+// ---------- Les prochains passages à un arrêt : comme le panneau de l'arrêt ----------
+function PassagesArret({ reseau, code, position, onLocaliser }) {
+  const [texte, setTexte] = useState("");
+  const [choisi, setChoisi] = useState(null);           // { nom, ids }
+  const [horaires, setHoraires] = useState(null);
+  const [maintenant, setMaintenant] = useState(() => enMinutes(heureActuelle()));
+  useEffect(() => { let annule = false; chargerHoraires(code).then((h) => { if (!annule) setHoraires(h); }); return () => { annule = true; }; }, [code]);
+  useEffect(() => {                                       // le panneau se met à jour toutes les 30 secondes
+    const minuterie = setInterval(() => setMaintenant(enMinutes(heureActuelle())), 30_000);
+    return () => clearInterval(minuterie);
+  }, []);
+
+  // Avec la position : les arrêts autour, et le plus proche choisi d'office
+  const autour = useMemo(() => (reseau && position ? arretsAutour(reseau, position.lat, position.lon) : []), [reseau, position]);
+  const arret = choisi || autour[0] || null;
+  // En tapant : les arrêts du réseau dont le nom contient les mots tapés
+  const trouves = useMemo(() => {
+    const mots = normaliser(texte).split(" ").filter((m) => m.length > 1);
+    if (!reseau || !mots.length) return [];
+    const groupes = new Map();
+    for (const [id, [nom]] of Object.entries(reseau.arrets)) {
+      if (!mots.every((m) => normaliser(nom).includes(m))) continue;
+      const joli = joliNom(nom);
+      groupes.set(joli, [...(groupes.get(joli) || []), id]);
+    }
+    return [...groupes.entries()].slice(0, 6).map(([nom, ids]) => ({ nom, ids }));
+  }, [reseau, texte]);
+  const passages = reseau && horaires && arret ? passagesALArret(reseau, horaires, arret.ids, aujourdhuiIso(), maintenant) : [];
+  const metres = arret && autour.find((a) => a.nom === arret.nom)?.metres;
+
+  return (
+    <div className="passages">
+      <div className="boite champ-gare">
+        <div className="boite__contenu">
+          <label htmlFor="passages-arret">Un arrêt</label>
+          <input id="passages-arret" type="text" autoComplete="off" placeholder="Le nom de l'arrêt…" value={texte}
+                 onChange={(e) => { setTexte(e.target.value); setChoisi(null); }} />
+        </div>
+        {trouves.length > 0 && !choisi && (
+          <ul className="champ-gare__liste" role="listbox">
+            {trouves.map((a) => (
+              <li key={a.nom} role="option" aria-selected={false} className="champ-gare__option" onMouseDown={(e) => e.preventDefault()}
+                  onClick={() => { setChoisi(a); setTexte(a.nom); }}>
+                <span className="champ-gare__pictogramme" aria-hidden="true">🚏</span><span><strong>{a.nom}</strong></span>
+              </li>
+            ))}
+          </ul>
+        )}
+      </div>
+      {!position && !arret && (
+        <button type="button" className="bus__raccourci" onClick={onLocaliser}>📍 Les arrêts près de moi</button>
+      )}
+
+      {arret && (
+        <section className="panneau-arret" aria-live="polite">
+          <p className="panneau-arret__lieu">{metres !== undefined ? `Près de vous · à ${metres} m` : "Arrêt choisi"}</p>
+          <h2 className="panneau-arret__nom">{arret.nom}</h2>
+          <div className="panneau-arret__tableau">
+            <div className="panneau-arret__entete"><span>LIGNE · DIRECTION</span><span>PRÉVU</span></div>
+            {passages.length === 0 && <p className="panneau-arret__vide">Aucun passage dans les 3 prochaines heures.</p>}
+            {passages.map((g) => {
+              const attente = (m) => { const d = Math.round(m - maintenant); return d <= 0 ? "à l'arrêt" : `${d} min`; };
+              return (
+                <div key={`${g.ligneId}|${g.direction}`} className="panneau-arret__rang">
+                  <PuceLigne ligne={g.ligne} />
+                  <span className="panneau-arret__direction">{g.direction}</span>
+                  <span className="panneau-arret__temps"><strong>{attente(g.heures[0])}</strong>
+                    {g.heures[1] !== undefined && <small>puis {attente(g.heures[1])}</small>}</span>
+                </div>
+              );
+            })}
+          </div>
+          <p className="bus__source">Horaires prévus, mis à jour toutes les 30 secondes. Le direct arrivera bientôt.</p>
+        </section>
+      )}
+
+      {autour.length > 1 && (
+        <section className="passages__autour">
+          <p className="bus__ou">Autres arrêts près de vous</p>
+          {autour.filter((a) => a.nom !== arret?.nom).slice(0, 4).map((a) => (
+            <button key={a.nom} type="button" className="passages__arret" onClick={() => { setChoisi(a); setTexte(""); }}>
+              <span><strong>{a.nom}</strong><small>à {a.metres} m</small></span><span aria-hidden="true">›</span>
+            </button>
+          ))}
+        </section>
+      )}
+    </div>
   );
 }

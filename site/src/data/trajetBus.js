@@ -6,7 +6,7 @@
 //   jours   : des calendriers, une suite de 0 et de 1 (un caractère par jour depuis debut) ;
 //   departs : pour chaque parcours (dans le même ordre que reseau.parcours), { calendrier: [minutes de départ] }.
 // L'heure à un arrêt = le départ du voyage au premier arrêt + la durée jusqu'à cet arrêt (parcours.minutes).
-import { DOSSIER_BUS, RESEAUX_BUS, arretsProches, busDirects, distance, minutesAPied, rayonMarche } from "./bus";
+import { DOSSIER_BUS, RESEAUX_BUS, arretsProches, busDirects, distance, minutesAPied, rayonMarche, joliNom } from "./bus";
 
 const MINUTES_PAR_JOUR = 1440;
 export const MARCHE_CONSEILLEE = 20;      // minutes : en dessous, sans bus direct, on conseille la marche
@@ -125,4 +125,53 @@ export function arretsDeLaCourse(reseau, passage, joli = (n) => n) {
     role: x < passage.montee ? "avant" : x === passage.montee ? "montee" : x < passage.descente ? "trajet"
       : x === passage.descente ? "descente" : "apres",
   }));
+}
+
+// ---------- Le panneau d'un arrêt : les prochains passages, ligne par ligne ----------
+// ids : les identifiants d'un même arrêt (ses différents quais). Renvoie, pour chaque ligne et direction,
+// les prochains passages : [{ ligne, direction, ligneId, heures: [minutes] }], du plus proche au plus lointain.
+export function passagesALArret(reseau, horaires, ids, dateIso, apres, parLigne = 2) {
+  if (!horaires) return [];
+  const aujourdhui = calendriersDuJour(horaires, dateIso);
+  const veille = new Date(Date.UTC(+dateIso.slice(0, 4), +dateIso.slice(5, 7) - 1, +dateIso.slice(8, 10) - 1)).toISOString().slice(0, 10);
+  const hier = calendriersDuJour(horaires, veille);
+  const quais = new Set(ids);
+  const groupes = new Map();
+  reseau.parcours.forEach((p, k) => {
+    p.arrets.forEach((id, i) => {
+      if (!quais.has(id) || i === p.arrets.length - 1) return;       // au terminus, le bus ne repart pas
+      const decalageArret = p.minutes ? p.minutes[i] : i * 2;
+      const ligne = reseau.lignes[p.ligne];
+      const direction = joliNom(p.direction);
+      const cle = `${p.ligne}|${direction}`;
+      const groupe = groupes.get(cle) || { ligneId: p.ligne, ligne, direction, heures: new Set() };
+      for (const [calendrier, departs] of Object.entries(horaires.departs[k] || {})) {
+        for (const [actifs, decalage] of [[aujourdhui, 0], [hier, -MINUTES_PAR_JOUR]]) {
+          if (!actifs.has(calendrier)) continue;
+          for (const d of departs) {
+            const m = d + decalageArret + decalage;
+            if (m >= apres && m < apres + 180) groupe.heures.add(m);   // les 3 prochaines heures
+          }
+        }
+      }
+      groupes.set(cle, groupe);
+    });
+  });
+  return [...groupes.values()]
+    .map((g) => ({ ...g, heures: [...g.heures].sort((a, b) => a - b).slice(0, parLigne) }))
+    .filter((g) => g.heures.length)
+    .sort((a, b) => a.heures[0] - b.heures[0]);
+}
+
+// Les arrêts proches d'un point, regroupés par nom (plusieurs quais = un seul arrêt), du plus proche au plus loin
+export function arretsAutour(reseau, lat, lon, rayon = 600) {
+  const groupes = new Map();
+  for (const [id, metres] of arretsProches(reseau, lat, lon, rayon)) {
+    const nom = joliNom(reseau.arrets[id][0]);
+    const g = groupes.get(nom) || { nom, ids: [], metres };
+    g.ids.push(id);
+    g.metres = Math.min(g.metres, metres);
+    groupes.set(nom, g);
+  }
+  return [...groupes.values()].sort((a, b) => a.metres - b.metres);
 }

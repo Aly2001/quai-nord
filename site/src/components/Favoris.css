@@ -59,3 +59,36 @@
 
 /* L'étoile toujours en jaune : en contour pour « Ajouter », pleine pour « Dans vos favoris » */
 .bouton-favori svg { color: var(--signal); flex: none; }
+
+/* ---------- L'étoile d'un train précis ---------- */
+.etoile-train { width: 40px; height: 40px; display: inline-flex; align-items: center; justify-content: center; flex: none;
+  background: transparent; border: 1.5px solid #C9D3E3; border-radius: 50%; color: var(--nuit); cursor: pointer; }
+.etoile-train--actif { color: #B7791F; border-color: #B7791F; }
+
+/* ---------- L'état du jour, en pastille ---------- */
+.etat-train { flex: none; padding: 3px 10px; border-radius: 999px; font-size: 13px; font-weight: 700; white-space: nowrap; }
+.etat-train--heure, .etat-train--faible { background: #E6F4EC; color: #2E8B57; }
+.etat-train--retard, .etat-train--modere { background: #FBE9E1; color: #C2410C; }
+.etat-train--supprime, .etat-train--eleve { background: #FDE2E2; color: #B91C1C; }
+.etat-train--absent, .etat-train--attente { background: #EEF1F5; color: var(--texte-doux); }
+
+/* ---------- Mon train du jour (accueil) ---------- */
+.mon-train { display: flex; flex-direction: column; gap: 4px; margin-bottom: 14px; padding: 14px 16px; border-radius: 14px;
+  background: #FFFFFF; color: var(--nuit); text-decoration: none; border-left: 6px solid #9FB1CC; }
+.mon-train--heure { border-left-color: #2E8B57; }
+.mon-train--retard { border-left-color: #C2410C; }
+.mon-train--supprime { border-left-color: #B91C1C; }
+.mon-train__haut { display: flex; justify-content: space-between; align-items: center; gap: 8px; }
+.mon-train__titre { font-size: 13px; font-weight: 700; letter-spacing: 0.06em; text-transform: uppercase; color: #1F6F8B; }
+.mon-train__trajet { font-family: var(--police-titre); font-size: 22px; }
+.mon-train__detail { font-size: 14px; color: var(--texte-doux); }
+
+/* ---------- La page Favoris : les trains ---------- */
+.favori-train { display: flex; flex-direction: column; gap: 8px; padding: 12px 14px; border-radius: 12px; background: #FFFFFF;
+  border: 1px solid var(--filet); }
+.favori-train__lien { display: flex; justify-content: space-between; align-items: center; gap: 10px; color: var(--nuit); text-decoration: none; }
+.favori-train__actions { display: flex; gap: 8px; flex-wrap: wrap; }
+.favori-train__surveiller { min-height: 40px; padding: 0 14px; font: inherit; font-weight: 600; font-size: 14px; border-radius: 999px;
+  background: #FFFFFF; color: var(--nuit); border: 1.5px solid #C9D3E3; cursor: pointer; }
+.favori-train__surveiller--actif { background: var(--nuit); color: #FFFFFF; border-color: var(--nuit); }
+.favoris__lien small { font-weight: 500; color: var(--texte-doux); }

@@ -1,6 +1,8 @@
+import { useEffect, useState } from "react";
 import { Link } from "react-router-dom";
 import { useFavoris } from "../data/favoris";
-import { aujourdhuiIso, heureActuelle } from "../data/horaires";
+import { useFavorisPlus, etatDuTrain, idTrain, idVille } from "../data/favorisPlus";
+import { aujourdhuiIso, heureActuelle, useIndexHoraires, trouverGare, DOSSIER, useTempsReel, useRisques, ajouterMinutes } from "../data/horaires";
 import "./Favoris.css";
 
 // L'adresse de recherche d'un favori : aujourd'hui, à partir de maintenant
@@ -60,5 +62,145 @@ export function ListeFavoris({ sombre = false, gestion = false }) {
         ))}
       </ul>
     </section>
+  );
+}
+
+
+// ---------- Un train précis : l'étoile sur sa carte, dans les résultats ----------
+export function EtoileTrain({ trajet }) {
+  const { estTrainFavori, basculerTrain } = useFavorisPlus();
+  const train = { de: trajet.gareDepart, a: trajet.gareArrivee, heure: trajet.heure };
+  const actif = estTrainFavori(train);
+  return (
+    <button type="button" className={actif ? "etoile-train etoile-train--actif" : "etoile-train"} aria-pressed={actif}
+            onClick={() => basculerTrain(train)}
+            aria-label={actif ? `Retirer le train de ${trajet.heure} des favoris` : `Ajouter le train de ${trajet.heure} aux favoris`}>
+      <svg viewBox="0 0 24 24" width="20" height="20" aria-hidden="true" fill={actif ? "currentColor" : "none"}
+           stroke="currentColor" strokeWidth="2" strokeLinejoin="round"><path d="M12 3l2.8 5.7 6.2.9-4.5 4.4 1 6.2-5.5-2.9-5.5 2.9 1-6.2L3 9.6l6.2-.9z" /></svg>
+    </button>
+  );
+}
+
+// Les départs du jour d'une gare (le même fichier que la page des résultats)
+function useDepartsDuJour(nomGare) {
+  const { index } = useIndexHoraires();
+  const [departs, setDeparts] = useState({ gare: null, liste: null });
+  const gare = index && nomGare ? trouverGare(index.gares, nomGare) : null;
+  useEffect(() => {
+    if (!gare) return undefined;
+    let annule = false;
+    fetch(`${DOSSIER}/${gare.slug}/${aujourdhuiIso()}.json`)
+      .then((r) => r.json()).then((d) => { if (!annule) setDeparts({ gare: gare.slug, liste: d.departs || [] }); })
+      .catch(() => { if (!annule) setDeparts({ gare: gare.slug, liste: [] }); });
+    return () => { annule = true; };
+  }, [gare?.slug]);
+  return departs.gare === gare?.slug ? departs.liste : null;
+}
+
+const MOTS_ETAT = {
+  absent: { mot: "Ne circule pas aujourd'hui", classe: "absent" },
+  supprime: { mot: "Supprimé", classe: "supprime" },
+  heure: { mot: "À l'heure", classe: "heure" },
+};
+
+// L'état du jour d'un train favori, en pastille
+export function EtatTrain({ favori, tempsReel, risques }) {
+  const departs = useDepartsDuJour(favori.de);
+  if (!departs) return <span className="etat-train etat-train--attente">…</span>;
+  const etat = etatDuTrain(favori, departs, tempsReel, risques);
+  if (etat.statut === "retard") return <span className="etat-train etat-train--retard">+ {etat.minutes} min</span>;
+  if (etat.statut === "prevu") {
+    return etat.risque === null ? <span className="etat-train etat-train--absent">Prévu</span>
+      : <span className={`etat-train etat-train--${etat.niveau.classe}`}>Risque {etat.risque} %</span>;
+  }
+  const m = MOTS_ETAT[etat.statut];
+  return <span className={`etat-train etat-train--${m.classe}`}>{m.mot}</span>;
+}
+
+// ---------- « Mon train du jour » : le train surveillé, en tête de l'accueil ----------
+export function MonTrainDuJour() {
+  const { trainSurveille } = useFavorisPlus();
+  const tempsReel = useTempsReel(Boolean(trainSurveille));
+  const risques = useRisques();
+  const departs = useDepartsDuJour(trainSurveille?.de);
+  if (!trainSurveille) return null;
+  const etat = departs ? etatDuTrain(trainSurveille, departs, tempsReel, risques) : null;
+  const lien = `/trajet?${new URLSearchParams({ de: trainSurveille.de, a: trainSurveille.a, jour: aujourdhuiIso(), heure: trainSurveille.heure })}`;
+  return (
+    <Link to={lien} className={`mon-train mon-train--${etat?.statut || "attente"}`}>
+      <span className="mon-train__haut">
+        <span className="mon-train__titre">Mon train du jour</span>
+        {etat && <EtatTrain favori={trainSurveille} tempsReel={tempsReel} risques={risques} />}
+      </span>
+      <strong className="mon-train__trajet">{trainSurveille.heure} · {trainSurveille.de} → {trainSurveille.a}</strong>
+      {etat?.statut === "retard" && <span className="mon-train__detail">Départ prévu à {ajouterMinutes(trainSurveille.heure, etat.minutes)}</span>}
+      {etat?.statut === "supprime" && <span className="mon-train__detail">Touchez pour voir les autres trains</span>}
+    </Link>
+  );
+}
+
+// ---------- La page Favoris : les trains précis (avec « Surveiller »), puis les trajets En ville ----------
+export function ListeTrainsFavoris() {
+  const { trains, surveille, basculerTrain, surveiller } = useFavorisPlus();
+  const tempsReel = useTempsReel(trains.length > 0);
+  const risques = useRisques();
+  if (!trains.length) {
+    return <p className="favoris__vide">Aucun train pour l'instant. Dans les résultats, touchez ☆ sur un train pour le suivre ici.</p>;
+  }
+  return (
+    <ul className="favoris__liste">
+      {trains.map((t) => {
+        const surveilleCeTrain = surveille === idTrain(t);
+        return (
+          <li key={idTrain(t)} className="favori-train">
+            <Link className="favori-train__lien" to={`/trajet?${new URLSearchParams({ de: t.de, a: t.a, jour: aujourdhuiIso(), heure: t.heure })}`}>
+              <strong>{t.heure} · {t.de} → {t.a}</strong>
+              <EtatTrain favori={t} tempsReel={tempsReel} risques={risques} />
+            </Link>
+            <div className="favori-train__actions">
+              <button type="button" aria-pressed={surveilleCeTrain} onClick={() => surveiller(t)}
+                      className={surveilleCeTrain ? "favori-train__surveiller favori-train__surveiller--actif" : "favori-train__surveiller"}>
+                {surveilleCeTrain ? "👁 Surveillé sur l'accueil" : "Surveiller ce train"}
+              </button>
+              <button type="button" className="favoris__retirer" onClick={() => basculerTrain(t)}
+                      aria-label={`Retirer le train de ${t.heure} des favoris`}>Retirer</button>
+            </div>
+          </li>
+        );
+      })}
+    </ul>
+  );
+}
+
+export const lienVille = (trajet) => `/bus?${new URLSearchParams({ t: JSON.stringify(trajet) })}`;
+
+export function ListeVilleFavoris() {
+  const { ville, basculerVille } = useFavorisPlus();
+  if (!ville.length) {
+    return <p className="favoris__vide">Aucun trajet pour l'instant. Dans « En ville », touchez ☆ sur un résultat pour le garder ici.</p>;
+  }
+  return (
+    <ul className="favoris__liste">
+      {ville.map((t) => (
+        <li key={idVille(t)} className="favoris__element">
+          <Link to={lienVille(t)} className="favoris__lien"><span>{t.A.nom} → {t.B.nom}</span><small>{t.ville}</small></Link>
+          <button type="button" className="favoris__retirer" onClick={() => basculerVille(t)}
+                  aria-label={`Retirer ${t.A.nom} → ${t.B.nom} des favoris`}>Retirer</button>
+        </li>
+      ))}
+    </ul>
+  );
+}
+
+export function EtoileVille({ trajet }) {
+  const { estVilleFavori, basculerVille } = useFavorisPlus();
+  const actif = estVilleFavori(trajet);
+  return (
+    <button type="button" className={actif ? "bouton-favori bouton-favori--actif" : "bouton-favori"} aria-pressed={actif}
+            onClick={() => basculerVille(trajet)}>
+      <svg viewBox="0 0 24 24" width="18" height="18" aria-hidden="true" fill={actif ? "currentColor" : "none"}
+           stroke="currentColor" strokeWidth="2" strokeLinejoin="round"><path d="M12 3l2.8 5.7 6.2.9-4.5 4.4 1 6.2-5.5-2.9-5.5 2.9 1-6.2L3 9.6l6.2-.9z" /></svg>
+      {actif ? "Dans vos favoris" : "Ajouter aux favoris"}
+    </button>
   );
 }

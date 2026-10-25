@@ -3,7 +3,7 @@ import { Link, useSearchParams } from "react-router-dom";
 import RechercheTrajet from "../components/RechercheTrajet";
 import Fraicheur from "../components/Fraicheur";
 import DecorVoies from "../components/DecorVoies";
-import { BoutonFavori } from "../components/Favoris";
+import { BoutonFavori, EtoileTrain } from "../components/Favoris";
 import NoraPanneau from "../components/NoraPanneau";
 import { AvatarNora } from "../components/NoraConversation";
 import { reseauDeGare, transportsDuReseau, infosReseau, libelleGare } from "../data/bus";
@@ -349,6 +349,7 @@ function CarteTrajet({ trajet: t, jour, risques, meteo, tempsReel, onDemanderNor
         </div>
 
         <div className="trajet-carte__bas">
+          {!t.correspondance && <EtoileTrain trajet={t} />}
           <button type="button" className="trajet-carte__details" aria-expanded={details}
                   onClick={() => setDetails(!details)}>
             Détails

@@ -102,3 +102,6 @@
 .bus__plus { align-self: center; min-height: 42px; padding: 0 16px; font: inherit; font-weight: 600; font-size: 15px;
   color: var(--nuit); background: #EEF1F5; border: 0; border-radius: 999px; cursor: pointer; }
 a.bus__voir-arrets { text-decoration: none; }
+
+.bus__entete { display: flex; flex-direction: column; gap: 8px; }
+.bus__entete .bouton-favori { align-self: flex-start; }

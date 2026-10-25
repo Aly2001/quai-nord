@@ -2,7 +2,7 @@ import { Link, useNavigate } from "react-router-dom";
 import RechercheTrajet from "../components/RechercheTrajet";
 import Fraicheur from "../components/Fraicheur";
 import DecorVoies from "../components/DecorVoies";
-import { ListeFavoris } from "../components/Favoris";
+import { ListeFavoris, MonTrainDuJour } from "../components/Favoris";
 import BusDepuisGare from "../components/BusDepuisGare";
 import CarteChiffre from "../components/CarteChiffre";
 import GraphiqueBarres from "../components/GraphiqueBarres";
@@ -12,7 +12,7 @@ import "./Accueil.css";
 import { useTitrePage } from "../components/titrePage";
 
 export default function Accueil() {
-  useTitrePage(null, "Votre TER des Hauts-de-France sera-t-il à l'heure ? Recherchez un trajet et voyez son risque de retard, calculé à partir des données ouvertes de la SNCF.");
+  useTitrePage(null, "Votre TER des Hauts-de-France sera-t-il à l'heure ? Voyez le risque de retard de votre train, puis le bus, le tram ou le métro à prendre depuis la gare, à Lille, Calais, Boulogne, Dunkerque, Amiens et Arras.");
   const navigate = useNavigate();
 
   // Quand on valide le formulaire : on va sur la page des résultats,
@@ -35,6 +35,8 @@ export default function Accueil() {
         <div className="conteneur bandeau__contenu">
           <div className="bandeau__recherche">
             <h1 className="bandeau__titre">Votre TER sera-t-il à l'heure&nbsp;?</h1>
+            {/* Le train surveillé, avec son état en direct : ce qu'on veut savoir en ouvrant l'application */}
+            <MonTrainDuJour />
             <RechercheTrajet onRechercher={rechercher} />
             {/* Si les données sont anciennes, l'alerte reste juste sous le formulaire */}
             <Fraicheur sombre partie="alerte" />

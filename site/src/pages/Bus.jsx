@@ -1,5 +1,6 @@
 import { useEffect, useId, useMemo, useState } from "react";
-import { Link } from "react-router-dom";
+import { Link, useSearchParams } from "react-router-dom";
+import { EtoileVille } from "../components/Favoris";
 import { useTitrePage } from "../components/titrePage";
 import {
   RESEAUX, chargerReseau, chargerGaresCouvertes, gareLaPlusProche, arretLePlusProche, DISTANCE_MAX_GARE,
@@ -89,6 +90,19 @@ export default function Bus() {
   const [arrivee, setArrivee] = useState({ texte: "", lieu: null });
   const [etat, setEtat] = useState({ type: "formulaire" });
   const [course, setCourse] = useState(null);          // le détail d'une course ouvert, ou null
+  // Un favori « En ville » rouvert : ?t={code, A, B} -> les champs remplis, puis la recherche relancée
+  const [parametres] = useSearchParams();
+  const [aRelancer, setARelancer] = useState(false);
+  useEffect(() => {
+    let favori = null;
+    try { favori = JSON.parse(parametres.get("t") || "null"); } catch { favori = null; }
+    if (!favori?.code || !favori.B || !RESEAUX.some((r) => r.code === favori.code)) return;
+    setCode(favori.code);
+    setArrivee({ texte: favori.B.nom, lieu: favori.B });
+    if (favori.A?.cat === "position") maPosition();                    // « Ma position » : là où l'on est maintenant
+    else setDepart({ texte: favori.A.nom, lieu: favori.A });
+    setARelancer(true);
+  }, [parametres]);   // eslint-disable-line react-hooks/exhaustive-deps
   const ville = RESEAUX.find((r) => r.code === code);
 
   useEffect(() => {
@@ -97,6 +111,9 @@ export default function Bus() {
     return () => { annule = true; };
   }, [code]);
   const reseau = charge.code === code ? charge.reseau : null;
+  useEffect(() => {
+    if (aRelancer && reseau && depart.lieu && arrivee.lieu) { setARelancer(false); chercher(); }
+  }, [aRelancer, reseau, depart.lieu, arrivee.lieu]);   // eslint-disable-line react-hooks/exhaustive-deps
   const repere = useMemo(() => gareDuReseau(code, reseau), [code, reseau]);
 
   function choisirVille(nouveau) {
@@ -208,7 +225,7 @@ export default function Bus() {
       </form>
 
       {course && <DetailCourse course={course} reseau={reseau} ville={ville} onFermer={() => setCourse(null)} onChoix={setCourse} />}
-      {!course && etat.type === "resultat" && <Resultat key={`${etat.A.nom}|${etat.B.nom}|${etat.maintenant}`} etat={etat} reseau={reseau} ville={ville} onDetail={setCourse} />}
+      {!course && etat.type === "resultat" && <Resultat key={`${etat.A.nom}|${etat.B.nom}|${etat.maintenant}`} etat={etat} reseau={reseau} ville={ville} code={code} onDetail={setCourse} />}
       {etat.type === "autreVille" && (
         <section className="bus__carte">
           <p className="bus__carte-titre">{etat.vers.ville} est dans une autre ville : prenez le train</p>
@@ -276,7 +293,7 @@ function CartePied({ A, B, minutes, arrivee, rapide }) {
   );
 }
 
-function Resultat({ etat, reseau, ville, onDetail }) {
+function Resultat({ etat, reseau, ville, code, onDetail }) {
   const { A, B, trajet, maintenant } = etat;
   const [tout, setTout] = useState(false);
   const nomA = A.cat === "position" ? "Ma position" : A.nom;
@@ -292,6 +309,9 @@ function Resultat({ etat, reseau, ville, onDetail }) {
     <div className="bus__resultat">
       <section className="bus__entete">
         <p>{nomA} → {B.nom}</p>
+        {/* Le favori garde les deux lieux ; « Ma position » reste « là où l'on sera », sans coordonnées */}
+        <EtoileVille trajet={{ code, ville: ville.ville, B: { nom: B.nom, lat: B.lat, lon: B.lon, cat: B.cat || null },
+          A: A.cat === "position" ? { nom: "Ma position", cat: "position" } : { nom: A.nom, lat: A.lat, lon: A.lon, cat: A.cat || null } }} />
         {possibilites.length > 0 && (
           <p className="bus__entete-grand">{possibilites.length} possibilité{possibilites.length > 1 ? "s" : ""}</p>
         )}

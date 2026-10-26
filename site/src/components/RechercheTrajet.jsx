@@ -2,7 +2,15 @@ import { useEffect, useMemo, useState } from "react";
 import ChampGare from "./ChampGare";
 import { lireRecents, retenirGares } from "../data/suggestionsGares";
 import { useIndexHoraires, joursAVenir, etiquetteJour, dateCourte, heureActuelle } from "../data/horaires";
+import { useLangue } from "../langue/langue";
 import "./RechercheTrajet.css";
+
+// « Aujourd'hui », « Demain », « Après-demain » dans la langue choisie (sinon la date)
+function nomDuJour(dateIso, t, court = false) {
+  const nom = etiquetteJour(dateIso);
+  const cles = { "Aujourd'hui": "jour.aujourdhui", Demain: "jour.demain", "Après-demain": court ? "jour.apresdemain.court" : "jour.apresdemain" };
+  return cles[nom] ? t(cles[nom]) : nom;
+}
 
 // Petites icônes dessinées en SVG (aucune image externe)
 function IconeGare() {
@@ -23,7 +31,8 @@ function IconeHorloge() {
 }
 
 // Le formulaire « De ... à ... », utilisé sur l'accueil ET sur la page des résultats.
-export default function RechercheTrajet({ initial = {}, onRechercher, texteBouton = "Rechercher" }) {
+export default function RechercheTrajet({ initial = {}, onRechercher, texteBouton }) {
+  const { t } = useLangue();
   const { index } = useIndexHoraires();
   const [de, setDe] = useState(initial.de || "");
   const [a, setA] = useState(initial.a || "");
@@ -57,13 +66,13 @@ export default function RechercheTrajet({ initial = {}, onRechercher, texteBouto
     <form className="recherche" onSubmit={envoyer}>
       {/* ---------- Départ et arrivée ---------- */}
       <div className="recherche__gares">
-        <ChampGare id="rt-de" label="Gare de départ" valeur={de} onChange={setDe} noms={nomsDepart} recents={recents}
-                   placeholder="Une gare, une ville" position icone={<IconeGare />} />
-        <ChampGare id="rt-a" label="Gare d'arrivée" valeur={a} onChange={setA} noms={nomsArrivee} recents={recents}
-                   placeholder="Une gare, une ville" icone={<IconeGare />} />
+        <ChampGare id="rt-de" label={t("recherche.depart")} valeur={de} onChange={setDe} noms={nomsDepart} recents={recents}
+                   placeholder={t("recherche.exemple")} position icone={<IconeGare />} />
+        <ChampGare id="rt-a" label={t("recherche.arrivee")} valeur={a} onChange={setA} noms={nomsArrivee} recents={recents}
+                   placeholder={t("recherche.exemple")} icone={<IconeGare />} />
 
         <button type="button" className="recherche__inverser" onClick={inverser}
-                aria-label="Inverser le départ et l'arrivée">
+                aria-label={t("recherche.inverser")}>
           <svg viewBox="0 0 24 24" width="22" height="22" aria-hidden="true" fill="none"
                stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
             <path d="M7 4v16M3 8l4-4 4 4M17 20V4M21 16l-4 4-4-4" />
@@ -73,7 +82,7 @@ export default function RechercheTrajet({ initial = {}, onRechercher, texteBouto
 
       {/* ---------- Le jour : trois boutons ---------- */}
       <fieldset className="recherche__jours">
-        <legend>Aller</legend>
+        <legend>{t("recherche.aller")}</legend>
         <div className="recherche__choix-jours">
           {jours.map((j) => (
             <button key={j} type="button"
@@ -82,10 +91,8 @@ export default function RechercheTrajet({ initial = {}, onRechercher, texteBouto
                     onClick={() => setJour(j)}>
               <span className="choix-jour__nom">
                 {/* Version courte sur les petits écrans : « Après-dem. » */}
-                <span className="choix-jour__long">{etiquetteJour(j)}</span>
-                <span className="choix-jour__court" aria-hidden="true">
-                  {etiquetteJour(j) === "Après-demain" ? "Après-dem." : etiquetteJour(j)}
-                </span>
+                <span className="choix-jour__long">{nomDuJour(j, t)}</span>
+                <span className="choix-jour__court" aria-hidden="true">{nomDuJour(j, t, true)}</span>
               </span>
               <span className="choix-jour__date">{dateCourte(j)}</span>
             </button>
@@ -100,14 +107,14 @@ export default function RechercheTrajet({ initial = {}, onRechercher, texteBouto
       <div className="boite">
         <IconeHorloge />
         <div className="boite__contenu">
-          <label htmlFor="rt-heure">Départ à partir de</label>
+          <label htmlFor="rt-heure">{t("recherche.heure")}</label>
           <input id="rt-heure" type="time" required value={heure}
                  onChange={(e) => setHeure(e.target.value)} />
         </div>
       </div>
 
       <div className="recherche__actions">
-        <button type="submit" className="recherche__bouton" disabled={!jour}>{texteBouton}</button>
+        <button type="submit" className="recherche__bouton" disabled={!jour}>{texteBouton || t("recherche.rechercher")}</button>
       </div>
 
     </form>

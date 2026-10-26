@@ -20,3 +20,8 @@
 @media (max-width: 640px) {
   .pied { display: none; }
 }
+
+.pied__langue { display: flex; align-items: center; gap: 6px; margin-top: 8px; }
+.pied__choix { min-height: 36px; padding: 0 12px; font: inherit; font-size: 14px; border-radius: 999px; background: transparent;
+  color: inherit; border: 1px solid currentColor; opacity: 0.7; cursor: pointer; }
+.pied__choix--actif { opacity: 1; font-weight: 700; }

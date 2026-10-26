@@ -1,11 +1,13 @@
 import { useId, useMemo, useState } from "react";
 import { proposerGares, morceauxEnGras } from "../data/suggestionsGares";
+import { useLangue } from "../langue/langue";
 import { chargerGaresCouvertes, gareLaPlusProche, DISTANCE_MAX_GARE, libelleGare } from "../data/bus";
 
 // Un champ de gare, avec NOS propositions sous le champ (la liste du navigateur s'affiche mal sur iPhone).
 // Au clavier : flèches haut et bas pour choisir, Entrée pour valider, Échap pour fermer.
 export default function ChampGare({ id, label, valeur, onChange, noms, recents = [], placeholder, position = false, icone }) {
   const idListe = useId();
+  const { t } = useLangue();
   const [ouvert, setOuvert] = useState(false);
   const [actif, setActif] = useState(-1);
   const [message, setMessage] = useState("");
@@ -57,24 +59,24 @@ export default function ChampGare({ id, label, valeur, onChange, noms, recents =
         {message && <p className="champ-gare__message" role="status">{message}</p>}
       </div>
       {valeur && (
-        <button type="button" className="champ-gare__effacer" aria-label={`Effacer ${label.toLowerCase()}`}
+        <button type="button" className="champ-gare__effacer" aria-label={`${t("gare.effacer")} : ${label}`}
                 onMouseDown={(e) => e.preventDefault()} onClick={() => { onChange(""); setOuvert(true); }}>✕</button>
       )}
       {visible && (
         <ul className="champ-gare__liste" role="listbox" id={idListe}>
-          {!valeur.trim() && <li className="champ-gare__titre" role="presentation">Suggestions</li>}
+          {!valeur.trim() && <li className="champ-gare__titre" role="presentation">{t("gare.suggestions")}</li>}
           {options.map((option, i) => (
             <li key={option.type === "position" ? "position" : option.nom} id={`${idListe}-${i}`} role="option"
                 aria-selected={i === actif} className={i === actif ? "champ-gare__option champ-gare__option--actif" : "champ-gare__option"}
                 onMouseDown={(e) => e.preventDefault()} onClick={() => choisir(option)}>
               {option.type === "position" ? (
                 <><span className="champ-gare__pictogramme" aria-hidden="true">📍</span>
-                  <span><strong>Gare la plus proche de moi</strong><small>Calculée sur votre téléphone</small></span></>
+                  <span><strong>{t("gare.proche")}</strong><small>{t("gare.proche.detail")}</small></span></>
               ) : (
                 <><span className="champ-gare__pictogramme" aria-hidden="true">{recents.includes(option.nom) ? "🕘" : "🚉"}</span>
                   <span>
                     {morceauxEnGras(libelleGare(option.nom), valeur).map((m, j) => (m.gras ? <strong key={j}>{m.texte}</strong> : <span key={j}>{m.texte}</span>))}
-                    {recents.includes(option.nom) && <small>Recherchée récemment</small>}
+                    {recents.includes(option.nom) && <small>{t("gare.recente")}</small>}
                   </span></>
               )}
             </li>

@@ -2,21 +2,24 @@ import { useEffect, useRef, useState } from "react";
 import { Link, NavLink, useLocation } from "react-router-dom";
 import { AvatarNora } from "./NoraConversation";
 import { GROUPES } from "./navigation";
+import { useLangue } from "../langue/langue";
+import { LANGUES } from "../langue/traductions";
 
 // Ordinateur : les pages d'avant, plus « En ville », sans icônes, rangées à droite
 const PAGES_ORDINATEUR = [
-  { label: "Accueil", lien: "/" },
-  { label: "En ville", lien: "/bus" },          // le bus, le tram, le métro : on peut aussi les chercher sur ordinateur
-  { label: "Carte", lien: "/carte" },
-  { label: "Prédiction", lien: "/prediction" },
-  { label: "Analyses", lien: "/analyses" },
-  { label: "Questions", lien: "/faq" },
-  { label: "Nora", lien: "/nora" },
+  { cle: "nav.accueil", lien: "/" },
+  { cle: "nav.enville", lien: "/bus" },          // le bus, le tram, le métro : on peut aussi les chercher sur ordinateur
+  { cle: "nav.carte", lien: "/carte" },
+  { cle: "nav.prediction", lien: "/prediction" },
+  { cle: "nav.analyses", lien: "/analyses" },
+  { cle: "nav.questions", lien: "/faq" },
+  { cle: "nav.nora", lien: "/nora" },
 ];
 import "./Header.css";
 
 export default function Header() {
   const { pathname } = useLocation();
+  const { t, langue, setLangue } = useLangue();
   const [ouvert, setOuvert] = useState(false);          // le menu ☰ (téléphone) ou « Plus » (ordinateur)
   const zone = useRef(null);
   const entete = useRef(null);
@@ -49,11 +52,11 @@ export default function Header() {
         </Link>
 
         {/* Ordinateur : le menu d'avant, inchangé */}
-        <nav aria-label="Navigation principale" className="menu">
+        <nav aria-label={t("nav.principale")} className="menu">
           {PAGES_ORDINATEUR.map((page) => (
             <NavLink key={page.lien} to={page.lien} end
                      className={({ isActive }) => (isActive ? "menu__lien menu__lien--actif" : "menu__lien")}>
-              {page.label}
+              {t(page.cle)}
             </NavLink>
           ))}
         </nav>
@@ -65,19 +68,28 @@ export default function Header() {
                  stroke="currentColor" strokeWidth="2" strokeLinecap="round">
               {ouvert ? <path d="M6 6l12 12M18 6L6 18" /> : <path d="M4 7h16M4 12h16M4 17h16" />}
             </svg>
-            <span className="visuellement-cache">{ouvert ? "Fermer le menu" : "Ouvrir le menu"}</span>
+            <span className="visuellement-cache">{ouvert ? t("nav.fermer") : t("nav.ouvrir")}</span>
           </button>
 
           {ouvert && (
             <div id="menu-plus" className="menu-plus" role="dialog" aria-label="Plus de pages"
                  style={{ "--hauteur-entete": `${hauteur}px` }}>
+              {/* La langue, tout en haut du menu */}
+              <div className="menu-plus__langue" role="group" aria-label={t("langue.titre")}>
+                <span aria-hidden="true">🌐</span><strong>{t("langue.titre")}</strong>
+                {LANGUES.map((l) => (
+                  <button key={l.code} type="button" aria-pressed={l.code === langue} lang={l.code}
+                          className={l.code === langue ? "menu-plus__choix menu-plus__choix--actif" : "menu-plus__choix"}
+                          onClick={() => setLangue(l.code)}>{l.nom}</button>
+                ))}
+              </div>
               {GROUPES.map((g) => (
                 <section key={g.titre}>
-                  <p className="menu-plus__groupe">{g.titre}</p>
+                  <p className="menu-plus__groupe">{t(g.cle)}</p>
                   {g.pages.map((p) => (
                     <Link key={p.lien} to={p.lien} className="menu-plus__lien">
                       <span className="menu-plus__emoji" aria-hidden="true">{p.emoji}</span>
-                      <span><strong>{p.label}</strong><small>{p.detail}</small></span>
+                      <span><strong>{t(p.cle)}</strong><small>{t(`${p.cle}.detail`)}</small></span>
                     </Link>
                   ))}
                 </section>

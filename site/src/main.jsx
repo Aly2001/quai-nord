@@ -3,13 +3,16 @@ import { createRoot } from "react-dom/client";
 import { BrowserRouter } from "react-router-dom";
 import "./index.css";
 import App from "./App.jsx";
+import { LangueProvider } from "./langue/langue";
 
 // BrowserRouter « enveloppe » toute l'application :
 // il surveille l'adresse dans le navigateur (/, /carte, /trajet...)
 createRoot(document.getElementById("root")).render(
   <StrictMode>
     <BrowserRouter>
-      <App />
+      <LangueProvider>
+        <App />
+      </LangueProvider>
     </BrowserRouter>
   </StrictMode>
 );

@@ -1,5 +1,5 @@
 import { describe, test, expect } from "vitest";
-import { calendriersDuJour, prochainsPassages, trajetEntrePoints, minutesEnHeure, arretsDeLaCourse, passagesALArret, arretsAutour, relierAuDirect, busAvecDirect } from "./trajetBus";
+import { calendriersDuJour, prochainsPassages, trajetEntrePoints, minutesEnHeure, arretsDeLaCourse, passagesALArret, arretsAutour, relierAuDirect, busAvecDirect, arretsNommesComme, autresDescentes } from "./trajetBus";
 
 // Un petit réseau : la ligne 5 va de A1 (près de A) à B1 (près de B) en 10 min, 3 arrêts.
 const reseau = {
@@ -115,5 +115,21 @@ describe("le direct des bus", () => {
     const b = { ligneId: "L5", depart: { id: "A1" }, marcheApres: 2, passages: [{ depart: 870, arrivee: 880, origine: 870 }], arriveeFinale: 882 };
     const d = busAvecDirect(b, { passages: { "L5|A1": [sec(14, 33)] } }, jour);
     expect([d.passages[0].direct, d.passages[0].prevue, d.passages[0].depart, d.arriveeFinale]).toEqual([true, 870, 873, 885]);
+  });
+});
+
+
+describe("descendre au bon arrêt", () => {
+  test("« rue Pascal » : l'arrêt Pascal compte, même s'il est au bout de la rue", () => {
+    const r = { ...reseau, arrets: { ...reseau.arrets, P1: ["PASCAL", 50.7300, 1.6100] } };
+    const ids = arretsNommesComme(r, { nom: "Rue Pascal", lat: 50.7250, lon: 1.6050 }).map(([id]) => id);
+    expect(ids).toEqual(["P1"]);
+    expect(arretsNommesComme(r, { nom: "Rue de la Gare", lat: 50.7250, lon: 1.6050 })).toEqual([]);   // « gare » est trop général
+  });
+  test("les autres arrêts où descendre du même bus", () => {
+    const [p] = prochainsPassages(reseau, horaires, "L5", "A1", "M1", "2026-10-21", 860);
+    const b = { arrivee: { id: "M1" }, passages: [p] };
+    const autres = autresDescentes(reseau, b, new Map([["M1", 100], ["B1", 300]]));
+    expect(autres.map((o) => [o.nom, minutesEnHeure(o.minute), o.marche])).toEqual([["Gare", "14:40", 4]]);
   });
 });

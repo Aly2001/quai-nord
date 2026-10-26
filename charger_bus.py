@@ -558,11 +558,15 @@ def preparer(code, reseau):
             compte[cle] += 1
             # La durée entre arrêts, prise sur un voyage réel de ce parcours
             minutes = [m for _, _, m in suite]
-            if cle not in temps and None not in minutes:
-                temps[cle] = [m - minutes[0] for m in minutes]
+            if None not in minutes:
+                # Toutes les durées, pour prendre ensuite la valeur du milieu (médiane) : un seul voyage
+                # pouvait être celui de l'heure de pointe, plus lent, ou celui du soir, plus rapide
+                temps.setdefault(cle, []).append([m - minutes[0] for m in minutes])
             if minutes[0] is not None:
                 departs[cle].append((service, minutes[0]))
 
+    for cle, listes in temps.items():                  # la durée médiane jusqu'à chaque arrêt
+        temps[cle] = [sorted(colonne)[len(colonne) // 2] for colonne in zip(*listes)]
     cles = [cle for cle in compte if cle[0] in lignes]
     parcours = [{"ligne": route_id, "direction": direction, "arrets": list(ordre), "voyages": compte[(route_id, direction, ordre)],
                  "minutes": temps.get((route_id, direction, ordre))}

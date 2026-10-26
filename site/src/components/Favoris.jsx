@@ -2,6 +2,7 @@ import { useEffect, useState } from "react";
 import { Link } from "react-router-dom";
 import { useFavoris } from "../data/favoris";
 import { useFavorisPlus, etatDuTrain, idTrain, idVille } from "../data/favorisPlus";
+import { useLangue } from "../langue/langue";
 import { aujourdhuiIso, heureActuelle, useIndexHoraires, trouverGare, DOSSIER, useTempsReel, useRisques, ajouterMinutes } from "../data/horaires";
 import "./Favoris.css";
 
@@ -98,27 +99,29 @@ function useDepartsDuJour(nomGare) {
 }
 
 const MOTS_ETAT = {
-  absent: { mot: "Ne circule pas aujourd'hui", classe: "absent" },
-  supprime: { mot: "Supprimé", classe: "supprime" },
-  heure: { mot: "À l'heure", classe: "heure" },
+  absent: { cle: "montrain.absent", classe: "absent" },
+  supprime: { cle: "montrain.supprime", classe: "supprime" },
+  heure: { cle: "montrain.heure", classe: "heure" },
 };
 
 // L'état du jour d'un train favori, en pastille
 export function EtatTrain({ favori, tempsReel, risques }) {
+  const { t } = useLangue();
   const departs = useDepartsDuJour(favori.de);
   if (!departs) return <span className="etat-train etat-train--attente">…</span>;
   const etat = etatDuTrain(favori, departs, tempsReel, risques);
-  if (etat.statut === "retard") return <span className="etat-train etat-train--retard">+ {etat.minutes} min</span>;
+  if (etat.statut === "retard") return <span className="etat-train etat-train--retard">{t("montrain.retard", { minutes: etat.minutes })}</span>;
   if (etat.statut === "prevu") {
-    return etat.risque === null ? <span className="etat-train etat-train--absent">Prévu</span>
-      : <span className={`etat-train etat-train--${etat.niveau.classe}`}>Risque {etat.risque} %</span>;
+    return etat.risque === null ? <span className="etat-train etat-train--absent">{t("montrain.prevu")}</span>
+      : <span className={`etat-train etat-train--${etat.niveau.classe}`}>{t("montrain.risque", { pourcentage: etat.risque })}</span>;
   }
   const m = MOTS_ETAT[etat.statut];
-  return <span className={`etat-train etat-train--${m.classe}`}>{m.mot}</span>;
+  return <span className={`etat-train etat-train--${m.classe}`}>{t(m.cle)}</span>;
 }
 
 // ---------- « Mon train du jour » : le train surveillé, en tête de l'accueil ----------
 export function MonTrainDuJour() {
+  const { t } = useLangue();
   const { trainSurveille } = useFavorisPlus();
   const tempsReel = useTempsReel(Boolean(trainSurveille));
   const risques = useRisques();
@@ -129,12 +132,12 @@ export function MonTrainDuJour() {
   return (
     <Link to={lien} className={`mon-train mon-train--${etat?.statut || "attente"}`}>
       <span className="mon-train__haut">
-        <span className="mon-train__titre">Mon train du jour</span>
+        <span className="mon-train__titre">{t("montrain.titre")}</span>
         {etat && <EtatTrain favori={trainSurveille} tempsReel={tempsReel} risques={risques} />}
       </span>
       <strong className="mon-train__trajet">{trainSurveille.heure} · {trainSurveille.de} → {trainSurveille.a}</strong>
-      {etat?.statut === "retard" && <span className="mon-train__detail">Départ prévu à {ajouterMinutes(trainSurveille.heure, etat.minutes)}</span>}
-      {etat?.statut === "supprime" && <span className="mon-train__detail">Touchez pour voir les autres trains</span>}
+      {etat?.statut === "retard" && <span className="mon-train__detail">{t("montrain.nouvelle", { heure: ajouterMinutes(trainSurveille.heure, etat.minutes) })}</span>}
+      {etat?.statut === "supprime" && <span className="mon-train__detail">{t("montrain.autres")}</span>}
     </Link>
   );
 }

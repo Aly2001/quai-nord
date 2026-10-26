@@ -1,5 +1,6 @@
 import { Link, useNavigate } from "react-router-dom";
 import RechercheTrajet from "../components/RechercheTrajet";
+import { useLangue } from "../langue/langue";
 import Fraicheur from "../components/Fraicheur";
 import DecorVoies from "../components/DecorVoies";
 import { ListeFavoris, MonTrainDuJour } from "../components/Favoris";
@@ -12,6 +13,7 @@ import "./Accueil.css";
 import { useTitrePage } from "../components/titrePage";
 
 export default function Accueil() {
+  const { t } = useLangue();
   useTitrePage(null, "Votre TER des Hauts-de-France sera-t-il à l'heure ? Voyez le risque de retard de votre train, puis le bus, le tram ou le métro à prendre depuis la gare, à Lille, Calais, Boulogne, Dunkerque, Amiens et Arras.");
   const navigate = useNavigate();
 
@@ -34,7 +36,7 @@ export default function Accueil() {
         <DecorVoies />
         <div className="conteneur bandeau__contenu">
           <div className="bandeau__recherche">
-            <h1 className="bandeau__titre">Votre TER sera-t-il à l'heure&nbsp;?</h1>
+            <h1 className="bandeau__titre">{t("accueil.titre")}</h1>
             {/* Le train surveillé, avec son état en direct : ce qu'on veut savoir en ouvrant l'application */}
             <MonTrainDuJour />
             <RechercheTrajet onRechercher={rechercher} />

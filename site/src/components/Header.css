@@ -27,3 +27,11 @@
 
 .visuellement-cache { position: absolute; width: 1px; height: 1px; padding: 0; margin: -1px; overflow: hidden;
   clip: rect(0, 0, 0, 0); white-space: nowrap; border: 0; }
+
+/* ---------- La langue, en haut du menu ☰ ---------- */
+.menu-plus__langue { display: flex; align-items: center; gap: 8px; margin: 10px 0 4px; padding: 10px 12px; border-radius: 12px;
+  background: #EEF6F9; }
+.menu-plus__langue strong { flex: 1; }
+.menu-plus__choix { min-height: 38px; padding: 0 12px; font: inherit; font-weight: 600; border-radius: 999px; background: #FFFFFF;
+  color: var(--nuit); border: 1.5px solid #C9D3E3; cursor: pointer; }
+.menu-plus__choix--actif { background: var(--nuit); color: #FFFFFF; border-color: var(--nuit); }

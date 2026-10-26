@@ -88,6 +88,11 @@ export function trajetEntrePoints(reseau, horaires, A, B, dateIso, maintenant, n
   const idsA = new Set(prochesA.map(([id]) => id));
   // Les arrêts du côté de B, sans ceux qui sont aussi près de A (monter et descendre au même endroit)
   const prochesB = arretsProches(reseau, B.lat, B.lon, rayonMarche(B.cat)).filter(([id]) => !idsA.has(id));
+  // Un arrêt qui porte le NOM de la destination (« rue Pascal » -> l'arrêt Pascal) compte aussi, jusqu'à 1,2 km :
+  // une rue entière est placée en son milieu, et son arrêt peut être à un bout
+  const idsB = new Set(prochesB.map(([id]) => id));
+  for (const [id, m] of arretsNommesComme(reseau, B)) if (!idsB.has(id) && !idsA.has(id)) { prochesB.push([id, m]); idsB.add(id); }
+  const descentes = new Map(prochesB);           // les arrêts où l'on peut descendre, et la marche jusqu'à B (mètres)
 
   // TOUTES les lignes directes (jusqu'à 12) : c'est au voyageur de choisir, on conseille seulement la plus rapide
   const lignes = busDirects(reseau, prochesA, prochesB, 12).map((b) => {
@@ -102,8 +107,8 @@ export function trajetEntrePoints(reseau, horaires, A, B, dateIso, maintenant, n
   const aujourdhui = lignes.filter((b) => !horaires || b.passages.length > 0).sort((x, y) => duree(x) - duree(y));
   const plusRapides = aujourdhui.filter((b) => duree(b) < aPied);
 
-  if (plusRapides.length) return { metres, minutesAPied: aPied, bus: aujourdhui.slice(0, nombre), conseil: "bus" };
-  if (aujourdhui.length) return { metres, minutesAPied: aPied, bus: aujourdhui.slice(0, nombre), conseil: "pied" };
+  if (plusRapides.length) return { metres, minutesAPied: aPied, bus: aujourdhui.slice(0, nombre), conseil: "bus", descentes };
+  if (aujourdhui.length) return { metres, minutesAPied: aPied, bus: aujourdhui.slice(0, nombre), conseil: "pied", descentes };
   if (lignes.length && horaires && aPied > MARCHE_CONSEILLEE) {
     // Une ligne existe, mais plus de bus aujourd'hui : le premier de demain
     const demain = lendemainIso(dateIso);
@@ -225,4 +230,37 @@ export function busAvecDirect(b, direct, dateIso) {
   });
   const premier = passages[0];
   return { ...b, passages, arriveeFinale: premier ? premier.arrivee + b.marcheApres : b.arriveeFinale };
+}
+
+// Les arrêts dont le nom reprend un mot distinctif de la destination (« rue Pascal » -> « Pascal »), à 1,2 km au plus
+const MOTS_GENERIQUES = new Set(["rue", "avenue", "boulevard", "place", "chemin", "route", "allee", "impasse", "quai",
+  "square", "cours", "de", "du", "des", "la", "le", "les", "l", "d", "et", "saint", "sainte", "gare"]);
+export function arretsNommesComme(reseau, B, rayon = 1200) {
+  const motsB = joliNom(B.nom || "").normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase()
+    .split(/[^a-z0-9]+/).filter((m) => m.length >= 4 && !MOTS_GENERIQUES.has(m));
+  if (!motsB.length || B.lat === undefined) return [];
+  const resultat = [];
+  for (const [id, [nom, lat, lon]] of Object.entries(reseau.arrets)) {
+    const motsArret = nom.normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase().split(/[^a-z0-9]+/);
+    if (!motsB.some((m) => motsArret.includes(m))) continue;
+    const m = Math.round(distance(B.lat, B.lon, lat, lon));
+    if (m <= rayon) resultat.push([id, m]);
+  }
+  return resultat;
+}
+
+// Les AUTRES arrêts où descendre du même bus, avec l'heure et la marche jusqu'à la destination :
+// [{ nom, minute, marche }] — pour proposer « ou descendez à Pascal », du plus tôt arrivé au plus tard
+export function autresDescentes(reseau, b, descentes) {
+  const p = b.passages?.[0];
+  if (!p || p.parcours === undefined || !descentes) return [];
+  const parcours = reseau.parcours[p.parcours];
+  const options = [];
+  parcours.arrets.forEach((id, x) => {
+    if (x <= p.montee || id === b.arrivee.id || !descentes.has(id)) return;
+    const minute = p.origine + (parcours.minutes ? parcours.minutes[x] : x * 2);
+    const marche = minutesAPied(descentes.get(id));
+    options.push({ id, nom: joliNom(reseau.arrets[id][0]), minute, marche, arriveeFinale: minute + marche });
+  });
+  return options.sort((x, y) => x.arriveeFinale - y.arriveeFinale).slice(0, 2);
 }

@@ -1,6 +1,7 @@
 import { NavLink, useLocation } from "react-router-dom";
 import { PRINCIPAUX, menuActif } from "./navigation";
 import { AvatarNora } from "./NoraConversation";
+import { useLangue } from "../langue/langue";
 import "./BarreOnglets.css";
 
 // La barre du bas, sur téléphone : les quatre choses qu'on fait tous les jours.
@@ -13,12 +14,13 @@ const ICONES = {
 
 export default function BarreOnglets() {
   const { pathname } = useLocation();
+  const { t } = useLangue();
   // Sur la page Nora, la zone de saisie occupe le bas de l'écran : pas de barre
   if (pathname.startsWith("/nora")) return null;
   const actif = menuActif(pathname);
 
   return (
-    <nav aria-label="Navigation principale" className="onglets">
+    <nav aria-label={t("nav.principale")} className="onglets">
       {PRINCIPAUX.map((o) => (
         <NavLink key={o.lien} to={o.lien} end className={o.lien === actif ? "onglet onglet--actif" : "onglet"}
                  aria-current={o.lien === actif ? "page" : undefined}>
@@ -30,7 +32,7 @@ export default function BarreOnglets() {
               </svg>
             )}
           </span>
-          {o.label}
+          {t(o.cle)}
         </NavLink>
       ))}
     </nav>

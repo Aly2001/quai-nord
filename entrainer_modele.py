@@ -128,13 +128,17 @@ def evaluer(df, jours):
 
 
 def ajouter_historique(chemin, ligne):
-    """Une ligne par nuit, sans jamais effacer les précédentes : c'est sur cet historique qu'on décidera
-    de brancher le modèle sur le site (au moins 2 semaines de gains réguliers)."""
-    nouveau = not chemin.exists()
-    with open(chemin, "a", newline="", encoding="utf-8") as fichier:
+    """Une ligne par JOUR, sans jamais effacer les jours précédents : c'est sur cet historique qu'on décidera
+    de brancher le modèle sur le site. Relancé plusieurs fois le même jour, le script remplace la ligne du jour."""
+    lignes = []
+    if chemin.exists():
+        with open(chemin, newline="", encoding="utf-8") as fichier:
+            lignes = [l for l in csv.DictReader(fichier) if l.get("date") != ligne["date"]]
+    with open(chemin, "w", newline="", encoding="utf-8") as fichier:
         ecrivain = csv.DictWriter(fichier, fieldnames=list(ligne))
-        if nouveau:
-            ecrivain.writeheader()
+        ecrivain.writeheader()
+        for ancienne in lignes:
+            ecrivain.writerow({c: ancienne.get(c, "") for c in ligne})
         ecrivain.writerow(ligne)
 
 

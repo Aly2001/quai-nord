@@ -66,10 +66,15 @@ def test_le_modele_bat_la_constante_et_le_rapport_est_ecrit(base, tmp_path, monk
 def test_chaque_nuit_ajoute_une_ligne_a_l_historique(base, tmp_path, monkeypatch):
     monkeypatch.setattr(em, "BASE_ANALYSE", str(base))
     monkeypatch.setattr(em, "DOSSIER_MODELE", tmp_path / "modele")
+    chemin = tmp_path / "modele" / "historique.csv"
+    chemin.parent.mkdir(parents=True, exist_ok=True)
+    chemin.write_text("date,examen,journees,constante,ligne,modele,gain_pct,annonce_pct,reel_pct\n"
+                      "2026-10-20,x,10,0.2,0.2,0.2,1,10,10\n", encoding="utf-8")   # une nuit précédente
     em.main()
-    em.main()                                                   # la nuit suivante
-    lignes = (tmp_path / "modele" / "historique.csv").read_text(encoding="utf-8").splitlines()
+    em.main()                                                   # relancé le même jour : la ligne du jour est remplacée
+    lignes = chemin.read_text(encoding="utf-8").splitlines()
     assert lignes[0].startswith("date,examen,journees")         # l'en-tête, une seule fois
-    assert len(lignes) == 3                                      # en-tête + 2 nuits, rien n'est effacé
+    assert len(lignes) == 3                                      # en-tête + la nuit précédente + aujourd'hui (une seule fois)
+    assert lignes[1].startswith("2026-10-20")                    # rien n'est effacé des jours précédents
     rapport = json.loads((tmp_path / "modele" / "rapport_modele.json").read_text(encoding="utf-8"))
     assert 0 < rapport["calibration"]["annonce_pct"] < 100

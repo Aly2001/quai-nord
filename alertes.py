@@ -24,7 +24,7 @@ from datetime import datetime, timedelta
 from pathlib import Path
 from zoneinfo import ZoneInfo
 
-import httpx
+import requests                    # déjà utilisé par le collecteur sur la VM
 
 RACINE = Path(__file__).resolve().parent
 HORAIRES = RACINE / "site" / "public" / "horaires"
@@ -202,7 +202,7 @@ def main(arguments=None):
         return 0
     index = json.loads((HORAIRES / "gares.json").read_text(encoding="utf-8"))
     try:
-        direct = httpx.get(DIRECT, timeout=20).json()
+        direct = requests.get(DIRECT, timeout=20).json()
     except Exception as erreur:                                      # sans direct : seulement les rappels
         print(f"Direct indisponible : {erreur}")
         direct = None

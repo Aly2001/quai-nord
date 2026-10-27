@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import { Link, useSearchParams } from "react-router-dom";
 import RechercheTrajet from "../components/RechercheTrajet";
+import { useLangue } from "../langue/langue";
 import Fraicheur from "../components/Fraicheur";
 import DecorVoies from "../components/DecorVoies";
 import { BoutonFavori, EtoileTrain } from "../components/Favoris";
@@ -18,6 +19,7 @@ import "./Trajet.css";
 import { useTitrePage } from "../components/titrePage";
 
 export default function Trajet() {
+  const { t: tx } = useLangue();           // « tx » : ici, « t » désigne déjà un trajet
   // La recherche est stockée dans l'ADRESSE : /trajet?de=Calais&a=Lille&jour=...&heure=...
   const [params, setParams] = useSearchParams();
   const de = params.get("de") || "";
@@ -105,17 +107,17 @@ export default function Trajet() {
       <section className="bandeau-resultats">
         <DecorVoies cadrage="xMidYMid slice" discret />
         <div className="conteneur bandeau-resultats__contenu">
-          <p className="bandeau-resultats__surtitre cache-telephone">Résultats de recherche</p>
+          <p className="bandeau-resultats__surtitre cache-telephone">{tx("res.surtitre")}</p>
           <h1 className="bandeau-resultats__titre">
-            {gareDepart ? gareDepart.nom : de || "Où allez-vous\u00a0?"}
-            {a && <> <span aria-hidden="true">→</span><span className="visuellement-cache"> vers </span> {nomArrivee}</>}
+            {gareDepart ? gareDepart.nom : de || tx("res.ouallez")}
+            {a && <> <span aria-hidden="true">→</span><span className="visuellement-cache"> {tx("res.vers")} </span> {nomArrivee}</>}
           </h1>
           {jourValide && (
             <p className="bandeau-resultats__date">
-              {etiquetteJour(jour)}, {dateLongue(jour)} · départ à partir de {debut}
+              {tx("res.date", { jour: nomDuJourTraduit(jour, tx), date: dateLongue(jour), heure: debut })}
             </p>
           )}
-          <Fraicheur tempsReel={tempsReel} sombre pastilles libelleDirect={aujourdhui ? "En direct" : "Informations SNCF"} />
+          <Fraicheur tempsReel={tempsReel} sombre pastilles libelleDirect={aujourdhui ? tx("res.direct") : tx("res.infos")} />
           {gareDepart && a && <BoutonFavori de={gareDepart.nom} a={nomArrivee} />}
         </div>
       </section>
@@ -124,32 +126,29 @@ export default function Trajet() {
         {/* Visible seulement sur téléphone : ouvre ou ferme le formulaire, en haut de la page */}
         <button type="button" className="trajet__bouton-modifier" aria-expanded={formulaireOuvert}
                 aria-controls="formulaire-recherche" onClick={() => setFormulaireOuvert(!formulaireOuvert)}>
-          {formulaireOuvert ? "Fermer la recherche ▴" : "Modifier la recherche ▾"}
+          {formulaireOuvert ? tx("res.fermer") : tx("res.ouvrir")}
         </button>
 
-        <aside id="formulaire-recherche" aria-label="Modifier la recherche"
+        <aside id="formulaire-recherche" aria-label={tx("res.modifier")}
                className={formulaireOuvert ? "trajet__formulaire trajet__formulaire--ouvert" : "trajet__formulaire"}>
           {/* heure : celle du début des résultats (l'heure actuelle si c'est aujourd'hui) */}
           <RechercheTrajet key={params.toString()} initial={{ de, a, jour, heure: debut }}
                            onRechercher={(valeurs) => { setFormulaireOuvert(false); setParams(valeurs); }}
-                           texteBouton="Mettre à jour" />
+                           texteBouton={tx("res.maj")} />
         </aside>
 
         <section className="resultats" aria-live="polite">
           {erreur && <p className="resultats__message resultats__message--erreur">{erreur}</p>}
 
           {index && de && !gareDepart && (
-            <p className="resultats__message">
-              Gare de départ « {de} » introuvable. Quai Nord couvre les gares des Hauts-de-France et Paris Gare du Nord :
-              choisis une gare dans la liste qui s'affiche pendant la saisie.
-            </p>
+            <p className="resultats__message">{tx("res.introuvable", { gare: de })}</p>
           )}
 
           {index && jour && !jourValide && (
-            <p className="resultats__message">Ce jour n'est plus disponible. Choisis aujourd'hui, demain ou après-demain.</p>
+            <p className="resultats__message">{tx("res.jour.perime")}</p>
           )}
 
-          {gareDepart && jourValide && !pret && <p className="resultats__message">Recherche des trains…</p>}
+          {gareDepart && jourValide && !pret && <p className="resultats__message">{tx("res.recherche")}</p>}
 
           {pret && jourValide && (
             <>
@@ -167,17 +166,14 @@ export default function Trajet() {
               )}
 
               <h2 className="resultats__compte">
-                {trajets.length} trajet{trajets.length > 1 ? "s" : ""} à partir de {debut}
+                {tx("res.compte", { nombre: trajets.length, heure: debut })}
                 <span className="resultats__detail">
-                  {nbDirects} direct{nbDirects > 1 ? "s" : ""}, {trajets.length - nbDirects} avec correspondance
+                  {tx("res.directs", { nombre: nbDirects, directs: nbDirects, autres: trajets.length - nbDirects })}
                 </span>
               </h2>
 
               {trajets.length === 0 && (
-                <p className="resultats__message">
-                  Aucun trajet trouvé après {debut} ce jour-là, même avec une correspondance.
-                  Essaie le jour suivant ou une heure plus tôt.
-                </p>
+                <p className="resultats__message">{tx("res.aucun", { heure: debut })}</p>
               )}
 
               <AlerteReseau trajets={trajets} tempsReel={tempsReel} aujourdhui={aujourdhui} />
@@ -203,16 +199,11 @@ export default function Trajet() {
                 {/* Sur téléphone, le texte est replié ; sur ordinateur, il reste affiché */}
                 <button type="button" className="a-propos__bouton" aria-expanded={aProposOuvert}
                         onClick={() => setAProposOuvert(!aProposOuvert)}>
-                  À propos des données {aProposOuvert ? "▴" : "▾"}
+                  {tx("res.apropos")} {aProposOuvert ? "▴" : "▾"}
                 </button>
                 <p className={aProposOuvert ? "texte-doux trajet__note a-propos__texte--ouvert" : "texte-doux trajet__note"}>
-                Horaires théoriques SNCF (GTFS), générés le {index.genere_le}. Une seule correspondance au
-                maximum, de 5 min à 1 h 30, dans la même gare. Le risque de retard est estimé à partir des retards observés par
-                Quai Nord, ajusté vers la moyenne quand un train a peu d'observations
-                {risques ? ` (${risques.jours_observes} jour${risques.jours_observes > 1 ? "s" : ""} de collecte)` : ""} :
-                ce n'est pas encore une prédiction. Météo prévue au départ : Open-Meteo (CC BY 4.0).
-                Pour une information officielle, consultez SNCF Connect.{" "}
-                <Link to="/faq">Questions fréquentes</Link>
+                {tx("res.note", { date: index.genere_le, jours: risques ? tx("res.jours", { nombre: risques.jours_observes }) : "" })}{" "}
+                <Link to="/faq">{tx("res.faq")}</Link>
               </p>
               </div>
             </>
@@ -253,17 +244,18 @@ function contexteNora(t, jour, risque, pourcentage, niveau, meteoDepart = null) 
 
 // La carte jaune de Nora, quand la gare d'arrivée est desservie : la vraie question du voyageur, et ce que Nora apporte
 function CarteNoraArrivee({ gare, reseau, onOuvrir }) {
+  const { t: tx } = useLangue();
   const plusieurs = infosReseau(reseau).modes.length > 1;
   return (
-    <section className="carte-arrivee" aria-label="Après le train, avec Nora">
+    <section className="carte-arrivee" aria-label={tx("arrivee.aria")}>
       <AvatarNora taille={52} expression="souriant" />
       <div className="carte-arrivee__texte">
-        <p className="carte-arrivee__titre">Vous arrivez à {gare}. Où allez-vous ensuite&nbsp;?</p>
-        <p>Nora vous dit quel {plusieurs ? "bus, tram ou métro" : "bus"} prendre, à quel arrêt et dans quelle direction.</p>
+        <p className="carte-arrivee__titre">{tx("arrivee.titre", { gare })}</p>
+        <p>{tx(plusieurs ? "arrivee.texte.tous" : "arrivee.texte.bus")}</p>
       </div>
       <button type="button" className="carte-arrivee__bouton" onClick={onOuvrir}>
         <AvatarNora taille={28} />
-        {plusieurs ? "Trouver mon trajet" : "Trouver mon bus"}
+        {tx(plusieurs ? "arrivee.trajet" : "arrivee.bus")}
       </button>
     </section>
   );
@@ -276,6 +268,7 @@ function trajetSupprime(t, tempsReel) {
 
 // Le bandeau d'alerte, aujourd'hui seulement : au moins 3 trajets supprimés, et au moins 1 sur 5
 function AlerteReseau({ trajets, tempsReel, aujourdhui }) {
+  const { t: tx } = useLangue();
   if (!aujourdhui || !tempsReel) return null;
   const supprimes = trajets.filter((t) => trajetSupprime(t, tempsReel)).length;
   if (supprimes < 3 || supprimes / trajets.length < 0.2) return null;
@@ -283,8 +276,8 @@ function AlerteReseau({ trajets, tempsReel, aujourdhui }) {
     <section className="alerte-reseau" role="alert">
       <span aria-hidden="true">⚠️</span>
       <div>
-        <p className="alerte-reseau__titre">Réseau très perturbé en ce moment</p>
-        <p>{supprimes} trajets sur {trajets.length} de cette recherche sont supprimés. Vérifiez votre train juste avant de partir.</p>
+        <p className="alerte-reseau__titre">{tx("alerte.titre")}</p>
+        <p>{tx("alerte.texte", { supprimes, total: trajets.length })}</p>
       </div>
     </section>
   );
@@ -292,6 +285,7 @@ function AlerteReseau({ trajets, tempsReel, aujourdhui }) {
 
 function CarteTrajet({ trajet: t, jour, risques, meteo, tempsReel, onDemanderNora, reseauArrivee = null, cle, choisie = false, rapide = false,
                        aujourdhui = true, suivant = null, rang = 0 }) {
+  const { t: tx } = useLangue();           // « tx » : ici, « t » désigne déjà un trajet
   const [details, setDetails] = useState(false);
   const [premier, dernier] = [t.troncons[0], t.troncons[t.troncons.length - 1]];
 
@@ -332,7 +326,7 @@ function CarteTrajet({ trajet: t, jour, risques, meteo, tempsReel, onDemanderNor
         {rapide && (
           <span className="trajet-carte__rapide">
             <svg viewBox="0 0 24 24" width="13" height="13" aria-hidden="true" fill="currentColor"><path d="M13 2L4 14h7l-1 8 9-12h-7z" /></svg>
-            Le plus rapide
+            {tx("res.rapide")}
           </span>
         )}
         <div className="trajet-carte__horaires">
@@ -344,7 +338,7 @@ function CarteTrajet({ trajet: t, jour, risques, meteo, tempsReel, onDemanderNor
         </div>
         <div className="trajet-carte__gares">
           <span>{t.gareDepart}</span>
-          <span className="visuellement-cache">durée {formatDuree(t.dureeMin)}</span>
+          <span className="visuellement-cache">{tx("res.duree", { duree: formatDuree(t.dureeMin) })}</span>
           <span>{t.gareArrivee}</span>
         </div>
 
@@ -352,7 +346,7 @@ function CarteTrajet({ trajet: t, jour, risques, meteo, tempsReel, onDemanderNor
           {!t.correspondance && <EtoileTrain trajet={t} />}
           <button type="button" className="trajet-carte__details" aria-expanded={details}
                   onClick={() => setDetails(!details)}>
-            Détails
+            {tx("res.details")}
             <svg viewBox="0 0 24 24" width="16" height="16" aria-hidden="true" fill="none"
                  stroke="currentColor" strokeWidth="2.5" strokeLinecap="round">
               <path d={details ? "M6 15l6-6 6 6" : "M6 9l6 6 6-6"} />
@@ -362,7 +356,7 @@ function CarteTrajet({ trajet: t, jour, risques, meteo, tempsReel, onDemanderNor
             <BadgeMeteo meteo={meteoDepart} />
             {t.troncons.map((tr, i) => (
               <span key={i} className="trajet-carte__train">
-                {i > 0 && <span className="trajet-carte__chevron" aria-label="puis">›</span>}
+                {i > 0 && <span className="trajet-carte__chevron" aria-label={tx("res.puis")}>›</span>}
                 <span className="badge badge--train">
                   <svg viewBox="0 0 24 24" width="15" height="15" aria-hidden="true" fill="none" stroke="currentColor"
                        strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><rect x="5" y="3" width="14" height="14" rx="3" /><path d="M5 11h14M9 21l1.5-4M15 21l-1.5-4" /></svg>
@@ -373,16 +367,16 @@ function CarteTrajet({ trajet: t, jour, risques, meteo, tempsReel, onDemanderNor
             ))}
             <span className="trajet-carte__direct">
               {t.correspondance
-                ? `1 correspondance à ${t.correspondance.gare} · ${t.correspondance.attente} min`
-                : `Direct${premier.arrets.length > 0 ? `, ${premier.arrets.length} arrêt${premier.arrets.length > 1 ? "s" : ""}` : ""}`}
+                ? tx("res.correspondance", { gare: t.correspondance.gare, minutes: t.correspondance.attente })
+                : premier.arrets.length > 0 ? tx("res.avecarrets", { nombre: premier.arrets.length }) : tx("res.sansarret")}
             </span>
           </div>
         </div>
 
         {correspondanceFragile && (
           <p className="alerte-correspondance">
-            <strong>Correspondance courte ({t.correspondance.attente} min).</strong>{" "}
-            Le premier train arrive avec 5 min de retard ou plus dans {Math.round(risquePremier.taux * 100)} % des cas observés.
+            <strong>{tx("res.fragile.titre", { minutes: t.correspondance.attente })}</strong>{" "}
+            {tx("res.fragile", { pourcentage: Math.round(risquePremier.taux * 100) })}
           </p>
         )}
 
@@ -395,7 +389,7 @@ function CarteTrajet({ trajet: t, jour, risques, meteo, tempsReel, onDemanderNor
               <li key={i} className="arrets__troncon">
                 {i > 0 && (
                   <p className="arrets__changement">
-                    Changement à {t.correspondance.gare} · {t.correspondance.attente} min d'attente
+                    {tx("res.changement", { gare: t.correspondance.gare, minutes: t.correspondance.attente })}
                   </p>
                 )}
                 <ol className="arrets__liste">
@@ -415,25 +409,25 @@ function CarteTrajet({ trajet: t, jour, risques, meteo, tempsReel, onDemanderNor
       {/* ---------- La boîte de risque (à la place du prix) ---------- */}
       <div className="risque-boite">
         <p className="risque-boite__titre">
-          Risque de retard
-          <Link to="/faq#risque" className="risque-boite__aide" aria-label="Comment est calculé le risque ?">?</Link>
+          {tx("res.risque")}
+          <Link to="/faq#risque" className="risque-boite__aide" aria-label={tx("res.risque.aide")}>?</Link>
         </p>
         {niveau ? (
           <>
             <p className="risque-boite__valeur">
-              {texteRisque.replace(" %", "\u00a0%")} <span className="risque-boite__mot">{niveau.mot}</span>
+              {texteRisque.replace(" %", "\u00a0%")} <span className="risque-boite__mot">{tx(`niveau.${niveau.classe}`)}</span>
             </p>
             <div className="risque-boite__piste" role="img"
-                 aria-label={`Risque de retard de 5 minutes ou plus : ${texteRisque}, niveau ${niveau.mot.toLowerCase()}`}>
+                 aria-label={tx("res.risque.label", { risque: texteRisque, niveau: tx(`niveau.${niveau.classe}`).toLowerCase() })}>
               <span className="risque-boite__jauge" style={{ width: `${Math.max(pourcentage, 3)}%` }} />
             </div>
             <p className="risque-boite__source">
-              Basé sur {risque.n} passage{risque.n > 1 ? "s" : ""} observé{risque.n > 1 ? "s" : ""} de {risque.source}
-              {t.correspondance ? " (du 2e train)" : ""}
+              {tx("res.base", { nombre: risque.n, source: sourceTraduite(risque.source, tx) })}
+              {t.correspondance ? tx("res.deuxieme") : ""}
             </p>
           </>
         ) : (
-          <p className="risque-boite__vide">Pas encore assez de données pour ce train</p>
+          <p className="risque-boite__vide">{tx("res.peu")}</p>
         )}
       </div>
 
@@ -441,7 +435,7 @@ function CarteTrajet({ trajet: t, jour, risques, meteo, tempsReel, onDemanderNor
       <div className="carte-nora">
         <button type="button" className="carte-nora__bouton" onClick={() => ouvrirNora()}>
           <AvatarNora taille={30} />
-          Ce train sera-t-il à l'heure&nbsp;?
+          {tx("res.nora")}
         </button>
       </div>
     </li>
@@ -462,19 +456,20 @@ function Heure({ prevue, retard, fin = false }) {
 
 // ---------- L'état en direct : aujourd'hui, tout ; demain et après-demain, seulement les suppressions ----------
 function LigneDirect({ directs, trajet: t, aujourdhui = true, jour, frais = false, suivant = null }) {
+  const { t: tx } = useLangue();           // « tx » : ici, « t » désigne déjà un trajet
   if (directs.some((d) => d?.supprime)) {
-    const quand = aujourdhui ? "Ce train ne circule pas aujourd'hui."
-      : `Annoncé supprimé par la SNCF pour ${jour === ajouterJours(aujourdhuiIso(), 1) ? "demain" : "ce jour-là"}.`;
+    const quand = aujourdhui ? tx("direct.pasaujourdhui")
+      : tx(jour === ajouterJours(aujourdhuiIso(), 1) ? "direct.demain" : "direct.cejour");
     return (
       <div className="direct direct--supprime">
         <p className="direct__ligne">
-          <span className="direct__puce">Supprimé</span>
-          {t.correspondance ? `Un des trains de ce trajet est annoncé supprimé. ${aujourdhui ? "" : "(SNCF)"}` : quand}
+          <span className="direct__puce">{tx("direct.supprime")}</span>
+          {t.correspondance ? tx("direct.untrain") : quand}
         </p>
         {suivant && (
           <button type="button" className="direct__suivant"
                   onClick={() => document.getElementById(`trajet-${suivant.rang}`)?.scrollIntoView({ behavior: "smooth", block: "center" })}>
-            Voir le train suivant ({suivant.heure}) →
+            {tx("direct.suivant", { heure: suivant.heure })}
           </button>
         )}
       </div>
@@ -482,7 +477,7 @@ function LigneDirect({ directs, trajet: t, aujourdhui = true, jour, frais = fals
   }
   if (!aujourdhui) {
     // Pour un autre jour, aucun retard « en direct » n'a de sens : seulement l'absence d'annonce
-    return frais ? <p className="direct direct--prevu">Prévu · aucune annonce de la SNCF</p> : null;
+    return frais ? <p className="direct direct--prevu">{tx("direct.prevu")}</p> : null;
   }
   if (directs.every((d) => !d)) return null;              // aucun train dans le flux : on ne dit rien
 
@@ -496,8 +491,8 @@ function LigneDirect({ directs, trajet: t, aujourdhui = true, jour, frais = fals
     if (marge < 3) {
       return (
         <p className="direct direct--supprime">
-          <span className="direct__puce">Correspondance compromise</span>
-          Le premier train a {retardArriveeHub} min de retard pour {t.correspondance.attente} min de changement.
+          <span className="direct__puce">{tx("direct.compromise")}</span>
+          {tx("direct.compromise.texte", { retard: retardArriveeHub, minutes: t.correspondance.attente })}
         </p>
       );
     }
@@ -510,32 +505,33 @@ function LigneDirect({ directs, trajet: t, aujourdhui = true, jour, frais = fals
     return (
       <p className="direct direct--retard">
         <span className="direct__puce">+{pire} min</span>
-        Retard annoncé en ce moment
+        {tx("direct.retard")}
       </p>
     );
   }
   return (
     <p className="direct direct--heure">
-      <span className="direct__puce">À l'heure</span>
-      Selon les dernières informations en direct
+      <span className="direct__puce">{tx("direct.heure")}</span>
+      {tx("direct.heure.texte")}
     </p>
   );
 }
 
 // ---------- La météo prévue au départ ----------
 function BadgeMeteo({ meteo: m }) {
+  const { t: tx } = useLangue();           // « tx » : ici, « t » désigne déjà un trajet
   if (!m) return null;
   const vent = m.rafales >= 50;
   let icone = "soleil";
-  let texte = `Sec, ${Math.round(m.temperature)} °C`;
-  if (m.neige > 0) { icone = "neige"; texte = `Neige, ${Math.round(m.temperature)} °C`; }
-  else if (m.pluie >= 0.2) { icone = "pluie"; texte = `Pluie ${m.pluie.toFixed(1).replace(".", ",")} mm`; }
-  if (vent) texte += ` · rafales ${Math.round(m.rafales)} km/h`;
-  if (vent && icone === "soleil") { icone = "vent"; texte = `Rafales ${Math.round(m.rafales)} km/h`; }
+  let texte = tx("meteo.sec", { temperature: Math.round(m.temperature) });
+  if (m.neige > 0) { icone = "neige"; texte = tx("meteo.neige", { temperature: Math.round(m.temperature) }); }
+  else if (m.pluie >= 0.2) { icone = "pluie"; texte = tx("meteo.pluie", { pluie: m.pluie.toFixed(1).replace(".", ",") }); }
+  if (vent) texte += tx("meteo.rafales", { vent: Math.round(m.rafales) });
+  if (vent && icone === "soleil") { icone = "vent"; texte = tx("meteo.vent", { vent: Math.round(m.rafales) }); }
 
   return (
     <span className={`badge badge--meteo${vent || icone !== "soleil" ? " badge--meteo-alerte" : ""}`}
-          title={`Météo prévue au départ (point ${m.point})`}>
+          title={tx("meteo.titre", { point: m.point })}>
       <IconeMeteo type={icone} />
       {texte}
     </span>
@@ -555,4 +551,20 @@ function IconeMeteo({ type }) {
       {traits[type]}
     </svg>
   );
+}
+
+// « Aujourd'hui », « Demain », « Après-demain » dans la langue choisie (sinon la date)
+function nomDuJourTraduit(dateIso, tx) {
+  const nom = etiquetteJour(dateIso);
+  const cles = { "Aujourd'hui": "jour.aujourdhui", Demain: "jour.demain", "Après-demain": "jour.apresdemain" };
+  return cles[nom] ? tx(cles[nom]) : nom;
+}
+
+// La source du risque (« ce train », « la ligne K21 vers 7 h », « les trains de 7 h »), dans la langue choisie
+function sourceTraduite(source, tx) {
+  if (source === "ce train") return tx("source.train");
+  const ligne = source.match(/^la ligne (.+) vers (\d+) h$/);
+  if (ligne) return tx("source.ligne", { ligne: ligne[1], heure: ligne[2] });
+  const heure = source.match(/^les trains de (\d+) h$/);
+  return heure ? tx("source.heure", { heure: heure[1] }) : source;
 }

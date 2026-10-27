@@ -49,14 +49,14 @@ export default function Accueil() {
           </div>
 
           <aside className="info-ponctualite seulement-ordinateur" aria-labelledby="titre-ponctualite">
-            <h2 id="titre-ponctualite" className="info-ponctualite__titre">Ponctualité mesurée</h2>
+            <h2 id="titre-ponctualite" className="info-ponctualite__titre">{t("accueil.ponctualite")}</h2>
             <div className="info-ponctualite__corps">
               <p className="info-ponctualite__valeur">{chiffreVedette.valeur}</p>
               <p>{chiffreVedette.texte}</p>
               <p className="info-ponctualite__source">{chiffreVedette.source}</p>
             </div>
             <div className="info-ponctualite__podium">
-              <h3>Gares les plus touchées</h3>
+              <h3>{t("accueil.touchees")}</h3>
               <ol>
                 {podium.map((g) => (
                   <li key={g.nom}>
@@ -65,7 +65,7 @@ export default function Accueil() {
                   </li>
                 ))}
               </ol>
-              <Link to="/carte" className="info-ponctualite__lien">Voir la carte des gares</Link>
+              <Link to="/carte" className="info-ponctualite__lien">{t("accueil.carte")}</Link>
             </div>
           </aside>
         </div>
@@ -108,7 +108,7 @@ export default function Accueil() {
 
       {/* Sur téléphone, le grand pied de page est remplacé par cette ligne discrète (voir Footer.css) */}
       <p className="accueil__signature">
-        Projet d'Aly Keita, sans lien avec la SNCF · <Link to="/sources">Sources des données</Link>
+        {t("accueil.signature")} · <Link to="/sources">{t("accueil.sources")}</Link>
       </p>
     </>
   );

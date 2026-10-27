@@ -28,7 +28,7 @@ def test_supprime_une_seule_fois_et_avec_le_suivant():
     ev, etat = al.decider(TRAIN, JOUR, HORAIRE, direct("SUPPRIME"), {}, a(6, 30), suivant="07:43")
     assert [e[0] for e in ev] == ["supprime"]
     titre, corps = al.composer(*ev[0], "fr")
-    assert "supprimé" in titre and "07:43" in corps
+    assert titre == "🔴 Votre train de 07:13 est supprimé" and "07:43" in corps
     assert al.decider(TRAIN, JOUR, HORAIRE, direct("SUPPRIME"), etat, a(6, 35))[0] == []      # déjà envoyé
 
 
@@ -38,8 +38,10 @@ def test_retard_aggravation_et_retour_a_l_heure():
     assert al.decider(TRAIN, JOUR, HORAIRE, direct(retard=12), etat, a(6, 35))[0] == []        # +4 min : on ne redit rien
     ev2, etat = al.decider(TRAIN, JOUR, HORAIRE, direct(retard=20), etat, a(6, 40))
     assert ev2[0][0] == "retard"                                                                # +12 min : nouvelle alerte
-    ev3, _ = al.decider(TRAIN, JOUR, HORAIRE, direct(retard=0), etat, a(6, 45))
-    assert ev3[0][0] == "heure"
+    ev3, etat = al.decider(TRAIN, JOUR, HORAIRE, direct(retard=0), etat, a(6, 45))
+    assert ev3 == []                                     # de nouveau à l'heure : rien n'est envoyé (l'essentiel seulement)
+    ev4, _ = al.decider(TRAIN, JOUR, HORAIRE, direct(retard=7), etat, a(6, 48))
+    assert ev4[0][0] == "retard"                         # mais un nouveau retard est de nouveau signalé
 
 
 def test_le_rappel_dix_minutes_avant_de_partir():
@@ -47,7 +49,8 @@ def test_le_rappel_dix_minutes_avant_de_partir():
     ev, etat = al.decider(TRAIN, JOUR, HORAIRE, direct(), {}, a(6, 55))                        # 7 min avant 07:02
     assert ev[0][0] == "rappel"
     titre, corps = al.composer(*ev[0], "en")
-    assert "Leave in 7 min" in titre and "on time" in corps
+    assert titre == "🏠 Leave in 7 min"                                         # court : il tient sur l'écran verrouillé
+    assert "Your 07:13 train, Boulogne - Tintelleries → Calais Ville" in corps and "On time" in corps
     assert al.decider(TRAIN, JOUR, HORAIRE, direct(), etat, a(6, 57))[0] == []                 # une seule fois
 
 
@@ -62,7 +65,7 @@ def test_un_train_disparu_des_horaires_une_alerte_et_pas_de_rappel():
     ev, etat = al.decider(TRAIN, JOUR, None, direct(), {}, a(6, 55), proche="07:27")
     assert [e[0] for e in ev] == ["disparu"]                                  # et surtout pas « rappel »
     titre, corps = al.composer(*ev[0], "fr")
-    assert "ne circule pas aujourd'hui" in titre and "07:27" in corps
+    assert titre == "⚠️ Votre train de 07:13 ne circule pas aujourd'hui" and "07:27" in corps
     assert al.decider(TRAIN, JOUR, None, direct(), etat, a(6, 58), proche="07:27")[0] == []    # une seule fois
     # Sans fichier d'horaires pour ce jour, on ne conclut rien
     assert al.decider(TRAIN, JOUR, None, direct(), {}, a(6, 55), departs_charges=False)[0] == []

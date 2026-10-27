@@ -8,7 +8,6 @@ Les ALERTES des trains suivis, envoyées toutes les 5 minutes (planifiées sur l
        - supprimé        : avec le train suivant ;
        - retard (≥ 5 min) : pour information, en conseillant de partir comme prévu (un retard peut se réduire) ;
                             une nouvelle alerte seulement s'il s'aggrave de 10 min ou plus ;
-       - retour à l'heure : seulement après une alerte de retard ;
        - le rappel        : « Partez dans 10 min », 10 minutes avant l'heure de départ de chez soi.
   4. La nuit (23 h - 6 h), rien ne part : ce qui reste vrai au matin part à 6 h.
 
@@ -42,26 +41,30 @@ NUIT = (23, 6)            # de 23 h à 6 h, aucune notification
 
 TEXTES = {
     "fr": {
-        "supprime": ("🔴 Votre {heure} est supprimé", "{de} → {a}. Prochain train : {suivant}.", "{de} → {a}. Touchez pour voir les autres trains."),
-        "retard": ("🟠 Votre {heure} a {minutes} min de retard", "Départ annoncé à {nouvelle}. Par prudence, partez comme prévu : un retard peut se réduire."),
-        "heure": ("🟢 Votre {heure} est de nouveau à l'heure", "{de} → {a}, d'après la SNCF."),
-        "disparu": ("⚠️ Votre {heure} ne circule pas {quand}", "La SNCF a modifié ses horaires. Le plus proche vers {a} : {proche}.",
-                    "La SNCF a modifié ses horaires. Touchez pour voir les autres trains."),
+        "supprime": ("🔴 Votre train de {heure} est supprimé", "{de} → {a}. Prochain train : {suivant}.",
+                     "{de} → {a}. Touchez pour voir les autres trains."),
+        "retard": ("🟠 Votre train de {heure} a {minutes} min de retard",
+                   "{de} → {a}. Départ annoncé à {nouvelle}. Par prudence, partez comme prévu : un retard peut se réduire."),
+        "heure": ("🟢 Votre train de {heure} est de nouveau à l'heure", "{de} → {a}, d'après la SNCF."),
+        "disparu": ("⚠️ Votre train de {heure} ne circule pas {quand}", "{de} → {a}. La SNCF a modifié ses horaires. Le plus proche : {proche}.",
+                    "{de} → {a}. La SNCF a modifié ses horaires. Touchez pour voir les autres trains."),
         "aujourdhui": "aujourd'hui", "demain": "demain",
-        "rappel": ("🏠 Partez dans {dans} min pour votre {heure}", "{texte}. {etat}"),
-        "etat_heure": "Votre train est à l'heure pour l'instant.",
+        "rappel": ("🏠 Partez dans {dans} min", "Votre train de {heure}, {de} → {a}. {texte}. {etat}"),
+        "etat_heure": "À l'heure pour l'instant.",
         "etat_retard": "Retard annoncé : {minutes} min, mais partez comme prévu.",
         "etat_inconnu": "",
     },
     "en": {
-        "supprime": ("🔴 Your {heure} is cancelled", "{de} → {a}. Next train: {suivant}.", "{de} → {a}. Tap to see other trains."),
-        "retard": ("🟠 Your {heure} is {minutes} min late", "Expected to leave at {nouvelle}. To be safe, leave as planned: a delay can shrink."),
-        "heure": ("🟢 Your {heure} is on time again", "{de} → {a}, according to SNCF."),
-        "disparu": ("⚠️ Your {heure} isn't running {quand}", "SNCF has changed its timetable. Nearest train to {a}: {proche}.",
-                    "SNCF has changed its timetable. Tap to see other trains."),
+        "supprime": ("🔴 Your {heure} train is cancelled", "{de} → {a}. Next train: {suivant}.",
+                     "{de} → {a}. Tap to see other trains."),
+        "retard": ("🟠 Your {heure} train is {minutes} min late",
+                   "{de} → {a}. Expected to leave at {nouvelle}. To be safe, leave as planned: a delay can shrink."),
+        "heure": ("🟢 Your {heure} train is on time again", "{de} → {a}, according to SNCF."),
+        "disparu": ("⚠️ Your {heure} train isn't running {quand}", "{de} → {a}. SNCF has changed its timetable. Nearest train: {proche}.",
+                    "{de} → {a}. SNCF has changed its timetable. Tap to see other trains."),
         "aujourdhui": "today", "demain": "tomorrow",
-        "rappel": ("🏠 Leave in {dans} min for your {heure}", "{texte}. {etat}"),
-        "etat_heure": "Your train is on time for now.",
+        "rappel": ("🏠 Leave in {dans} min", "Your {heure} train, {de} → {a}. {texte}. {etat}"),
+        "etat_heure": "On time for now.",
         "etat_retard": "{minutes} min delay announced, but leave as planned.",
         "etat_inconnu": "",
     },
@@ -164,8 +167,8 @@ def decider(train, jour, train_horaire, direct, deja, maintenant, suivant=None, 
             evenements.append(("retard", {**valeurs, "minutes": retard, "nouvelle": en_heure(depart + retard)}))
             etat["retard"] = retard
         elif retard < 2 and deja_retard > 0:
-            evenements.append(("heure", valeurs))
-            etat["retard"] = 0
+            etat["retard"] = 0              # de nouveau à l'heure : pas de notification (l'essentiel seulement),
+                                            # mais un nouveau retard pourra de nouveau être signalé
     rappel = train.get("rappel")
     if aujourdhui and rappel and not etat.get("rappel"):
         dans = rappel["minute"] - minutes

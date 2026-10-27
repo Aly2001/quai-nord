@@ -7,8 +7,10 @@
 //  Sur iPhone, il faut que Quai Nord soit INSTALLÉ sur l'écran d'accueil (iOS 16.4 ou plus récent).
 // =====================================================================
 import { minutesEnHeure } from "./trajetBus";
+import { traduire } from "../langue/langue";
 
 const CLE_LANGUE = "quai-nord:langue";
+const langueChoisie = () => { try { return localStorage.getItem(CLE_LANGUE) === "en" ? "en" : "fr"; } catch { return "fr"; } };
 
 export function etatNotifications() {
   if (typeof window === "undefined" || !("serviceWorker" in navigator) || !("PushManager" in window) || !("Notification" in window)) {
@@ -33,7 +35,9 @@ export function trainsPourLeServeur(suivis, idSuivi) {
     // Le rappel seulement pour un vrai itinéraire (un bus, ou moins de 45 min à pied : jamais « marchez 27 h »)
     rappel: s.aller && (s.aller.mode === "bus" || (s.aller.mode === "pied" && s.aller.marche <= 45)) ? {
       minute: Math.round(s.aller.departMaison),
-      texte: s.aller.mode === "bus" ? `${s.aller.ligne.nom} · ${minutesEnHeure(s.aller.heureBus)} · ${s.aller.arretDepart.nom}` : `🚶 ${s.aller.marche} min`,
+      texte: s.aller.mode === "bus"
+        ? traduire(langueChoisie(), "notif.rappel.bus", { ligne: s.aller.ligne.nom, heure: minutesEnHeure(s.aller.heureBus), arret: s.aller.arretDepart.nom })
+        : traduire(langueChoisie(), "notif.rappel.pied", { minutes: s.aller.marche }),
     } : null,
     url: `/partir?${new URLSearchParams({ id: idSuivi(s) })}`,
   }));

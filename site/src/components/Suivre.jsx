@@ -2,7 +2,7 @@
 import { useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import { useLangue } from "../langue/langue";
-import { useSuivis, idSuivi, prochainTrainSuivi, trainsSuivisPourLeServeur } from "../data/suivi";
+import { useSuivis, idSuivi, prochainTrainSuivi, trainsSuivisPourLeServeur, prochaineOccasion, etapeDuVoyage } from "../data/suivi";
 import { etatNotifications, activerNotifications, desactiverNotifications } from "../data/notifications";
 import { minutesEnHeure } from "../data/trajetBus";
 import { dateLongue } from "../data/horaires";
@@ -89,7 +89,9 @@ export function MonProchainTrain() {
     <Link to={lienPartir(suivi)} className="prochain-train">
       <span className="prochain-train__haut">{t("suivi.prochain", { quand })}</span>
       <strong className="prochain-train__trajet">{suivi.heure} · {suivi.de} → {suivi.a}</strong>
-      {aller ? (
+      {etapeDuVoyage(suivi, jour).etape !== "avant" && etapeDuVoyage(suivi, jour).etape !== "autrejour" ? (
+        <LigneEtape suivi={suivi} jour={jour} classe="prochain-train__etape" />
+      ) : aller ? (
         <span className="prochain-train__partir">
           <span aria-hidden="true">🏠</span>
           <span><strong>{t("suivi.partez", { heure: minutesEnHeure(aller.departMaison) })}</strong>
@@ -117,7 +119,7 @@ export function ListeSuivis() {
               <strong>{s.heure} · {s.de} → {s.a}</strong>
               <span className="etat-train etat-train--absent">{s.repetition === "semaine" ? t("suivi.semaine.court") : dateLongue(s.jour)}</span>
             </Link>
-            {s.aller?.departMaison !== undefined && (s.aller.mode === "bus" || s.aller.marche <= 45) && <small className="suivi__aller">🏠 {t("suivi.partez", { heure: minutesEnHeure(s.aller.departMaison) })}</small>}
+            <LigneEtape suivi={s} />
             <div className="favori-train__actions">
               <Link className="favori-train__surveiller" to={`${lienPartir(s)}&preparer=1`}>{s.aller ? t("suivi.changer") : t("suivi.preparer")}</Link>
               <button type="button" className="favoris__retirer" onClick={() => nePlusSuivre(s)}>{t("suivi.arreter")}</button>
@@ -154,4 +156,16 @@ function EtatNotifications() {
       <button type="button" onClick={activer}>{t("notif.activer")}</button>
       {erreur && <small>{t("notif.erreur")}</small>}</p>
   );
+}
+
+// ---------- Ce qui compte MAINTENANT pour ce voyage, en une ligne ----------
+export function LigneEtape({ suivi, jour = prochaineOccasion(suivi), classe = "suivi__aller" }) {
+  const { t } = useLangue();
+  const { etape, minutes } = etapeDuVoyage(suivi, jour);
+  const aller = suivi.aller && (suivi.aller.mode === "bus" || (suivi.aller.mode === "pied" && suivi.aller.marche <= 45)) ? suivi.aller : null;
+  if (etape === "arrive") return <small className={`${classe} etape--fini`}>✅ {t("etape.arrive", { gare: suivi.a, heure: suivi.arrivee })}</small>;
+  if (etape === "enroute") return <small className={`${classe} etape--route`}>🚆 {t("etape.enroute", { gare: suivi.a, heure: suivi.arrivee })}</small>;
+  if (etape === "presse") return <small className={`${classe} etape--presse`}>⏱️ {t("partir.trainpart", { minutes })}</small>;
+  if (aller) return <small className={classe}>🏠 {t("suivi.partez", { heure: minutesEnHeure(aller.departMaison) })}</small>;
+  return null;
 }

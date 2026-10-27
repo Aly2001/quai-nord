@@ -1,5 +1,5 @@
 import { describe, test, expect } from "vitest";
-import { prochaineOccasion, nettoyer, prochainTrainSuivi, margeEnGare, allerALaGare } from "./suivi";
+import { prochaineOccasion, nettoyer, prochainTrainSuivi, margeEnGare, allerALaGare, etapeDuVoyage } from "./suivi";
 
 const une = { de: "Boulogne sur Mer", a: "Paris Nord", heure: "12:04", arrivee: "14:46", repetition: "une", jour: "2026-10-28" };
 const semaine = { de: "Calais Ville", a: "Boulogne sur Mer", heure: "17:12", arrivee: "17:44", repetition: "semaine" };
@@ -60,5 +60,19 @@ describe("quand l'aller à la gare n'a pas de sens", () => {
   test("à 6 km, sans bus : « aucun », pas 1 h 30 de marche", () => {
     const aller = allerALaGare(null, null, { lat: 50.6900, lon: 3.0710 }, gare, "2026-10-27", 400);
     expect(aller.mode).toBe("aucun");
+  });
+});
+
+
+describe("où en est le voyage, maintenant", () => {
+  const train = { de: "Boulogne - Tintelleries", a: "Calais Ville", heure: "07:13", arrivee: "07:39", repetition: "une",
+    jour: "2026-10-27", aller: { mode: "pied", departMaison: 422 } };        // partir de chez soi à 07:02
+  const a = (hhmm) => new Date(`2026-10-27T${hhmm}:00`);
+  test("les cinq étapes", () => {
+    expect(etapeDuVoyage(train, "2026-10-27", a("06:50")).etape).toBe("avant");
+    expect(etapeDuVoyage(train, "2026-10-27", a("07:05"))).toEqual({ etape: "presse", minutes: 8 });
+    expect(etapeDuVoyage(train, "2026-10-27", a("07:37"))).toEqual({ etape: "enroute", minutes: 2 });  // ta capture : 07:37
+    expect(etapeDuVoyage(train, "2026-10-27", a("07:45")).etape).toBe("arrive");
+    expect(etapeDuVoyage(train, "2026-10-28", a("07:45")).etape).toBe("autrejour");
   });
 });

@@ -43,3 +43,5 @@
 .partir__alerte--absent { flex-direction: column; background: #FFF4D6; color: #7A4B00; }
 .partir__alerte--absent button { align-self: flex-start; min-height: 44px; padding: 0 14px; font: inherit; font-weight: 700; border: 0;
   border-radius: 12px; background: var(--nuit); color: #FFFFFF; cursor: pointer; }
+
+.partir__etape { font-size: 20px; }

@@ -10,7 +10,7 @@ import { Link, useNavigate, useSearchParams } from "react-router-dom";
 import { useTitrePage } from "../components/titrePage";
 import { useLangue } from "../langue/langue";
 import { LienMarche } from "../components/Marche";
-import { lienPartir } from "../components/Suivre";
+import { lienPartir, LigneEtape } from "../components/Suivre";
 import { useSuivis, prochaineOccasion, allerALaGare, margeEnGare, enMinutesDuJour, BOUGE, TRES_LOIN, MARCHE_MAX } from "../data/suivi";
 import { chargerReseau, chargerGaresCouvertes, chercherLieu, distance, RESEAUX, gareLaPlusProche, lienCarte } from "../data/bus";
 import { enDuree } from "../langue/langue";
@@ -163,6 +163,7 @@ function Itineraire({ suivi, jour, contexte, calculer }) {
 
   const aller = lieu.aller;
   const dans = Math.round(aller.departMaison - maintenant);
+  const avantTrain = enMinutesDuJour(suivi.heure) - maintenant;      // jusqu'au départ du train
   const gare = { lat: contexte.gare.lat, lon: contexte.gare.lon };
   const arret = aller.mode === "bus" ? contexte.reseau?.arrets[aller.arretDepart.id] : null;
 
@@ -197,9 +198,15 @@ function Itineraire({ suivi, jour, contexte, calculer }) {
       )}
       {!absent && ["bus", "pied"].includes(aller.mode) && (<>
       <div className="partir__compte">
-        {aujourdhui && dans >= 0 ? (<><p>{t("partir.dans")}</p><p className="partir__grand">{minutesEnTexte(dans, t)}</p></>)
-          : aujourdhui ? <p className="partir__grand partir__grand--petit">{t("partir.maintenant")}</p> : null}
-        <p><strong>{t("suivi.partez", { heure: minutesEnHeure(aller.departMaison) })}</strong></p>
+        {aujourdhui && dans >= 0 ? (<>
+          <p>{t("partir.dans")}</p><p className="partir__grand">{minutesEnTexte(dans, t)}</p>
+          <p><strong>{t("suivi.partez", { heure: minutesEnHeure(aller.departMaison) })}</strong></p>
+        </>) : aujourdhui && avantTrain > 0 ? (<>
+          {/* L'heure de départ de chez soi est passée : on compte maintenant jusqu'au TRAIN */}
+          <p className="partir__grand partir__grand--petit">⏱️ {t("partir.trainpart", { minutes: avantTrain })}</p>
+          <p>{t("partir.trainpart.texte", { heure: minutesEnHeure(aller.departMaison) })}</p>
+        </>) : aujourdhui ? <p className="partir__etape"><LigneEtape suivi={suivi} jour={jour} classe="" /></p>
+          : <p><strong>{t("suivi.partez", { heure: minutesEnHeure(aller.departMaison) })}</strong></p>}
       </div>
       <ol className="partir__etapes">
         {aller.mode === "bus" ? (<>

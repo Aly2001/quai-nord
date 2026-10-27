@@ -62,6 +62,24 @@ export function prochainTrainSuivi(suivis, maintenant = new Date()) {
   return meilleur;
 }
 
+// ---------- Où en est le voyage, maintenant ? (la même règle partout : Favoris, accueil, écran Partir) ----------
+//   « avant »   : il est encore temps ; on affiche l'heure de départ de chez soi ;
+//   « presse »  : l'heure de départ de chez soi est passée, le train n'est pas encore parti ;
+//   « enroute » : le train est parti, il n'est pas encore arrivé ;
+//   « arrive »  : il est arrivé (le voyage d'un jour disparaît 30 min plus tard) ;
+//   « autrejour » : le voyage est un autre jour (demain, lundi…).
+export function etapeDuVoyage(suivi, jour, maintenant = new Date()) {
+  if (!jour || jour !== isoLocal(maintenant)) return { etape: "autrejour" };
+  const minutes = maintenant.getHours() * 60 + maintenant.getMinutes();
+  const depart = enMinutesDuJour(suivi.heure);
+  const arrivee = arriveeEnMinutes(suivi);
+  const partirDeChezSoi = suivi.aller?.departMaison;
+  if (minutes >= arrivee) return { etape: "arrive" };
+  if (minutes >= depart) return { etape: "enroute", minutes: arrivee - minutes };
+  if (partirDeChezSoi !== undefined && minutes >= partirDeChezSoi) return { etape: "presse", minutes: depart - minutes };
+  return { etape: "avant", minutes: partirDeChezSoi !== undefined ? partirDeChezSoi - minutes : depart - minutes };
+}
+
 // ---------- L'aller à la gare : arriver AVANT le train, avec une marge ----------
 // Grande gare (Lille, Amiens, Paris…) : 10 min pour trouver son quai ; petite gare : 5 min.
 const GRANDES_GARES = /lille|amiens|paris|arras|dunkerque|calais ville|douai|lens|valenciennes|creil|saint-quentin|beauvais|compi/i;

@@ -6,6 +6,7 @@ import Fraicheur from "../components/Fraicheur";
 import DecorVoies from "../components/DecorVoies";
 import { BoutonFavori, EtoileTrain } from "../components/Favoris";
 import { BoutonPartager } from "../components/Bandeaux";
+import { BoutonSuivre } from "../components/Suivre";
 import NoraPanneau from "../components/NoraPanneau";
 import { AvatarNora } from "../components/NoraConversation";
 import { reseauDeGare, transportsDuReseau, infosReseau, libelleGare } from "../data/bus";
@@ -345,6 +346,7 @@ function CarteTrajet({ trajet: t, jour, risques, meteo, tempsReel, onDemanderNor
 
         <div className="trajet-carte__bas">
           {!t.correspondance && <EtoileTrain trajet={t} />}
+          <BoutonSuivre trajet={t} jour={jour} />
           <BoutonPartager titre={tx("pwa.partage.train", { heure: t.heure, de: t.gareDepart, a: t.gareArrivee })}
                           chemin={`/trajet?${new URLSearchParams({ de: t.gareDepart, a: t.gareArrivee, jour, heure: t.heure })}`} />
           <button type="button" className="trajet-carte__details" aria-expanded={details}

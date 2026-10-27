@@ -4,6 +4,8 @@ import { useLangue } from "../langue/langue";
 import Fraicheur from "../components/Fraicheur";
 import DecorVoies from "../components/DecorVoies";
 import { ListeFavoris, MonTrainDuJour } from "../components/Favoris";
+import { MonProchainTrain } from "../components/Suivre";
+import { useSuivis, prochainTrainSuivi } from "../data/suivi";
 import BusDepuisGare from "../components/BusDepuisGare";
 import CarteChiffre from "../components/CarteChiffre";
 import GraphiqueBarres from "../components/GraphiqueBarres";
@@ -14,6 +16,7 @@ import { useTitrePage } from "../components/titrePage";
 
 export default function Accueil() {
   const { t } = useLangue();
+  const prochain = prochainTrainSuivi(useSuivis().suivis);
   useTitrePage(null, "Votre TER des Hauts-de-France sera-t-il à l'heure ? Voyez le risque de retard de votre train, puis le bus, le tram ou le métro à prendre depuis la gare, à Lille, Calais, Boulogne, Dunkerque, Amiens et Arras.");
   const navigate = useNavigate();
 
@@ -38,7 +41,8 @@ export default function Accueil() {
           <div className="bandeau__recherche">
             <h1 className="bandeau__titre">{t("accueil.titre")}</h1>
             {/* Le train surveillé, avec son état en direct : ce qu'on veut savoir en ouvrant l'application */}
-            <MonTrainDuJour />
+            {/* Un train suivi passe en premier ; sinon, le train surveillé des favoris */}
+            {prochain ? <MonProchainTrain /> : <MonTrainDuJour />}
             <RechercheTrajet onRechercher={rechercher} />
             {/* Si les données sont anciennes, l'alerte reste juste sous le formulaire */}
             <Fraicheur sombre partie="alerte" />

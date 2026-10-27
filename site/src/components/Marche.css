@@ -1,0 +1,4 @@
+.lien-marche { display: inline-flex; align-items: center; gap: 6px; margin-top: 6px; min-height: 36px; padding: 0 12px;
+  border-radius: 999px; border: 1.5px solid #1F6F8B; color: #1F6F8B; font-weight: 700; font-size: 14px; text-decoration: none;
+  background: #FFFFFF; }
+.lien-marche:hover { background: #EEF6F9; }

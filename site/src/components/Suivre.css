@@ -1,0 +1,36 @@
+.suivre { display: inline-flex; align-items: center; gap: 6px; min-height: 40px; padding: 0 12px; font: inherit; font-weight: 700;
+  font-size: 14px; border-radius: 999px; border: 1.5px solid var(--nuit); background: #FFFFFF; color: var(--nuit); cursor: pointer; }
+.suivre--actif { background: var(--nuit); color: #FFFFFF; }
+
+.feuille-suivre { position: fixed; inset: 0; z-index: 80; display: flex; align-items: flex-end; justify-content: center; }
+.feuille-suivre__fond { position: absolute; inset: 0; border: 0; background: rgba(0, 0, 0, 0.4); cursor: pointer; }
+.feuille-suivre__contenu { position: relative; width: 100%; max-width: 520px; display: flex; flex-direction: column; gap: 12px;
+  padding: 14px 18px calc(24px + env(safe-area-inset-bottom, 0px)); border-radius: 18px 18px 0 0; background: #FFFFFF; color: var(--nuit); }
+.feuille-suivre__poignee { align-self: center; width: 40px; height: 5px; border-radius: 3px; background: #C9D3E3; }
+.feuille-suivre__titre { margin: 0; font-family: var(--police-titre); font-weight: 700; font-size: 24px; }
+.feuille-suivre__train { margin: 0; color: var(--texte-doux); }
+.feuille-suivre__choix { display: flex; flex-direction: column; gap: 8px; }
+.feuille-suivre__option { min-height: 46px; padding: 0 14px; font: inherit; font-weight: 600; text-align: left; border-radius: 12px;
+  border: 1.5px solid #C9D3E3; background: #FFFFFF; color: var(--nuit); cursor: pointer; }
+.feuille-suivre__option--actif { border-color: var(--nuit); background: #EEF1F5; box-shadow: inset 4px 0 0 var(--signal); }
+.feuille-suivre__note { margin: 0; font-size: 13px; color: #9A3412; }
+.feuille-suivre__liste { margin: 0; padding: 0; list-style: none; display: flex; flex-direction: column; }
+.feuille-suivre__liste li { display: flex; flex-direction: column; padding: 8px 0; border-top: 1px solid #E3E8EE; }
+.feuille-suivre__liste li::before { content: "✓ "; color: #2E8B57; font-weight: 700; }
+.feuille-suivre__liste small { color: var(--texte-doux); }
+.feuille-suivre__activer { min-height: 52px; font: inherit; font-weight: 700; font-size: 17px; border: 0; border-radius: 12px;
+  background: var(--signal); color: var(--nuit); cursor: pointer; }
+.feuille-suivre__prive { margin: 0; font-size: 12px; color: var(--texte-doux); text-align: center; }
+
+.prochain-train { display: flex; flex-direction: column; gap: 8px; margin-bottom: 14px; padding: 14px 16px; border-radius: 14px;
+  background: #FFFFFF; color: var(--nuit); text-decoration: none; border-left: 6px solid #2E8B57; }
+.prochain-train__haut { font-size: 13px; font-weight: 700; letter-spacing: 0.06em; text-transform: uppercase; color: #1F6F8B; }
+.prochain-train__trajet { font-family: var(--police-titre); font-size: 22px; }
+.prochain-train__partir { display: flex; align-items: center; gap: 10px; padding: 10px 12px; border-radius: 10px; background: #FDF3D0; }
+.prochain-train__partir > span:nth-child(2) { flex: 1; display: flex; flex-direction: column; }
+.prochain-train__partir small { font-size: 13px; color: var(--texte-doux); }
+.prochain-train__dans { font-weight: 700; white-space: nowrap; }
+.prochain-train__preparer { font-weight: 700; color: #1F6F8B; }
+.suivi__aller { color: var(--texte-doux); }
+.suivi__tout-arreter { align-self: center; margin-top: 10px; min-height: 44px; padding: 0 16px; font: inherit; font-weight: 700;
+  border: 0; border-radius: 999px; background: #FDE2E2; color: #B91C1C; cursor: pointer; }

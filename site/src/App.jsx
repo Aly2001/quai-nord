@@ -15,6 +15,7 @@ import Nora from "./pages/Nora";
 import Sources from "./pages/Sources";
 import Favoris from "./pages/Favoris";
 import Bus from "./pages/Bus";
+import Partir from "./pages/Partir";
 
 export default function App() {
   return (
@@ -37,6 +38,7 @@ export default function App() {
           <Route path="/sources" element={<Sources />} />
           <Route path="/favoris" element={<Favoris />} />
           <Route path="/bus" element={<Bus />} />
+          <Route path="/partir" element={<Partir />} />
         </Routes>
       </main>
 

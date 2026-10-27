@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from "react";
 import { Link } from "react-router-dom";
 import { useLangue, enDuree } from "../langue/langue";
+import { LienMarche } from "./Marche";
 import {
   DOSSIER, useIndexHoraires, useRisques, normaliser, joursAVenir, aujourdhuiIso, heureActuelle,
   trajetsDirects, formatDuree, risqueDuTrain, niveauRisque,
@@ -406,6 +407,9 @@ export default function NoraConversation({ contexte = null, accueil = null, sugg
           ? t("nora.r.rejoindre.lieu", { lieu: lieu.nom, gare: nomAffiche, km: kilometres })
           : t("nora.r.rejoindre.gare", { lieu: lieu.nom, gare: nomAffiche, km: kilometres }),
       bus, carte, sourceBus: source,
+      // Les points des étapes à pied, pour les boutons « Y aller à pied » (l'arrêt de départ, puis la fin du trajet)
+      marcheVers: reseau.arrets[bus[0].depart.id] ? { lat: reseau.arrets[bus[0].depart.id][1], lon: reseau.arrets[bus[0].depart.id][2] } : null,
+      marcheFin: depuis ? { lat: lieu.lat, lon: lieu.lon, nom: lieu.nom, genre: "lieu" } : { ...pointGare, genre: "gare" },
     });
   }
 
@@ -661,7 +665,9 @@ export default function NoraConversation({ contexte = null, accueil = null, sugg
                         <li>Marchez <strong>{enDuree(minutesAPied(meilleur.depart.marche))}</strong> jusqu'à {decrireLigne(meilleur.ligne).station} <strong>{meilleur.depart.nom}</strong></li>
                         <li>Prenez <strong>{decrireLigne(meilleur.ligne).prendre}</strong>, direction <strong>{meilleur.direction}</strong> · {decrireLigne(meilleur.ligne).arrets(meilleur.arrets)}{meilleur.nuit ? " (ligne de nuit)" : ""}{meilleur.occasionnel ? " (service peu fréquent)" : ""}</li>
                       </>)}
-                      <li>{t("nora.descendez")} <strong>{meilleur.arrivee.nom}</strong>, {t("nora.puis.pied", { minutes: minutesAPied(meilleur.arrivee.marche) })}</li>
+                      {m.marcheVers && <li className="bus-meilleur__marche"><LienMarche vers={m.marcheVers} /></li>}
+                      <li>{t("nora.descendez")} <strong>{meilleur.arrivee.nom}</strong>, {t("nora.puis.pied", { minutes: minutesAPied(meilleur.arrivee.marche) })}
+                        {m.marcheFin && <div><LienMarche vers={m.marcheFin} genre={m.marcheFin.genre} nom={m.marcheFin.nom} /></div>}</li>
                     </ol>
                   </article>
                   {autres.length > 0 && <p className="bus-autres__titre">{t("nora.autres")}</p>}

@@ -1,0 +1,41 @@
+.partir { max-width: 640px; margin: 0 auto; padding: 16px 0 24px; display: flex; flex-direction: column; gap: 14px; }
+.partir__entete p { margin: 0; color: var(--texte-doux); font-weight: 600; }
+.partir__entete h1 { margin: 2px 0 0; font-family: var(--police-titre); font-weight: 700; font-size: 28px; line-height: 1.1; }
+.partir__vide { color: var(--texte-doux); }
+.partir__lien { font-weight: 700; color: #1F6F8B; }
+.partir__preparer, .partir__itineraire { display: flex; flex-direction: column; gap: 12px; }
+.partir__bulle { margin: 0; padding: 12px 14px; border-radius: 4px 14px 14px 14px; background: #FFFFFF; box-shadow: 0 2px 8px rgba(20, 33, 61, 0.08); }
+.partir__bouton { min-height: 46px; padding: 0 16px; font: inherit; font-weight: 700; border-radius: 12px; border: 1.5px solid var(--nuit);
+  background: #FFFFFF; color: var(--nuit); cursor: pointer; }
+.partir__bouton--plein { background: var(--nuit); color: #FFFFFF; }
+.partir__adresse { display: flex; flex-direction: column; gap: 6px; }
+.partir__adresse label { font-size: 14px; font-weight: 700; }
+.partir__adresse div { display: flex; gap: 8px; }
+.partir__adresse input { flex: 1; min-height: 46px; padding: 0 12px; font: inherit; border-radius: 12px; border: 1.5px solid #C9D3E3; }
+.partir__message { margin: 0; padding: 10px 12px; border-radius: 10px; background: #FBE9E1; color: #9A3412; font-weight: 600; }
+.partir__note { margin: 0; font-size: 12px; color: var(--texte-doux); }
+.partir__plustard { align-self: center; min-height: 44px; padding: 0 16px; font: inherit; font-weight: 600; border: 0; border-radius: 999px;
+  background: #EEF1F5; color: var(--nuit); cursor: pointer; }
+.partir__lieu { margin: 0; display: flex; flex-wrap: wrap; align-items: center; gap: 8px; padding: 10px 12px; border-radius: 12px;
+  background: #EEF1F5; font-size: 14px; }
+.partir__lieu button { font: inherit; font-weight: 700; text-decoration: underline; border: 0; background: none; color: inherit; cursor: pointer; }
+.partir__lieu--meme { background: #E6F4EC; color: #1E5E3B; }
+.partir__lieu--bouge { background: #FDF3D0; color: #7A4B00; }
+.partir__alerte { margin: 0; display: flex; gap: 8px; align-items: flex-start; padding: 10px 12px; border-radius: 12px; background: #EEF1F5; font-size: 14px; }
+.partir__alerte--heure { background: #E6F4EC; color: #1E5E3B; }
+.partir__alerte--retard { background: #FBE9E1; color: #9A3412; }
+.partir__alerte--supprime { flex-direction: column; background: #FDE2E2; color: #B91C1C; }
+.partir__alerte--supprime a { font-weight: 700; color: inherit; }
+.partir__compte { text-align: center; }
+.partir__compte p { margin: 0; }
+.partir__grand { font-family: var(--police-titre); font-weight: 700; font-size: 60px; line-height: 1; }
+.partir__grand--petit { font-size: 32px; }
+.partir__etapes { margin: 0; padding: 14px 16px; list-style: none; border-radius: 14px; background: #FFFFFF; display: flex; flex-direction: column; gap: 14px; }
+.partir__etapes li { display: flex; gap: 12px; align-items: flex-start; }
+.partir__etapes li > span { flex: none; width: 36px; height: 36px; display: flex; align-items: center; justify-content: center; border-radius: 50%;
+  background: #EEF1F5; font-size: 18px; }
+.partir__etapes li > div { display: flex; flex-direction: column; align-items: flex-start; }
+.partir__etapes small { color: var(--texte-doux); font-size: 14px; }
+.partir__train > span { background: #FDF3D0 !important; }
+.partir__pied { display: flex; flex-wrap: wrap; gap: 14px; justify-content: center; font-size: 14px; }
+.partir__pied a, .partir__pied button { font: inherit; font-weight: 600; color: #1F6F8B; background: none; border: 0; text-decoration: underline; cursor: pointer; }

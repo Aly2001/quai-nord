@@ -2,11 +2,12 @@ import { useEffect, useId, useMemo, useState } from "react";
 import { Link, useSearchParams } from "react-router-dom";
 import { EtoileVille, lienVille } from "../components/Favoris";
 import { BoutonPartager } from "../components/Bandeaux";
+import { LienMarche, lienMarche } from "../components/Marche";
 import { useLangue, enDuree } from "../langue/langue";
 import { useTitrePage } from "../components/titrePage";
 import {
   RESEAUX, chargerReseau, chargerGaresCouvertes, gareLaPlusProche, arretLePlusProche, DISTANCE_MAX_GARE,
-  lieuxPrepares, arretsCorrespondants, chercherLieu, distance, libelleGare, reseauDeVille, lienCarte, lienAPied, nettoyerLieu,
+  lieuxPrepares, arretsCorrespondants, chercherLieu, distance, libelleGare, reseauDeVille, lienCarte, nettoyerLieu,
 } from "../data/bus";
 import { aujourdhuiIso, heureActuelle, enMinutes } from "../data/horaires";
 import { chargerHoraires, trajetEntrePoints, minutesEnHeure, arretsDeLaCourse, passagesALArret, arretsAutour,
@@ -275,7 +276,7 @@ function nomTransport(ligne, t) {
 }
 
 // Une possibilité en bus, tram ou métro : chaque minute dit OÙ et QUAND
-function CarteLigne({ b, maintenant, rapide, onDetail, reseau, descentes }) {
+function CarteLigne({ b, maintenant, rapide, onDetail, reseau, descentes, B }) {
   const { t } = useLangue();
   const p = b.passages[0];
   const attente = p ? Math.round(p.depart - maintenant) : null;
@@ -286,13 +287,18 @@ function CarteLigne({ b, maintenant, rapide, onDetail, reseau, descentes }) {
       <div className="bus__ligne"><PuceLigne ligne={b.ligne} />
         <strong>{nomTransport(b.ligne, t)} {b.ligne.nom} · {t("ville.direction", { direction: b.direction })}</strong>
         {dans && <span className={p?.direct ? "bus__dans bus__dans--direct" : "bus__dans"}>{p?.direct && <SignalDirect />}{dans}</span>}</div>
-      {b.marcheAvant > 0 && <p className="bus__detail">{t("ville.marche", { minutes: b.marcheAvant, arret: b.depart.nom })}</p>}
+      {b.marcheAvant > 0 && (
+        <div className="bus__detail">{t("ville.marche", { minutes: b.marcheAvant, arret: b.depart.nom })}
+          {reseau?.arrets[b.depart.id] && <div><LienMarche vers={{ lat: reseau.arrets[b.depart.id][1], lon: reseau.arrets[b.depart.id][2] }} /></div>}
+        </div>
+      )}
       {p ? (
         <>
           <p><strong>{t("ville.passe", { arret: b.depart.nom, dans, heure: minutesEnHeure(p.depart) })}</strong>
             {p.direct && p.prevue !== p.depart && <span className="bus__prevu"> {t("ville.prevu", { heure: minutesEnHeure(p.prevue) })}</span>}</p>
           <p><strong>{t("ville.arrive", { arret: b.arrivee.nom, heure: minutesEnHeure(p.arrivee) })}</strong>
             {b.marcheApres ? t("ville.puis.pied", { minutes: b.marcheApres }) : ""} · {t("ville.arrets", { nombre: b.arrets })}</p>
+          {b.marcheApres > 0 && B && <LienMarche vers={B} genre="lieu" nom={B.nom} />}
           {autresDescentes(reseau, b, descentes).map((o) => (
             <p key={o.id} className="bus__detail">{t("ville.ou.descendre", { arret: o.nom, heure: minutesEnHeure(o.minute) })}
               {o.marche ? t("ville.puis.pied", { minutes: o.marche }) : ""}</p>
@@ -311,14 +317,15 @@ function CarteLigne({ b, maintenant, rapide, onDetail, reseau, descentes }) {
   );
 }
 
-function CartePied({ A, B, minutes, arrivee, rapide }) {
+function CartePied({ B, minutes, arrivee, rapide }) {
   const { t } = useLangue();
   return (
     <section className={rapide ? "bus__carte bus__carte--meilleur" : "bus__carte bus__carte--option"}>
       {rapide && <span className="bus__badge">{t("ville.rapide")}</span>}
       <div className="bus__ligne"><span className="bus__pied" aria-hidden="true">🚶</span><strong>{t("ville.pied")}</strong></div>
       <p>{t("ville.pied.arrivee", { heure: minutesEnHeure(arrivee), minutes })}</p>
-      <a className="bus__voir-arrets" href={lienAPied(A, B)} target="_blank" rel="noopener noreferrer">
+      {/* La destination seulement : Plans ou Google Maps partent de la position, sans qu'on l'écrive dans le lien */}
+      <a className="bus__voir-arrets" href={lienMarche(B)} target="_blank" rel="noopener noreferrer">
         {t("ville.pied.itineraire")} <span aria-hidden="true">↗</span>
       </a>
     </section>
@@ -362,7 +369,7 @@ function Resultat({ etat, reseau, ville, code, onDetail }) {
       {visibles.map((o, i) => (o.type === "pied"
         ? <CartePied key="pied" A={A} B={B} minutes={trajet.minutesAPied} arrivee={o.arrivee} rapide={i === 0} />
         : <CarteLigne key={`${o.b.ligne.nom}-${o.b.depart.id}-${o.b.direction}`} b={o.b} maintenant={maintenant} rapide={i === 0}
-                      onDetail={onDetail} reseau={reseau} descentes={trajet.descentes} />))}
+                      onDetail={onDetail} reseau={reseau} descentes={trajet.descentes} B={B} />))}
       {!tout && possibilites.length > VISIBLES && (
         <button type="button" className="bus__plus" onClick={() => setTout(true)}>
           {t("ville.autres", { nombre: possibilites.length - VISIBLES })}

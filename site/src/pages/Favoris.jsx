@@ -1,5 +1,6 @@
 import { useLangue } from "../langue/langue";
 import { ListeFavoris, ListeTrainsFavoris, ListeVilleFavoris } from "../components/Favoris";
+import { ListeSuivis } from "../components/Suivre";
 import { useTitrePage } from "../components/titrePage";
 import "./Plus.css";
 
@@ -10,6 +11,12 @@ export default function Favoris() {
     <div className="plus">
       <h1 className="plus__titre">{t("fav.page.titre")}</h1>
       <p className="plus__aide">{t("fav.page.aide")}</p>
+
+      <section className="plus__bloc">
+        <h2 className="plus__rubrique">{t("suivi.titre.liste")}</h2>
+        <p className="plus__aide">{t("suivi.aide")}</p>
+        <ListeSuivis />
+      </section>
 
       <section className="plus__bloc">
         <h2 className="plus__rubrique">{t("fav.trains")}</h2>

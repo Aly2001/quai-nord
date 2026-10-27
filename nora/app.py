@@ -97,7 +97,10 @@ def date_en_francais(moment):
             f"{moment.year}, {moment:%H:%M}")
 
 
-def message_systeme(contexte):
+LANGUES = {"en": "anglais"}
+
+
+def message_systeme(contexte, langue="fr"):
     texte = REGLES.replace("{date_heure}", date_en_francais(datetime.now(FUSEAU)))
     # La liste des villes vient de reseaux.json : une ville ajoutée est connue de Nora sans toucher aux règles
     texte = texte.replace("{villes_bus}", villes_couvertes(detail=True))
@@ -105,6 +108,11 @@ def message_systeme(contexte):
     texte += "\n\nBASE DE CONNAISSANCES\n\n" + BASE_CONNAISSANCES
     if contexte:
         texte += "\n\nCONTEXTE DU TRAJET\n\n" + contexte
+    if langue in LANGUES:
+        # Le site est affiché dans une autre langue : Nora répond dans cette langue (les noms de gares ne changent pas)
+        texte += (f"\n\nLANGUE : le voyageur utilise le site en {LANGUES[langue]}. Rédige le champ « reponse » en "
+                  f"{LANGUES[langue]}, simplement. Garde tels quels les noms des gares, des arrêts et des lignes, "
+                  "et garde les actions (« action ») exactement au même format.")
     return texte
 
 
@@ -119,6 +127,7 @@ class Message(BaseModel):
 class Question(BaseModel):
     messages: list[Message] = Field(min_length=1, max_length=12)
     contexte: str | None = Field(default=None, max_length=600)
+    langue: str = Field(default="fr", pattern="^(fr|en)$")        # la langue du site
 
 
 class Reponse(BaseModel):
@@ -585,7 +594,7 @@ def nora(question: Question, requete: Request):
     restantes = compter_question(visiteur)
 
     debut = time.time()
-    messages = [{"role": "system", "content": message_systeme(question.contexte)}]
+    messages = [{"role": "system", "content": message_systeme(question.contexte, question.langue)}]
     messages += [{"role": m.role, "content": m.content} for m in question.messages[-8:]]
     try:
         resultat = lire_reponse(appeler_modele(messages))

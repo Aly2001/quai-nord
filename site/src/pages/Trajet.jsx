@@ -285,7 +285,7 @@ function AlerteReseau({ trajets, tempsReel, aujourdhui }) {
 
 function CarteTrajet({ trajet: t, jour, risques, meteo, tempsReel, onDemanderNora, reseauArrivee = null, cle, choisie = false, rapide = false,
                        aujourdhui = true, suivant = null, rang = 0 }) {
-  const { t: tx } = useLangue();           // « tx » : ici, « t » désigne déjà un trajet
+  const { t: tx, langue } = useLangue();           // « tx » : ici, « t » désigne déjà un trajet
   const [details, setDetails] = useState(false);
   const [premier, dernier] = [t.troncons[0], t.troncons[t.troncons.length - 1]];
 
@@ -302,7 +302,7 @@ function CarteTrajet({ trajet: t, jour, risques, meteo, tempsReel, onDemanderNor
     && risquePremier.taux >= 0.15;
 
   const meteoDepart = meteoDuTrain(meteo, premier.depart.stop_id, jour, t.heure);
-  const questions = questionsDuTrain(t, pourcentage, meteoDepart, reseauArrivee);
+  const questions = questionsDuTrain(t, pourcentage, meteoDepart, reseauArrivee, langue);
   const directs = t.troncons.map((tr) => infoDirect(tempsReel, tr.train.trip_id, tr.depart.stop_id, tr.arrivee.stop_id));
   const supprime = directs.some((d) => d?.supprime);
   const ouvrirNora = (question = null) => onDemanderNora({
@@ -312,7 +312,7 @@ function CarteTrajet({ trajet: t, jour, risques, meteo, tempsReel, onDemanderNor
       + "Ne parle pas de son risque de retard : dis qu'il est supprimé, et propose le train suivant. " : "")
       + contexteNora(t, jour, risque, pourcentage, niveau, meteoDepart),
     // Le direct passe avant le risque : un train supprimé n'a pas de « risque », il ne roule pas
-    accueil: supprime ? accueilSupprime(t.heure, aujourdhui, suivant?.heure) : accueilDuTrain(t.heure, texteRisque),
+    accueil: supprime ? accueilSupprime(t.heure, aujourdhui, suivant?.heure, langue) : accueilDuTrain(t.heure, texteRisque, langue),
     suggestions: questions,
     question,
   });

@@ -623,3 +623,15 @@ def test_le_direct_des_bus_de_lille(monkeypatch):
 
 def test_un_reseau_sans_direct():
     assert client.get("/api/bus-direct/boulogne").status_code == 404
+
+
+
+def test_la_langue_du_site_est_transmise_a_gemini():
+    assert "LANGUE" not in module.message_systeme(None)
+    texte = module.message_systeme(None, "en")
+    assert "anglais" in texte and "noms des gares" in texte
+
+
+def test_une_langue_inconnue_est_refusee():
+    corps = dict(UNE_QUESTION, langue="xx")
+    assert client.post("/api/nora", json=corps).status_code == 422

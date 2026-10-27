@@ -1,40 +1,40 @@
 import { infosReseau, libelleGare } from "./bus";
+import { traduire } from "../langue/langue";
 
 // Les questions préparées pour un train, proposées DANS Nora une fois le train choisi
 // (seulement celles auxquelles Nora sait répondre ; plus de répétition sous chaque carte)
-export function questionsDuTrain(t, pourcentage, meteoDepart, reseauArrivee) {
+export function questionsDuTrain(t, pourcentage, meteoDepart, reseauArrivee, langue = "fr") {
+  const tr = (cle, v) => traduire(langue, cle, v);
   const questions = [];
-  const chiffre = pourcentage === null ? null : pourcentage < 1 ? "moins de 1" : String(pourcentage);
+  const chiffre = pourcentage === null ? null : pourcentage < 1 ? tr("nora.q.moins") : String(pourcentage);
   questions.push(chiffre !== null
-    ? { texte: `Pourquoi ${chiffre} % de risque ?`, question: `Pourquoi ce train a-t-il ${chiffre} % de risque de retard ?` }
-    : { texte: "Sera-t-il à l'heure ?", question: "Ce train sera-t-il à l'heure ?" });
+    ? { texte: tr("nora.q.pourquoi", { chiffre }), question: tr("nora.q.pourquoi.long", { chiffre }) }
+    : { texte: tr("nora.q.heure"), question: tr("nora.q.heure.long") });
   if (pourcentage !== null && pourcentage >= 15) {
-    questions.push({ texte: "S'il est en retard, quel train ensuite ?", question: "Et s'il est en retard, quel train prendre ensuite ?" });
+    questions.push({ texte: tr("nora.q.ensuite"), question: tr("nora.q.ensuite.long") });
   }
   if (reseauArrivee) {
     const plusieurs = infosReseau(reseauArrivee).modes.length > 1;
     questions.push({
-      texte: `${plusieurs ? "Bus, tram ou métro" : "Bus"} à l'arrivée à ${libelleGare(t.gareArrivee)} ?`,
-      question: `Quel ${plusieurs ? "transport" : "bus"} prendre à l'arrivée à la gare de ${t.gareArrivee} ?`,
+      texte: tr(plusieurs ? "nora.q.arrivee.tous" : "nora.q.arrivee.bus", { gare: libelleGare(t.gareArrivee) }),
+      question: tr(plusieurs ? "nora.q.arrivee.long.tous" : "nora.q.arrivee.long.bus", { gare: t.gareArrivee }),
     });
   }
   if (meteoDepart && (meteoDepart.pluie >= 0.5 || meteoDepart.rafales >= 50)) {
-    questions.push({ texte: "Pluie au départ ?", question: "Quel temps fera-t-il au départ de ce train ?" });
+    questions.push({ texte: tr("nora.q.meteo"), question: tr("nora.q.meteo.long") });
   }
   return questions;
 }
 
 // La première phrase de Nora sur un train, écrite par le site (sans Gemini) : l'information d'abord
-export function accueilDuTrain(heure, texteRisque) {
+export function accueilDuTrain(heure, texteRisque, langue = "fr") {
   return texteRisque
-    ? `Le train de ${heure} a ${texteRisque} de risque de retard. Que voulez-vous savoir ?`
-    : `Que voulez-vous savoir sur le train de ${heure} ?`;
+    ? traduire(langue, "nora.train.risque", { heure, risque: texteRisque })
+    : traduire(langue, "nora.train.question", { heure });
 }
 
 // Un train annoncé supprimé : Nora le dit tout de suite (sans Gemini), et propose le suivant
-export function accueilSupprime(heure, aujourdhui, heureSuivant = null) {
-  const debut = aujourdhui
-    ? `Le train de ${heure} est supprimé aujourd'hui, d'après la SNCF.`
-    : `Le train de ${heure} est déjà annoncé supprimé par la SNCF.`;
-  return heureSuivant ? `${debut} 👉 Le prochain : ${heureSuivant}.` : debut;
+export function accueilSupprime(heure, aujourdhui, heureSuivant = null, langue = "fr") {
+  const debut = traduire(langue, aujourdhui ? "nora.train.supprime" : "nora.train.supprime.avance", { heure });
+  return heureSuivant ? debut + traduire(langue, "nora.train.prochain", { heure: heureSuivant }) : debut;
 }

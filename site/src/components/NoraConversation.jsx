@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from "react";
 import { Link } from "react-router-dom";
+import { useLangue } from "../langue/langue";
 import {
   DOSSIER, useIndexHoraires, useRisques, normaliser, joursAVenir, aujourdhuiIso, heureActuelle,
   trajetsDirects, formatDuree, risqueDuTrain, niveauRisque,
@@ -68,22 +69,18 @@ export function AvatarNora({ taille = 40, expression = null }) {
   );
 }
 
-const SUGGESTIONS = [
-  "Comment est calculé le risque ?",
-  "Pourquoi je ne vois pas mon train ?",
-  "Comment réserver un billet ?",
-];
+const SUGGESTIONS = ["nora.sugg.risque", "nora.sugg.train", "nora.sugg.billet"];
 // Sur téléphone, l'accueil propose des EXEMPLES : les toucher remplit la saisie sans rien envoyer,
 // le voyageur adapte la gare ou la destination, puis envoie une seule question complète (quota Gemini)
 const EXEMPLES = [
-  { texte: "Je suis à la gare de Lille Flandres, je vais à l'université", parties: ["Lille Flandres", "l'université"] },
-  { texte: "Je suis au centre-ville d'Arras, comment rejoindre la gare ?", parties: ["centre-ville d'Arras"] },
-  { texte: "Pourquoi mon train de 9 h 10 a-t-il un risque élevé ?", parties: ["9 h 10"] },
+  { cle: "nora.ex1", texte: "Je suis à la gare de Lille Flandres, je vais à l'université", parties: ["Lille Flandres", "l'université"] },
+  { cle: "nora.ex2", texte: "Je suis au centre-ville d'Arras, comment rejoindre la gare ?", parties: ["centre-ville d'Arras"] },
+  { cle: "nora.ex3", texte: "Pourquoi mon train de 9 h 10 a-t-il un risque élevé ?", parties: ["9 h 10"] },
 ];
 // Les villes couvertes, celles qui ont aussi métro et tram en premier (Lille)
 const VILLES_BUS = [...RESEAUX].sort((a, b) => b.modes.length - a.modes.length)
   .map((r) => ({ ville: r.ville.replace(/-sur-Mer$/, ""), metro: r.modes.length > 1 }));
-const SUGGESTIONS_TRAIN = ["Pourquoi ce risque ?", "Ce train sera-t-il à l'heure ?", "Comment réserver un billet ?"];
+const SUGGESTIONS_TRAIN = ["nora.sugg.pourquoi", "nora.sugg.heure", "nora.sugg.billet"];
 const NUMERO_JOUR = { "aujourd'hui": 0, demain: 1, "après-demain": 2 };
 
 // La reconnaissance vocale du navigateur, si elle existe (sinon : pas de bouton micro)
@@ -100,6 +97,8 @@ const nouvelId = () => ++compteur;
 // suggestions : [{ texte, question }] propres au contexte (un train, une gare)
 // questionInitiale : une question envoyée tout de suite (un appui sur « Pourquoi 7 % ? »)
 export default function NoraConversation({ contexte = null, accueil = null, suggestions: proposees = null, questionInitiale = null }) {
+  const { t, langue } = useLangue();
+  const voix = langue === "en" ? "en-GB" : "fr-FR";
   const { index } = useIndexHoraires();
   const risques = useRisques();
   const [messages, setMessages] = useState([]);
@@ -182,7 +181,7 @@ export default function NoraConversation({ contexte = null, accueil = null, sugg
       const reponse = await fetch("/api/nora", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ messages: historique, contexte }),
+        body: JSON.stringify({ messages: historique, contexte, langue }),
       });
       if (reponse.status === 429) {
         // « limite_visiteur » ou « plafond_site » : le serveur dit lequel, et quand les questions reviennent
@@ -266,14 +265,14 @@ export default function NoraConversation({ contexte = null, accueil = null, sugg
     if (trains.length === 0) {
       ajouter({
         auteur: "nora",
-        texte: `Je n'ai pas trouvé de train direct de ${gare.nom} vers ${action.a} après ${debut}. La page des résultats cherche aussi les trajets avec correspondance.`,
+        texte: t("nora.r.aucuntrain", { de: gare.nom, a: action.a, heure: debut }),
         lienTous,
       });
       return;
     }
     ajouter({
       auteur: "nora",
-      texte: `Voici les prochains trains de ${gare.nom} vers ${trains[0].gareArrivee}, à partir de ${debut} :`,
+      texte: t("nora.r.trains", { de: gare.nom, a: trains[0].gareArrivee, heure: debut }),
       trains,
       lienTous,
     });
@@ -388,8 +387,8 @@ export default function NoraConversation({ contexte = null, accueil = null, sugg
       const garePhrase = `Gare de ${nomAffiche}`;
       ajouter({
         auteur: "nora",
-        texte: `Aucun ${infosReseau(code).modes.length > 1 ? "bus, tram ou métro" : "bus"} ne relie directement la gare de ${nomAffiche} et ${lieu.nom} (${kilometres} km, `
-          + `environ ${minutesAPied(metres)} minutes à pied). Pour un trajet avec changement, le plus simple :`,
+        texte: t(infosReseau(code).modes.length > 1 ? "nora.r.aucunbus.tous" : "nora.r.aucunbus",
+          { gare: nomAffiche, lieu: lieu.nom, km: kilometres, minutes: minutesAPied(metres) }),
         etapes: depuis ? etapesSiteOfficiel(code, garePhrase, lieuTexte) : etapesSiteOfficiel(code, lieuTexte, garePhrase),
         site: SITES_RESEAUX[code],
         carte, sourceBus: source,
@@ -398,14 +397,14 @@ export default function NoraConversation({ contexte = null, accueil = null, sugg
     }
     // Quand la marche reste raisonnable, Nora la cite aussi : le voyageur choisit en connaissant les deux
     const modeMeilleur = decrireLigne(bus[0].ligne).mode;
-    const enTransport = { bus: "En bus", tram: "En tram", metro: "En métro" }[modeMeilleur];
+    const enTransport = t({ bus: "nora.r.enbus", tram: "nora.r.entram", metro: "nora.r.enmetro" }[modeMeilleur]);
     ajouter({
       auteur: "nora",
       texte: metres <= 1500
-        ? `À pied, comptez environ ${minutesAPied(metres)} min (${metres} m). ${enTransport}, c'est plus rapide :`
+        ? t("nora.r.pied.plusrapide", { minutes: minutesAPied(metres), metres, transport: enTransport })
         : depuis
-          ? `Voici comment rejoindre ${lieu.nom} depuis la gare de ${nomAffiche}, à ${kilometres} km :`
-          : `Voici comment rejoindre la gare de ${nomAffiche} depuis ${lieu.nom}, à ${kilometres} km :`,
+          ? t("nora.r.rejoindre.lieu", { lieu: lieu.nom, gare: nomAffiche, km: kilometres })
+          : t("nora.r.rejoindre.gare", { lieu: lieu.nom, gare: nomAffiche, km: kilometres }),
       bus, carte, sourceBus: source,
     });
   }
@@ -414,7 +413,7 @@ export default function NoraConversation({ contexte = null, accueil = null, sugg
   //  - « de quelle gare partez-vous ? », un train : on donne seulement le NOM de la gare la plus proche ;
   //  - « d'où partez-vous ? » vers la gare : on calcule ici même le bus de la position jusqu'à la gare.
   async function utiliserPosition(question, destination = "", dejaEcrit = false) {
-    if (!dejaEcrit) ajouter({ auteur: "vous", texte: "📍 Ma position" });
+    if (!dejaEcrit) ajouter({ auteur: "vous", texte: `📍 ${t("nora.position")}` });
     if (!navigator.geolocation) {
       ajouter({ auteur: "nora", texte: "Votre appareil ne donne pas sa position. Dites-moi d'où vous partez." });
       return;
@@ -482,7 +481,7 @@ export default function NoraConversation({ contexte = null, accueil = null, sugg
   function ecouter() {
     if (!Reconnaissance) return;
     const reco = new Reconnaissance();
-    reco.lang = "fr-FR";
+    reco.lang = voix;
     reco.interimResults = true;
     reco.onresult = (evenement) => {
       const texte = Array.from(evenement.results).map((r) => r[0].transcript).join("");
@@ -504,27 +503,30 @@ export default function NoraConversation({ contexte = null, accueil = null, sugg
   // Toucher un exemple : la phrase va dans la saisie, et la première partie à adapter est sélectionnée
   // (taper la remplace aussitôt). Rien n'est envoyé à Nora.
   function choisirExemple(e) {
-    setSaisie(e.texte);
+    const texte = t(e.cle);                       // l'exemple, dans la langue choisie
+    setSaisie(texte);
     setExemple(e);
     requestAnimationFrame(() => {
       const zone = champ.current;
       if (!zone) return;
       zone.focus();
-      const debut = e.texte.indexOf(e.parties[0]);
-      zone.setSelectionRange(debut, debut + e.parties[0].length);
+      // La partie à compléter est sélectionnée (en anglais, on sélectionne le premier nom de gare retrouvé)
+      const partie = e.parties.find((x) => texte.includes(x)) || "Lille Flandres";
+      const debut = Math.max(0, texte.indexOf(partie));
+      zone.setSelectionRange(debut, debut + partie.length);
     });
   }
 
   function lire(texte) {
     window.speechSynthesis.cancel();
     const phrase = new SpeechSynthesisUtterance(sansEmojis(texte));
-    phrase.lang = "fr-FR";
+    phrase.lang = voix;
     window.speechSynthesis.speak(phrase);
   }
 
   const suggestions = proposees?.length
     ? proposees
-    : (contexte ? SUGGESTIONS_TRAIN : SUGGESTIONS).map((texte) => ({ texte, question: texte }));
+    : (contexte ? SUGGESTIONS_TRAIN : SUGGESTIONS).map((cle) => ({ texte: t(cle), question: t(cle) }));
 
   return (
     <div className={`nora-conversation nora-conversation--${taille}`}>
@@ -535,23 +537,23 @@ export default function NoraConversation({ contexte = null, accueil = null, sugg
               // Téléphone : la bulle d'accueil, des exemples à compléter, les villes couvertes (voir Nora.css)
               <div className="nora-exemples">
                 <div className="bulle bulle--nora nora-exemples__bulle">
-                  <p className="nora-exemples__bonjour">Bonjour ! <span aria-hidden="true">👋</span></p>
-                  <p>Dites-moi où vous allez après le train, ou posez-moi une question sur un risque de retard.</p>
+                  <p className="nora-exemples__bonjour">{t("nora.bonjour")} <span aria-hidden="true">👋</span></p>
+                  <p>{t("nora.intro")}</p>
                 </div>
-                <p className="nora-exemples__titre">Par exemple, touchez pour compléter :</p>
+                <p className="nora-exemples__titre">{t("nora.exemples")}</p>
                 {EXEMPLES.map((e) => (
                   <button key={e.texte} type="button" onClick={() => choisirExemple(e)}
                           className={exemple === e ? "nora-exemple nora-exemple--choisi" : "nora-exemple"}>
                     <svg viewBox="0 0 24 24" width="18" height="18" aria-hidden="true" fill="none" stroke="currentColor"
                          strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M12 20h9M16.5 3.5a2.1 2.1 0 0 1 3 3L7 19l-4 1 1-4z" /></svg>
-                    <span>« {e.texte} »</span>
+                    <span>« {t(e.cle)} »</span>
                   </button>
                 ))}
                 <p className="nora-exemples__villes">
-                  Bus depuis les gares de {VILLES_BUS.map((v, i) => (
+                  {t("nora.villes")} {VILLES_BUS.map((v, i) => (
                     <span key={v.ville}>
-                      {i > 0 && (i === VILLES_BUS.length - 1 ? " et " : ", ")}
-                      <strong>{v.ville}</strong>{v.metro && " (aussi métro et tram)"}
+                      {i > 0 && (i === VILLES_BUS.length - 1 ? t("nora.et") : ", ")}
+                      <strong>{v.ville}</strong>{v.metro && t("nora.metro")}
                     </span>
                   ))}.
                 </p>
@@ -562,12 +564,9 @@ export default function NoraConversation({ contexte = null, accueil = null, sugg
             ) : (
               <>
                 <AvatarNora taille={76} />
-                <p className="nora-accueil__titre">Bonjour, je suis Nora</p>
-                <p className="nora-accueil__signature">Je suis là pour votre trajet.</p>
-                <p className="nora-accueil__texte">
-                  Posez-moi une question sur Quai Nord, un train ou un risque de retard. Vous pouvez aussi me dire
-                  d'où vous partez et où vous allez.
-                </p>
+                <p className="nora-accueil__titre">{t("nora.titre")}</p>
+                <p className="nora-accueil__signature">{t("nora.signature")}</p>
+                <p className="nora-accueil__texte">{t("nora.texte")}</p>
               </>
             )}
             <div className={accueil ? "nora-suggestions" : "nora-suggestions nora-suggestions--ordinateur"}>
@@ -586,12 +585,12 @@ export default function NoraConversation({ contexte = null, accueil = null, sugg
           <p key={m.id} className="bulle bulle--vous">{m.texte}</p>
         ) : m.erreur !== undefined && !m.texte ? (
           <div key={m.id} className="nora-alerte" role="alert">
-            <p><strong>Nora ne répond pas pour le moment.</strong> Vérifiez votre connexion, puis réessayez.</p>
+            <p><strong>{t("nora.panne")}</strong> {t("nora.panne.texte")}</p>
             {m.erreur && (
               <button type="button" className="nora-bouton" onClick={() => {
                 setMessages((liste) => liste.filter((x) => x.id !== m.id));
                 envoyer(m.erreur);
-              }}>Réessayer</button>
+              }}>{t("nora.reessayer")}</button>
             )}
           </div>
         ) : (
@@ -603,18 +602,18 @@ export default function NoraConversation({ contexte = null, accueil = null, sugg
                   <button type="button" className="nora-position__bouton" onClick={() => utiliserPosition(m.texte)}>
                     <svg viewBox="0 0 24 24" width="20" height="20" aria-hidden="true" fill="none" stroke="currentColor"
                          strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M12 21s-6-5.3-6-10a6 6 0 0 1 12 0c0 4.7-6 10-6 10z" /><circle cx="12" cy="11" r="2.2" /></svg>
-                    Ma position
+                    {t("nora.position")}
                   </button>
-                  <span className="nora-position__note">Votre position reste sur votre téléphone.</span>
+                  <span className="nora-position__note">{t("nora.position.note")}</span>
                 </div>
               )}
               {peutLire && m.texte && (
-                <button type="button" className="bulle__ecouter" aria-label="Écouter la réponse" onClick={() => lire(m.texte)}>
+                <button type="button" className="bulle__ecouter" aria-label={t("nora.ecouter.aria")} onClick={() => lire(m.texte)}>
                   <svg viewBox="0 0 24 24" width="17" height="17" aria-hidden="true" fill="none" stroke="currentColor"
                        strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
                     <path d="M4 9v6h4l5 4V5L8 9z" /><path d="M16 9a4 4 0 0 1 0 6M19 6a8 8 0 0 1 0 12" />
                   </svg>
-                  <span aria-hidden="true">Écouter</span>
+                  <span aria-hidden="true">{t("nora.ecouter")}</span>
                 </button>
               )}
             </div>
@@ -651,27 +650,32 @@ export default function NoraConversation({ contexte = null, accueil = null, sugg
                         <span className="bus-meilleur__trajet">{meilleur.depart.nom} → {meilleur.arrivee.nom}</span>
                       </span>
                       <span className="bus-meilleur__badge">
-                        Le plus rapide{meilleur.minutesBus !== null ? ` · ${meilleur.minutesTotal} min` : ""}
+                        {t("nora.rapide")}{meilleur.minutesBus !== null ? ` · ${meilleur.minutesTotal} min` : ""}
                       </span>
                     </div>
                     <ol className="bus-meilleur__etapes">
-                      <li>Marchez <strong>{minutesAPied(meilleur.depart.marche)} min</strong> jusqu'à {decrireLigne(meilleur.ligne).station} <strong>{meilleur.depart.nom}</strong></li>
-                      <li>Prenez <strong>{decrireLigne(meilleur.ligne).prendre}</strong>, direction <strong>{meilleur.direction}</strong> · {decrireLigne(meilleur.ligne).arrets(meilleur.arrets)}{meilleur.nuit ? " (ligne de nuit)" : ""}{meilleur.occasionnel ? " (service peu fréquent)" : ""}</li>
-                      <li>Descendez à <strong>{meilleur.arrivee.nom}</strong>, puis {minutesAPied(meilleur.arrivee.marche)} min à pied</li>
+                      {langue === "en" ? (<>
+                        <li>{t("nora.marchez")} <strong>{minutesAPied(meilleur.depart.marche)} min</strong> {t("nora.jusqua")} <strong>{meilleur.depart.nom}</strong></li>
+                        <li>{t("nora.prenez")} <strong>{meilleur.ligne.mode === "metro" ? "metro" : meilleur.ligne.mode === "tram" ? "tram" : "bus"} {meilleur.ligne.nom}</strong>, {t("nora.direction")} <strong>{meilleur.direction}</strong> · {t("nora.arrets", { nombre: meilleur.arrets })}{meilleur.nuit ? t("nora.nuit") : ""}{meilleur.occasionnel ? t("nora.rare") : ""}</li>
+                      </>) : (<>
+                        <li>Marchez <strong>{minutesAPied(meilleur.depart.marche)} min</strong> jusqu'à {decrireLigne(meilleur.ligne).station} <strong>{meilleur.depart.nom}</strong></li>
+                        <li>Prenez <strong>{decrireLigne(meilleur.ligne).prendre}</strong>, direction <strong>{meilleur.direction}</strong> · {decrireLigne(meilleur.ligne).arrets(meilleur.arrets)}{meilleur.nuit ? " (ligne de nuit)" : ""}{meilleur.occasionnel ? " (service peu fréquent)" : ""}</li>
+                      </>)}
+                      <li>{t("nora.descendez")} <strong>{meilleur.arrivee.nom}</strong>, {t("nora.puis.pied", { minutes: minutesAPied(meilleur.arrivee.marche) })}</li>
                     </ol>
                   </article>
-                  {autres.length > 0 && <p className="bus-autres__titre">Autres possibilités</p>}
+                  {autres.length > 0 && <p className="bus-autres__titre">{t("nora.autres")}</p>}
                   {autres.map((b) => (
                     <a key={`${b.ligne.nom}-${b.depart.id}-${b.arrivee.id}`} href={m.carte} target="_blank" rel="noopener noreferrer" className="bus-autre">
                       <PastilleLigne ligne={b.ligne} />
                       <span className="bus-autre__texte">
                         <strong>{b.depart.nom} → {b.arrivee.nom}</strong>
                         <span>
-                          Direction {b.direction}{b.occasionnel ? " · peu fréquent" : ""}
-                          {b.nuit && <> <span className="bus-autre__nuit">Ligne de nuit</span></>}
+                          {langue === "en" ? "Towards" : "Direction"} {b.direction}{b.occasionnel ? t("nora.peu") : ""}
+                          {b.nuit && <> <span className="bus-autre__nuit">{t("nora.ligne.nuit")}</span></>}
                         </span>
                       </span>
-                      <strong>{b.minutesBus !== null ? `${b.minutesTotal} min` : `${b.arrets} arrêts`}</strong>
+                      <strong>{b.minutesBus !== null ? `${b.minutesTotal} min` : t("nora.arrets", { nombre: b.arrets })}</strong>
                     </a>
                   ))}
                 </>
@@ -706,20 +710,20 @@ export default function NoraConversation({ contexte = null, accueil = null, sugg
             )}
             {m.site && (
               <a href={m.site.url} target="_blank" rel="noopener noreferrer" className="nora-lien nora-lien--principal">
-                Site officiel {m.site.nom} ↗
+                {t("nora.site", { nom: m.site.nom })}
               </a>
             )}
-            {m.lienTous && <Link to={m.lienTous} className="nora-lien">Voir tous les trains</Link>}
+            {m.lienTous && <Link to={m.lienTous} className="nora-lien">{t("nora.tous")}</Link>}
             {m.carte && (
-              <a href={m.carte} target="_blank" rel="noopener noreferrer" className="nora-lien">{m.libelleCarte || "Voir sur la carte ↗"}</a>
+              <a href={m.carte} target="_blank" rel="noopener noreferrer" className="nora-lien">{m.libelleCarte ? (m.libelleCarte.startsWith("Itinéraire") ? t("nora.pied") : m.libelleCarte) : t("nora.carte")}</a>
             )}
             {m.sourceBus && <p className="bulle__source">{m.sourceBus}</p>}
             {m.lienSncf && (
-              <a href={SNCF_CONNECT} target="_blank" rel="noopener noreferrer" className="nora-lien">Aller sur SNCF Connect ↗</a>
+              <a href={SNCF_CONNECT} target="_blank" rel="noopener noreferrer" className="nora-lien">{t("nora.sncf")}</a>
             )}
             {m.sources?.length > 0 && (
               <p className="bulle__source">
-                Source : <Link to="/faq">Questions fréquentes</Link> · « {m.sources[0]} »
+                {t("nora.source")} <Link to="/faq">{t("nora.faq")}</Link> · « {m.sources[0]} »
               </p>
             )}
           </div>
@@ -731,8 +735,8 @@ export default function NoraConversation({ contexte = null, accueil = null, sugg
             <span className="nora-attente__mascotte"><AvatarNora taille={52} expression={phase} /></span>
             <p className="bulle bulle--nora nora-ecrit" role="status">
               <span className="nora-ecrit__points" aria-hidden="true"><span /><span /><span /></span>
-              <span className="nora-ecrit__ordinateur">Nora écrit…</span>
-              <span className="nora-ecrit__telephone">{phase === "recherche" ? "Je cherche le meilleur trajet" : "Nora réfléchit"}</span>
+              <span className="nora-ecrit__ordinateur">{t("nora.ecrit")}</span>
+              <span className="nora-ecrit__telephone">{phase === "recherche" ? t("nora.cherche") : t("nora.reflechit")}</span>
             </p>
           </div>
         )}
@@ -741,26 +745,24 @@ export default function NoraConversation({ contexte = null, accueil = null, sugg
 
       {/* ---------- Le bas : saisie, ou message de limite ---------- */}
       {limiteAtteinte ? (
-        <section className="nora-limite" aria-label="Limite atteinte" role="status">
+        <section className="nora-limite" aria-label={t("nora.limite.aria")} role="status">
           <div className="nora-limite__haut">
             {limiteAtteinte.code === "plafond_site" && (
               // Les yeux fermés : Nora « fait une pause »
               <span className="nora-limite__mascotte"><AvatarNora taille={64} expression="ecoute" /></span>
             )}
             <p className="nora-limite__titre">
-              {limiteAtteinte.message || "Vous avez posé vos questions du jour."}
+              {langue === "en" ? t("nora.limite.titre") : (limiteAtteinte.message || t("nora.limite.titre"))}
             </p>
           </div>
           <p>
             {limiteAtteinte.code === "plafond_site"
-              ? <>Elle fait une pause et sera de nouveau disponible <strong>{limiteAtteinte.reprise || "demain"}</strong>.
-                  Les recherches de trains, de bus et de métro fonctionnent toujours.</>
-              : <>Nora sera de nouveau disponible <strong>{limiteAtteinte.reprise || "demain"}</strong>. En attendant,
-                  les trains, les bus et le métro restent consultables sans elle, et les réponses courantes sont dans la FAQ.</>}
+              ? t("nora.limite.site", { quand: langue === "en" ? t("nora.demain") : (limiteAtteinte.reprise || t("nora.demain")) })
+              : t("nora.limite.vous", { quand: langue === "en" ? t("nora.demain") : (limiteAtteinte.reprise || t("nora.demain")) })}
           </p>
           <div className="nora-limite__boutons">
-            <Link to="/" className="nora-bouton">Rechercher un trajet</Link>
-            <Link to="/faq" className="nora-bouton nora-bouton--jaune">Voir les questions fréquentes</Link>
+            <Link to="/" className="nora-bouton">{t("nora.rechercher")}</Link>
+            <Link to="/faq" className="nora-bouton nora-bouton--jaune">{t("nora.voir.faq")}</Link>
           </div>
         </section>
       ) : (
@@ -769,7 +771,7 @@ export default function NoraConversation({ contexte = null, accueil = null, sugg
             <p className="nora-reste">
               <svg viewBox="0 0 24 24" width="18" height="18" aria-hidden="true" fill="none" stroke="currentColor"
                    strokeWidth="2" strokeLinecap="round"><circle cx="12" cy="12" r="9" /><path d="M12 7v5l3 2" /></svg>
-              <span>Plus que <strong>{restantes} question{restantes > 1 ? "s" : ""}</strong> à Nora aujourd'hui.</span>
+              <span>{t("nora.restantes", { nombre: restantes })}</span>
             </p>
           )}
           {exemple && saisie && (
@@ -778,7 +780,7 @@ export default function NoraConversation({ contexte = null, accueil = null, sugg
           <form className="nora-saisie" onSubmit={(e) => { e.preventDefault(); envoyer(saisie); }}>
             <label htmlFor="nora-question" className="visuellement-cache">Votre question</label>
             <textarea id="nora-question" ref={champ} rows={1} value={saisie} maxLength={500} autoComplete="off"
-                      placeholder={Reconnaissance ? "Écrivez ou parlez…" : "Posez votre question…"}
+                      placeholder={Reconnaissance ? t("nora.placeholder.voix") : t("nora.placeholder")}
                       onChange={(e) => setSaisie(e.target.value)} disabled={enAttente}
                       onKeyDown={(e) => {
                         if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); envoyer(saisie); }
@@ -796,8 +798,8 @@ export default function NoraConversation({ contexte = null, accueil = null, sugg
             </button>
           </form>
           <p className="nora-mention">
-            Nora est une IA : elle peut se tromper. Ne partagez pas d'informations personnelles.
-            {restantes !== null && ` Questions restantes aujourd'hui : ${restantes}.`}
+            {t("nora.mention.complete")}
+            {restantes !== null && t("nora.restantes.mention", { nombre: restantes })}
           </p>
         </div>
       )}

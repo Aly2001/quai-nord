@@ -72,11 +72,19 @@ export const margeEnGare = (nomGare) => (GRANDES_GARES.test(nomGare || "") ? 10 
 //   { mode: "pied", departMaison, arriveeGare, marche }
 // On prend le DERNIER bus qui arrive à temps (on ne fait pas partir le voyageur trop tôt pour rien),
 // et la marche quand elle reste raisonnable (20 min) ou qu'aucun bus n'arrive à temps.
+export const TRES_LOIN = 15_000;          // mètres : au-delà, on n'est pas dans la ville de la gare
+export const MARCHE_MAX = 45;            // minutes : au-delà, on ne conseille plus la marche
+
+// Quand l'aller n'a pas de sens, on le dit au lieu d'inventer :
+//   { mode: "loin", metres }   : on est dans une autre ville (il faut d'abord un train, ou une autre adresse) ;
+//   { mode: "aucun", marche, metres } : pas de bus direct, et trop loin à pied.
 export function allerALaGare(reseau, horaires, A, gare, dateIso, limite) {
   const metres = Math.round(distance(A.lat, A.lon, gare.lat, gare.lon));
+  if (metres > TRES_LOIN) return { mode: "loin", metres };
   const aPied = minutesAPied(metres);
   const pied = { mode: "pied", marche: aPied, arriveeGare: limite, departMaison: limite - aPied, metres };
-  if (!reseau || !horaires) return pied;
+  const aucun = { mode: "aucun", marche: aPied, metres };
+  if (!reseau || !horaires) return aPied <= MARCHE_MAX ? pied : aucun;
   const prochesA = arretsProches(reseau, A.lat, A.lon, rayonMarche(A.cat));
   const idsA = new Set(prochesA.map(([id]) => id));
   const prochesGare = arretsProches(reseau, gare.lat, gare.lon, rayonMarche("gare")).filter(([id]) => !idsA.has(id));
@@ -95,9 +103,9 @@ export function allerALaGare(reseau, horaires, A, gare, dateIso, limite) {
     };
     if (!meilleur || option.departMaison > meilleur.departMaison) meilleur = option;
   }
-  if (!meilleur) return pied;
+  if (!meilleur) return aPied <= MARCHE_MAX ? pied : aucun;
   // À pied, c'est plus simple quand c'est court, ou quand le bus ne fait presque rien gagner
-  if (aPied <= 15 || pied.departMaison >= meilleur.departMaison) return pied;
+  if (aPied <= 15 || (aPied <= MARCHE_MAX && pied.departMaison >= meilleur.departMaison)) return pied;
   return meilleur;
 }
 

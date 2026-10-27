@@ -30,7 +30,8 @@ function versOctets(base64url) {
 export function trainsPourLeServeur(suivis, idSuivi) {
   return suivis.map((s) => ({
     de: s.de, a: s.a, heure: s.heure, arrivee: s.arrivee, repetition: s.repetition, jour: s.jour || null,
-    rappel: s.aller ? {
+    // Le rappel seulement pour un vrai itinéraire (un bus, ou moins de 45 min à pied : jamais « marchez 27 h »)
+    rappel: s.aller && (s.aller.mode === "bus" || (s.aller.mode === "pied" && s.aller.marche <= 45)) ? {
       minute: Math.round(s.aller.departMaison),
       texte: s.aller.mode === "bus" ? `${s.aller.ligne.nom} · ${minutesEnHeure(s.aller.heureBus)} · ${s.aller.arretDepart.nom}` : `🚶 ${s.aller.marche} min`,
     } : null,

@@ -49,3 +49,16 @@ describe("l'aller à la gare", () => {
     expect(aller.departMaison).toBe(719 - aller.marche);
   });
 });
+
+
+describe("quand l'aller à la gare n'a pas de sens", () => {
+  const gare = { lat: 50.6364, lon: 3.0710 };                    // Lille Flandres
+  test("dans une autre ville (Boulogne -> Lille Flandres) : « loin », jamais 27 h de marche", () => {
+    const aller = allerALaGare(null, null, { lat: 50.7264, lon: 1.6147 }, gare, "2026-10-27", 400);
+    expect(aller.mode).toBe("loin");
+  });
+  test("à 6 km, sans bus : « aucun », pas 1 h 30 de marche", () => {
+    const aller = allerALaGare(null, null, { lat: 50.6900, lon: 3.0710 }, gare, "2026-10-27", 400);
+    expect(aller.mode).toBe("aucun");
+  });
+});

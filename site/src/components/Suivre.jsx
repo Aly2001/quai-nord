@@ -83,7 +83,7 @@ export function MonProchainTrain() {
   const aujourdhui = jour === new Date().toLocaleDateString("sv-SE");
   const quand = aujourdhui ? t("jour.aujourdhui") : dateLongue(jour);
   const maintenant = new Date().getHours() * 60 + new Date().getMinutes();
-  const aller = suivi.aller;
+  const aller = suivi.aller && (suivi.aller.mode === "bus" || (suivi.aller.mode === "pied" && suivi.aller.marche <= 45)) ? suivi.aller : null;
   const dans = aller && aujourdhui ? Math.round(aller.departMaison - maintenant) : null;
   return (
     <Link to={lienPartir(suivi)} className="prochain-train">
@@ -117,7 +117,7 @@ export function ListeSuivis() {
               <strong>{s.heure} · {s.de} → {s.a}</strong>
               <span className="etat-train etat-train--absent">{s.repetition === "semaine" ? t("suivi.semaine.court") : dateLongue(s.jour)}</span>
             </Link>
-            {s.aller && <small className="suivi__aller">🏠 {t("suivi.partez", { heure: minutesEnHeure(s.aller.departMaison) })}</small>}
+            {s.aller?.departMaison !== undefined && (s.aller.mode === "bus" || s.aller.marche <= 45) && <small className="suivi__aller">🏠 {t("suivi.partez", { heure: minutesEnHeure(s.aller.departMaison) })}</small>}
             <div className="favori-train__actions">
               <Link className="favori-train__surveiller" to={`${lienPartir(s)}&preparer=1`}>{s.aller ? t("suivi.changer") : t("suivi.preparer")}</Link>
               <button type="button" className="favoris__retirer" onClick={() => nePlusSuivre(s)}>{t("suivi.arreter")}</button>

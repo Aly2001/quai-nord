@@ -11,8 +11,9 @@ import { useTitrePage } from "../components/titrePage";
 import { useLangue } from "../langue/langue";
 import { LienMarche } from "../components/Marche";
 import { lienPartir } from "../components/Suivre";
-import { useSuivis, prochaineOccasion, allerALaGare, margeEnGare, enMinutesDuJour, BOUGE } from "../data/suivi";
-import { chargerReseau, chargerGaresCouvertes, chercherLieu, distance, RESEAUX } from "../data/bus";
+import { useSuivis, prochaineOccasion, allerALaGare, margeEnGare, enMinutesDuJour, BOUGE, TRES_LOIN, MARCHE_MAX } from "../data/suivi";
+import { chargerReseau, chargerGaresCouvertes, chercherLieu, distance, RESEAUX, gareLaPlusProche, lienCarte } from "../data/bus";
+import { enDuree } from "../langue/langue";
 import { chargerHoraires, minutesEnHeure } from "../data/trajetBus";
 import { etatDuTrain } from "../data/favorisPlus";
 import { normaliser, dateLongue, useIndexHoraires, trouverGare, DOSSIER, useTempsReel, useRisques, trajetsDirects } from "../data/horaires";
@@ -60,7 +61,12 @@ export default function Partir() {
     );
   }
   const limite = enMinutesDuJour(suivi.heure) - margeEnGare(suivi.de);
-  const calculer = (A) => allerALaGare(contexte.reseau, contexte.horaires, A, contexte.gare, jour, limite);
+  const calculer = async (A) => {
+    const aller = allerALaGare(contexte.reseau, contexte.horaires, A, contexte.gare, jour, limite);
+    if (aller.mode !== "loin") return aller;
+    const proche = gareLaPlusProche(await chargerGaresCouvertes(), A.lat, A.lon);
+    return { ...aller, gareProche: proche && proche.metres < TRES_LOIN ? proche.nom : null };
+  };
 
   return (
     <div className="partir">
@@ -93,7 +99,7 @@ function PreparerAller({ suivi, contexte, calculer, onChoisi }) {
   const ville = RESEAUX.find((r) => r.code === contexte.gare.reseau)?.ville || "";
 
   async function depuis(point, nom, position) {
-    const aller = calculer(point);
+    const aller = await calculer(point);
     onChoisi({ ...aller, depuis: { nom, lat: point.lat, lon: point.lon, position } });
   }
   async function avecPosition() {
@@ -132,7 +138,8 @@ function Itineraire({ suivi, jour, contexte, calculer }) {
   const { t } = useLangue();
   const navigate = useNavigate();
   const [maintenant, setMaintenant] = useState(maintenantEnMinutes);
-  const [lieu, setLieu] = useState({ etat: suivi.aller.depuis.position ? "verification" : "adresse", aller: suivi.aller });
+  // Un aller enregistré avant cette règle (« marchez 27 h ») est relu avec la règle d'aujourd'hui
+  const [lieu, setLieu] = useState({ etat: suivi.aller.depuis.position ? "verification" : "adresse", aller: corrigerAller(suivi.aller) });
   const [absent, setAbsent] = useState(false);        // le train n'est plus dans les horaires de ce jour
   useEffect(() => { const m = setInterval(() => setMaintenant(maintenantEnMinutes()), 30_000); return () => clearInterval(m); }, []);
   const aujourdhui = jour === aujourdhuiLocal();
@@ -143,14 +150,14 @@ function Itineraire({ suivi, jour, contexte, calculer }) {
     positionActuelle().then((ici) => {
       const ecart = distance(ici.lat, ici.lon, suivi.aller.depuis.lat, suivi.aller.depuis.lon);
       if (ecart <= BOUGE) setLieu({ etat: "meme", aller: suivi.aller });
-      else setLieu({ etat: "bouge", aller: { ...calculer(ici), depuis: { ...suivi.aller.depuis, lat: ici.lat, lon: ici.lon } } });
+      else calculer(ici).then((aller) => setLieu({ etat: "bouge", aller: { ...aller, depuis: { ...suivi.aller.depuis, lat: ici.lat, lon: ici.lon } } }));
     }).catch(() => setLieu({ etat: "inconnu", aller: suivi.aller }));
   }, [suivi.heure, aujourdhui]);   // eslint-disable-line react-hooks/exhaustive-deps
 
   async function recalculerIci() {
     try {
       const ici = await positionActuelle();
-      setLieu({ etat: "bouge", aller: { ...calculer(ici), depuis: { nom: t("ville.maposition"), lat: ici.lat, lon: ici.lon, position: true } } });
+      setLieu({ etat: "bouge", aller: { ...(await calculer(ici)), depuis: { nom: t("ville.maposition"), lat: ici.lat, lon: ici.lon, position: true } } });
     } catch { setLieu((l) => ({ ...l, etat: "inconnu" })); }
   }
 
@@ -171,7 +178,24 @@ function Itineraire({ suivi, jour, contexte, calculer }) {
           <button type="button" onClick={recalculerIci}>{t("partir.ailleurs")}</button></p>
       )}
       <EtatDuTrain suivi={suivi} jour={jour} onAbsent={setAbsent} />
-      {!absent && (<>
+      {aller.mode === "loin" && (
+        <div className="partir__alerte partir__alerte--absent">
+          <strong>🚆 {t("partir.loin", { gare: suivi.de, km: Math.round(aller.metres / 1000) })}</strong>
+          <span>{t("partir.loin.texte")}</span>
+          {aller.gareProche && (
+            <Link className="partir__bouton partir__bouton--plein" to={`/trajet?${new URLSearchParams({ de: aller.gareProche, a: suivi.de, jour, heure: "00:00" })}`}>
+              {t("partir.loin.train", { de: aller.gareProche, a: suivi.de })}</Link>
+          )}
+        </div>
+      )}
+      {aller.mode === "aucun" && (
+        <div className="partir__alerte partir__alerte--absent">
+          <strong>{t("partir.aucun", { gare: suivi.de })}</strong>
+          <span>{t("partir.aucun.texte", { duree: enDuree(aller.marche) })}</span>
+          <a href={lienCarte(aller.depuis, contexte.gare)} target="_blank" rel="noopener noreferrer">{t("ville.carte")}</a>
+        </div>
+      )}
+      {!absent && ["bus", "pied"].includes(aller.mode) && (<>
       <div className="partir__compte">
         {aujourdhui && dans >= 0 ? (<><p>{t("partir.dans")}</p><p className="partir__grand">{minutesEnTexte(dans, t)}</p></>)
           : aujourdhui ? <p className="partir__grand partir__grand--petit">{t("partir.maintenant")}</p> : null}
@@ -194,10 +218,10 @@ function Itineraire({ suivi, jour, contexte, calculer }) {
         <li className="partir__train"><span>🚆</span><div><strong>{suivi.heure} · {suivi.de} → {suivi.a}</strong>
           <small>{t("partir.arrivee", { heure: suivi.arrivee })}{suivi.correspondance ? ` · ${t("partir.correspondance", { gare: suivi.correspondance })}` : ""}</small></div></li>
       </ol>
+      </>)}
       <button type="button" className="partir__plustard" onClick={() => navigate(`${lienPartir(suivi)}&preparer=1`)}>
         {t("suivi.changer")}
       </button>
-      </>)}
     </section>
   );
 }
@@ -257,4 +281,10 @@ function EtatDuTrain({ suivi, jour, onAbsent }) {
     );
   }
   return null;
+}
+
+// Les anciens allers à pied trop longs deviennent « loin » ou « aucun », comme le calcul d'aujourd'hui
+function corrigerAller(aller) {
+  if (aller.mode !== "pied" || aller.marche <= MARCHE_MAX) return aller;
+  return aller.metres > TRES_LOIN ? { ...aller, mode: "loin", gareProche: null } : { ...aller, mode: "aucun" };
 }

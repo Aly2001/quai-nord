@@ -11,7 +11,7 @@ function versionDuServiceWorker() {
     name: 'version-du-service-worker',
     apply: 'build',
     closeBundle() {
-      const chemin = resolve(__dirname, 'dist', 'sw.js')
+      const chemin = resolve(import.meta.dirname, 'dist', 'sw.js')
       if (!existsSync(chemin)) return
       const version = `quai-nord-${new Date().toISOString().replace(/[-:T]/g, '').slice(0, 12)}`
       writeFileSync(chemin, readFileSync(chemin, 'utf8').replace('"quai-nord-v3"', `"${version}"`))

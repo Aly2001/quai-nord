@@ -219,15 +219,18 @@ def main(arguments=None):
                     continue
                 if la_nuit(maintenant):
                     continue                                       # rien la nuit ; l'état ne change pas
+                tout_envoye = True
                 for type_, valeurs in evenements:
                     titre, corps = composer(type_, valeurs, abonnement.get("langue", "fr"))
                     print(f"   {type_:8} {train['heure']} {train['de']} -> {train['a']} : {titre}")
                     if essai:
                         continue
                     if not envoyer(abonnement["abonnement"], titre, corps, SITE + train.get("url", "/"), blob):
+                        tout_envoye = False
                         break
                     envoyes += 1
-                if not essai:
+                # On ne note « envoyé » que si l'envoi a réussi : sinon, on réessaiera dans 5 minutes
+                if not essai and tout_envoye:
                     etat[cle] = {**nouvel, "le": maintenant.date().isoformat()}
     # On oublie l'état de plus de deux jours
     limite = (maintenant.date() - timedelta(days=2)).isoformat()
@@ -238,12 +241,27 @@ def main(arguments=None):
     return 0
 
 
+def charger_cle():
+    """La clé privée VAPID, lue nous-mêmes (au format PEM) : on accepte les deux noms possibles du fichier."""
+    from py_vapid import Vapid
+    for chemin in (CLE_PRIVEE, CLE_PRIVEE.with_name("private_key.pem")):
+        if chemin.exists():
+            return Vapid.from_file(str(chemin))
+    raise FileNotFoundError(f"Clé privée introuvable : {CLE_PRIVEE} (voir la création des clés, avec vapid --gen)")
+
+
+_cle = None
+
+
 def envoyer(abonnement, titre, corps, url, blob):
-    """Envoie une notification. Si le téléphone n'existe plus (adresse expirée), on efface son abonnement."""
+    """Envoie une notification. Si le téléphone n'existe plus (adresse expirée), on efface son abonnement.
+    Une erreur sur un envoi n'arrête jamais les autres : on la note, et on réessaiera au prochain passage."""
+    global _cle
     from pywebpush import webpush, WebPushException
     try:
+        _cle = _cle or charger_cle()
         webpush(subscription_info=abonnement, data=json.dumps({"titre": titre, "corps": corps, "url": url}),
-                vapid_private_key=str(CLE_PRIVEE), vapid_claims={"sub": SITE}, ttl=3600)
+                vapid_private_key=_cle, vapid_claims={"sub": SITE}, ttl=3600)
         return True
     except WebPushException as erreur:
         statut = getattr(erreur.response, "status_code", None)
@@ -251,7 +269,10 @@ def envoyer(abonnement, titre, corps, url, blob):
             blob.delete()
             print("   Adresse expirée : abonnement effacé.")
         else:
-            print(f"   Envoi impossible ({statut}).")
+            print(f"   Envoi impossible ({statut}) : {erreur}")
+        return False
+    except Exception as erreur:                                   # la clé, le réseau… : on continue avec les autres
+        print(f"   Envoi impossible : {erreur}")
         return False
 
 

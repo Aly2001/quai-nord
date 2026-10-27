@@ -17,6 +17,23 @@ createRoot(document.getElementById("root")).render(
   </StrictMode>
 );
 
+// ---------- L'écran de démarrage (index.html) : il reste au moins 1,6 s, puis s'efface en fondu ----------
+// Dans le navigateur, il n'est pas affiché (voir le CSS « display-mode: standalone ») : on le retire aussitôt.
+const DUREE_DEMARRAGE = 1600;                    // millisecondes, depuis l'ouverture de l'application
+const demarrage = document.getElementById("demarrage");
+if (demarrage) {
+  const installee = window.matchMedia("(display-mode: standalone)").matches || window.navigator.standalone === true;
+  const reduit = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+  if (!installee) demarrage.remove();
+  else {
+    const reste = Math.max(0, (reduit ? 600 : DUREE_DEMARRAGE) - performance.now());
+    setTimeout(() => {
+      demarrage.classList.add("demarrage--fin");
+      setTimeout(() => demarrage.remove(), 450);
+    }, reste);
+  }
+}
+
 // Application installable : on enregistre le service worker (mode hors connexion).
 // Seulement sur le site construit (npm run build), pas pendant le développement.
 // Quand une NOUVELLE version attend, on le signale au site (le bandeau « Mettre à jour »).

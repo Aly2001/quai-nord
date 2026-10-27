@@ -56,6 +56,31 @@
             async src="//gc.zgo.at/count.js"></script>
   </head>
   <body>
+    <!-- L'écran de démarrage, DANS la page : il prend le relais de l'image de l'iPhone (identique), et reste
+         affiché un petit moment avant de s'effacer en fondu. Seulement dans l'application installée (voir main.jsx). -->
+    <div id="demarrage" aria-hidden="true">
+      <style>
+        #demarrage { position: fixed; inset: 0; z-index: 1000; display: none; flex-direction: column; align-items: center;
+          justify-content: center; background: #14213D; color: #FFFFFF; font-family: "Barlow Condensed", "Arial Narrow", sans-serif;
+          transition: opacity 0.4s ease; }
+        @media (display-mode: standalone) { #demarrage { display: flex; } }
+        #demarrage.demarrage--fin { opacity: 0; pointer-events: none; }
+        .demarrage__logo { width: 104px; height: 104px; display: flex; align-items: center; justify-content: center; border-radius: 24px;
+          background: #FFFFFF; color: #14213D; font-weight: 700; font-size: 54px; margin-top: -12vh; }
+        .demarrage__nom { margin-top: 26px; font-weight: 700; font-size: 38px; }
+        .demarrage__nom span { color: #F2C230; }
+        .demarrage__trait { width: 60px; height: 4px; margin-top: 14px; border-radius: 2px; background: #F2C230;
+          animation: demarrage-trait 1.2s ease-in-out infinite alternate; }
+        .demarrage__bas { position: absolute; bottom: calc(40px + env(safe-area-inset-bottom, 0px)); font-family: "Barlow", Arial, sans-serif;
+          font-size: 15px; color: #9FB1CC; }
+        @keyframes demarrage-trait { from { width: 24px; } to { width: 72px; } }
+        @media (prefers-reduced-motion: reduce) { .demarrage__trait { animation: none; } #demarrage { transition: none; } }
+      </style>
+      <div class="demarrage__logo">QN</div>
+      <div class="demarrage__nom">Quai <span>Nord</span></div>
+      <div class="demarrage__trait"></div>
+      <div class="demarrage__bas">Trains et bus des Hauts-de-France</div>
+    </div>
     <div id="root"></div>
     <script type="module" src="/src/main.jsx"></script>
   </body>

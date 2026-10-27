@@ -45,6 +45,9 @@ TEXTES = {
         "supprime": ("🔴 Votre {heure} est supprimé", "{de} → {a}. Prochain train : {suivant}.", "{de} → {a}. Touchez pour voir les autres trains."),
         "retard": ("🟠 Votre {heure} a {minutes} min de retard", "Départ annoncé à {nouvelle}. Par prudence, partez comme prévu : un retard peut se réduire."),
         "heure": ("🟢 Votre {heure} est de nouveau à l'heure", "{de} → {a}, d'après la SNCF."),
+        "disparu": ("⚠️ Votre {heure} ne circule pas {quand}", "La SNCF a modifié ses horaires. Le plus proche vers {a} : {proche}.",
+                    "La SNCF a modifié ses horaires. Touchez pour voir les autres trains."),
+        "aujourdhui": "aujourd'hui", "demain": "demain",
         "rappel": ("🏠 Partez dans {dans} min pour votre {heure}", "{texte}. {etat}"),
         "etat_heure": "Votre train est à l'heure pour l'instant.",
         "etat_retard": "Retard annoncé : {minutes} min, mais partez comme prévu.",
@@ -54,6 +57,9 @@ TEXTES = {
         "supprime": ("🔴 Your {heure} is cancelled", "{de} → {a}. Next train: {suivant}.", "{de} → {a}. Tap to see other trains."),
         "retard": ("🟠 Your {heure} is {minutes} min late", "Expected to leave at {nouvelle}. To be safe, leave as planned: a delay can shrink."),
         "heure": ("🟢 Your {heure} is on time again", "{de} → {a}, according to SNCF."),
+        "disparu": ("⚠️ Your {heure} isn't running {quand}", "SNCF has changed its timetable. Nearest train to {a}: {proche}.",
+                    "SNCF has changed its timetable. Tap to see other trains."),
+        "aujourdhui": "today", "demain": "tomorrow",
         "rappel": ("🏠 Leave in {dans} min for your {heure}", "{texte}. {etat}"),
         "etat_heure": "Your train is on time for now.",
         "etat_retard": "{minutes} min delay announced, but leave as planned.",
@@ -105,6 +111,15 @@ def train_suivant(departs, train, arrivee_gare):
     return None
 
 
+def train_le_plus_proche(departs, heure, arrivee_gare):
+    """Pour un train disparu : le PREMIER train vers la même gare à partir de son heure (on ne propose pas un train
+    plus tôt, qu'on aurait déjà raté) ; s'il n'y en a plus, le dernier avant."""
+    cible = normaliser(arrivee_gare)
+    candidats = sorted(t["heure"] for t in departs if any(cible in normaliser(s["gare"]) for s in t.get("suite", [])))
+    apres = [h for h in candidats if h >= heure]
+    return apres[0] if apres else (candidats[-1] if candidats else None)
+
+
 def etat_du_direct(direct, train):
     """{ "supprime": bool, "retard": minutes } d'après le direct de la SNCF (None si le train n'y est pas)."""
     info = (direct or {}).get("trajets", {}).get(train.get("trip_id"))
@@ -118,7 +133,7 @@ def etat_du_direct(direct, train):
 
 
 # ---------- La décision : quoi envoyer, une seule fois ----------
-def decider(train, jour, train_horaire, direct, deja, maintenant, suivant=None):
+def decider(train, jour, train_horaire, direct, deja, maintenant, suivant=None, proche=None, departs_charges=True):
     """Renvoie (événements à envoyer, nouvel état). deja : ce qui a déjà été envoyé pour ce train ce jour-là.
     Un événement : (type, valeurs) ; types : supprime, retard, heure, rappel."""
     etat = dict(deja)
@@ -128,8 +143,15 @@ def decider(train, jour, train_horaire, direct, deja, maintenant, suivant=None):
     depart = en_minutes(train["heure"])
     if aujourdhui and minutes > depart + 5:                       # le train est parti : plus rien à dire
         return evenements, etat
-    info = etat_du_direct(direct, train_horaire) if train_horaire else None
     valeurs = {"heure": train["heure"], "de": train["de"], "a": train["a"]}
+    if train_horaire is None:
+        # Le train n'est plus dans les horaires de ce jour (la SNCF a changé son plan) : on prévient une fois,
+        # et on n'envoie surtout pas de rappel « Partez » pour un train qui ne viendra pas.
+        if departs_charges and not etat.get("disparu"):
+            evenements.append(("disparu", {**valeurs, "proche": proche, "jour": "aujourdhui" if aujourdhui else "demain"}))
+            etat["disparu"] = True
+        return evenements, etat
+    info = etat_du_direct(direct, train_horaire)
     if info and info["supprime"]:
         if not etat.get("supprime"):
             evenements.append(("supprime", {**valeurs, "suivant": suivant}))
@@ -160,6 +182,10 @@ def composer(type_, valeurs, langue):
     if type_ == "supprime":
         titre, avec, sans = t["supprime"]
         return titre.format(**valeurs), (avec if valeurs.get("suivant") else sans).format(**valeurs)
+    if type_ == "disparu":
+        titre, avec, sans = t["disparu"]
+        valeurs = {**valeurs, "quand": t[valeurs["jour"]]}
+        return titre.format(**valeurs), (avec if valeurs.get("proche") else sans).format(**valeurs)
     if type_ == "rappel":
         retard = valeurs.get("retard")
         etat = t["etat_retard"].format(minutes=retard) if retard and retard >= RETARD_MIN else t["etat_heure"] if retard is not None else t["etat_inconnu"]
@@ -214,7 +240,10 @@ def main(arguments=None):
                 horaire = retrouver_train(departs, train["heure"], train["a"])
                 cle = f"{blob.name}|{jour}|{train['de']}|{train['heure']}"
                 suivant = train_suivant(departs, horaire, train["a"]) if horaire else None
-                evenements, nouvel = decider(train, jour, horaire, direct, etat.get(cle, {}), maintenant, suivant)
+                proche = None if horaire else train_le_plus_proche(departs, train["heure"], train["a"])
+                # Sans fichier d'horaires pour ce jour (pas encore exporté), on ne conclut pas que le train a disparu
+                evenements, nouvel = decider(train, jour, horaire, direct, etat.get(cle, {}), maintenant, suivant,
+                                             proche, departs_charges=bool(departs))
                 if not evenements:
                     continue
                 if la_nuit(maintenant):

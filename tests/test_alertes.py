@@ -54,3 +54,20 @@ def test_le_rappel_dix_minutes_avant_de_partir():
 def test_rien_apres_le_depart_et_rien_la_nuit():
     assert al.decider(TRAIN, JOUR, HORAIRE, direct(retard=9), {}, a(7, 30))[0] == []
     assert al.la_nuit(a(23, 30)) and al.la_nuit(a(5, 59)) and not al.la_nuit(a(6, 0))
+
+
+
+def test_un_train_disparu_des_horaires_une_alerte_et_pas_de_rappel():
+    # Le 06:24 n'est plus dans les horaires du jour : à l'heure du rappel, on prévient qu'il ne circule pas
+    ev, etat = al.decider(TRAIN, JOUR, None, direct(), {}, a(6, 55), proche="07:27")
+    assert [e[0] for e in ev] == ["disparu"]                                  # et surtout pas « rappel »
+    titre, corps = al.composer(*ev[0], "fr")
+    assert "ne circule pas aujourd'hui" in titre and "07:27" in corps
+    assert al.decider(TRAIN, JOUR, None, direct(), etat, a(6, 58), proche="07:27")[0] == []    # une seule fois
+    # Sans fichier d'horaires pour ce jour, on ne conclut rien
+    assert al.decider(TRAIN, JOUR, None, direct(), {}, a(6, 55), departs_charges=False)[0] == []
+
+
+def test_le_train_le_plus_proche():
+    departs = [dict(HORAIRE, heure=h) for h in ("05:49", "07:13", "07:27")]
+    assert al.train_le_plus_proche(departs, "06:24", "Calais Ville") == "07:13"

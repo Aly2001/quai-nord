@@ -15,7 +15,7 @@ import { useSuivis, prochaineOccasion, allerALaGare, margeEnGare, enMinutesDuJou
 import { chargerReseau, chargerGaresCouvertes, chercherLieu, distance, RESEAUX } from "../data/bus";
 import { chargerHoraires, minutesEnHeure } from "../data/trajetBus";
 import { etatDuTrain } from "../data/favorisPlus";
-import { normaliser, dateLongue, useIndexHoraires, trouverGare, DOSSIER, useTempsReel, useRisques } from "../data/horaires";
+import { normaliser, dateLongue, useIndexHoraires, trouverGare, DOSSIER, useTempsReel, useRisques, trajetsDirects } from "../data/horaires";
 import "./Partir.css";
 
 const maintenantEnMinutes = () => { const d = new Date(); return d.getHours() * 60 + d.getMinutes(); };
@@ -133,6 +133,7 @@ function Itineraire({ suivi, jour, contexte, calculer }) {
   const navigate = useNavigate();
   const [maintenant, setMaintenant] = useState(maintenantEnMinutes);
   const [lieu, setLieu] = useState({ etat: suivi.aller.depuis.position ? "verification" : "adresse", aller: suivi.aller });
+  const [absent, setAbsent] = useState(false);        // le train n'est plus dans les horaires de ce jour
   useEffect(() => { const m = setInterval(() => setMaintenant(maintenantEnMinutes()), 30_000); return () => clearInterval(m); }, []);
   const aujourdhui = jour === aujourdhuiLocal();
 
@@ -169,7 +170,8 @@ function Itineraire({ suivi, jour, contexte, calculer }) {
         <p className="partir__lieu">📍 {t("partir.depuis", { lieu: aller.depuis.nom })}
           <button type="button" onClick={recalculerIci}>{t("partir.ailleurs")}</button></p>
       )}
-      <EtatDuTrain suivi={suivi} jour={jour} />
+      <EtatDuTrain suivi={suivi} jour={jour} onAbsent={setAbsent} />
+      {!absent && (<>
       <div className="partir__compte">
         {aujourdhui && dans >= 0 ? (<><p>{t("partir.dans")}</p><p className="partir__grand">{minutesEnTexte(dans, t)}</p></>)
           : aujourdhui ? <p className="partir__grand partir__grand--petit">{t("partir.maintenant")}</p> : null}
@@ -195,6 +197,7 @@ function Itineraire({ suivi, jour, contexte, calculer }) {
       <button type="button" className="partir__plustard" onClick={() => navigate(`${lienPartir(suivi)}&preparer=1`)}>
         {t("suivi.changer")}
       </button>
+      </>)}
     </section>
   );
 }
@@ -202,8 +205,10 @@ function Itineraire({ suivi, jour, contexte, calculer }) {
 const minutesEnTexte = (m, t) => t("partir.duree", { minutes: m });
 
 // ---------- L'état du train, en direct (aujourd'hui seulement) ----------
-function EtatDuTrain({ suivi, jour }) {
+function EtatDuTrain({ suivi, jour, onAbsent }) {
   const { t } = useLangue();
+  const navigate = useNavigate();
+  const { suivre, nePlusSuivre } = useSuivis();
   const { index } = useIndexHoraires();
   const aujourdhui = jour === aujourdhuiLocal();
   const tempsReel = useTempsReel(aujourdhui);
@@ -217,8 +222,10 @@ function EtatDuTrain({ suivi, jour }) {
       .then((d) => { if (!annule) setDeparts(d.departs || []); }).catch(() => { if (!annule) setDeparts([]); });
     return () => { annule = true; };
   }, [gare?.slug, jour]);   // eslint-disable-line react-hooks/exhaustive-deps
-  if (!departs) return null;
-  const etat = etatDuTrain(suivi, departs, aujourdhui ? tempsReel : null, risques);
+  const etat = departs ? etatDuTrain(suivi, departs, aujourdhui ? tempsReel : null, risques) : null;
+  const estAbsent = etat?.statut === "absent" && departs.length > 0;
+  useEffect(() => { onAbsent?.(estAbsent); }, [estAbsent]);   // eslint-disable-line react-hooks/exhaustive-deps
+  if (!etat) return null;
   if (etat.statut === "supprime") {
     return (
       <div className="partir__alerte partir__alerte--supprime">
@@ -231,6 +238,23 @@ function EtatDuTrain({ suivi, jour }) {
     return <p className="partir__alerte partir__alerte--retard">🟠 <span><strong>{t("partir.retard", { heure: suivi.heure, minutes: etat.minutes })}</strong> {t("partir.prudence")}</span></p>;
   }
   if (etat.statut === "heure") return <p className="partir__alerte partir__alerte--heure">🟢 {t("partir.alheure", { heure: suivi.heure })}</p>;
-  if (etat.statut === "absent") return <p className="partir__alerte">{t("montrain.absent")}</p>;
+  if (etat.statut === "absent") {
+    // Le premier train vers la même gare, à partir de l'heure prévue (on ne propose pas un train déjà parti)
+    const vers = trajetsDirects(departs, suivi.de, normaliser(suivi.a)).filter((x) => x.heure >= suivi.heure)
+      .sort((x, y) => (x.heure < y.heure ? -1 : 1))[0];
+    function remplacer() {
+      const nouveau = { ...suivi, heure: vers.heure, arrivee: vers.arrivee, aller: undefined };
+      nePlusSuivre(suivi);
+      suivre(nouveau);
+      navigate(`${lienPartir(nouveau)}&preparer=1`);
+    }
+    return (
+      <div className="partir__alerte partir__alerte--absent">
+        <strong>⚠️ {t("partir.absent", { heure: suivi.heure })}</strong>
+        <span>{t("partir.absent.texte")}</span>
+        {vers && <button type="button" onClick={remplacer}>{t("partir.remplacer", { heure: vers.heure, arrivee: vers.arrivee })}</button>}
+      </div>
+    );
+  }
   return null;
 }

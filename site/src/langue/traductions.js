@@ -198,6 +198,8 @@ export const TEXTES = {
     "partir.supprime": "Votre {heure} est supprimé, d'après la SNCF.", "partir.autres": "Voir les autres trains",
     "partir.retard": "Votre {heure} a {minutes} min de retard.", "partir.prudence": "Par prudence, partez comme prévu : un retard peut se réduire.",
     "partir.alheure": "Votre {heure} est à l'heure, d'après la SNCF.",
+    "partir.absent": "Votre {heure} ne circule pas ce jour-là", "partir.absent.texte": "La SNCF a modifié ses horaires : ce train n'y figure plus.",
+    "partir.remplacer": "Suivre le {heure} à la place (arrivée {arrivee})",
     // ----- Les notifications -----
     "notif.actives": "Notifications activées sur ce téléphone.", "notif.couper": "Les couper",
     "notif.installer": "Pour recevoir les alertes sur iPhone, installez d'abord Quai Nord sur l'écran d'accueil (Partager, puis « Sur l'écran d'accueil »).",
@@ -383,6 +385,8 @@ export const TEXTES = {
     "partir.supprime": "Your {heure} is cancelled, according to SNCF.", "partir.autres": "See other trains",
     "partir.retard": "Your {heure} is {minutes} min late.", "partir.prudence": "To be safe, leave as planned: a delay can shrink.",
     "partir.alheure": "Your {heure} is on time, according to SNCF.",
+    "partir.absent": "Your {heure} isn't running that day", "partir.absent.texte": "SNCF has changed its timetable: this train is no longer in it.",
+    "partir.remplacer": "Follow the {heure} instead (arrives {arrivee})",
     "notif.actives": "Notifications are on for this phone.", "notif.couper": "Turn them off",
     "notif.installer": "To get alerts on iPhone, first install Quai Nord on your home screen (Share, then “Add to Home Screen”).",
     "notif.refusees": "Notifications refused: you can allow them in your phone's settings.",

@@ -34,8 +34,24 @@ export function BoutonFavori({ de, a }) {
 export function ListeFavoris({ sombre = false, gestion = false }) {
   const { t } = useLangue();
   const { favoris, retirer } = useFavoris();
+  // Sur l'accueil, les TRAINS mis en favori (☆ sur une carte) s'affichent aussi, avant les trajets
+  const { trains } = useFavorisPlus();
+  // UN SEUL élément par trajet (même gare de départ, même arrivée) : un trajet en favori et ses trains favoris
+  // (« 17:12 », « 17:42 ») sont réunis sur une même ligne, au lieu de s'afficher deux ou trois fois
+  const parTrajet = new Map();
+  for (const train of gestion ? [] : trains) {
+    const cle = `${train.de}|${train.a}`;
+    const groupe = parTrajet.get(cle) || { de: train.de, a: train.a, heures: [] };
+    groupe.heures.push(train.heure);
+    parTrajet.set(cle, groupe);
+  }
+  for (const f of favoris) {
+    if (!parTrajet.has(`${f.de}|${f.a}`)) parTrajet.set(`${f.de}|${f.a}`, { de: f.de, a: f.a, heures: [] });
+  }
+  const lignes = [...parTrajet.values()].map((g) => ({ ...g, heures: [...new Set(g.heures)].sort() }));
 
-  if (favoris.length === 0) {
+  if (!gestion && lignes.length === 0) return null;
+  if (favoris.length === 0 && lignes.length === 0) {
     return gestion ? (
       <p className="favoris__vide">
         {t("fav.vide")}
@@ -48,10 +64,13 @@ export function ListeFavoris({ sombre = false, gestion = false }) {
       {/* Sur la page Plus, la rubrique a déjà son titre */}
       <h2 id="titre-favoris" className={gestion ? "visuellement-cache" : "favoris__titre"}>{t("fav.titre")}</h2>
       <ul className="favoris__liste">
-        {favoris.map((f) => (
+        {(gestion ? favoris.map((f) => ({ ...f, heures: [] })) : lignes).map((f) => (
           <li key={f.de + f.a} className="favoris__element">
-            <Link to={lienFavori(f)} className="favoris__lien">
-              <span>{f.de} → {f.a}</span>
+            {/* Un seul train favori : on ouvre à son heure ; sinon, à partir de maintenant */}
+            <Link to={f.heures.length === 1
+                    ? `/trajet?${new URLSearchParams({ de: f.de, a: f.a, jour: aujourdhuiIso(), heure: f.heures[0] })}`
+                    : lienFavori(f)} className="favoris__lien">
+              <span>{f.de} → {f.a}{f.heures.length > 0 && <small className="favoris__heures">{f.heures.join(" · ")}</small>}</span>
               <svg viewBox="0 0 24 24" width="18" height="18" aria-hidden="true" fill="none"
                    stroke="currentColor" strokeWidth="2" strokeLinecap="round"><path d="M9 6l6 6-6 6" /></svg>
             </Link>
@@ -147,8 +166,7 @@ export function MonTrainDuJour() {
 
 // ---------- La page Favoris : les trains précis (avec « Surveiller »), puis les trajets En ville ----------
 export function ListeTrainsFavoris() {
-  const { t: tr } = useLangue();
-  const t = tr;                                  // hors des listes ; dans les .map, « t » est un trajet
+  const { t } = useLangue();                     // « t » : le traducteur (chaque train s'appelle « train »)
   const { trains, surveille, basculerTrain, surveiller } = useFavorisPlus();
   const tempsReel = useTempsReel(trains.length > 0);
   const risques = useRisques();
@@ -157,21 +175,21 @@ export function ListeTrainsFavoris() {
   }
   return (
     <ul className="favoris__liste">
-      {trains.map((t) => {
-        const surveilleCeTrain = surveille === idTrain(t);
+      {trains.map((train) => {
+        const surveilleCeTrain = surveille === idTrain(train);
         return (
-          <li key={idTrain(t)} className="favori-train">
-            <Link className="favori-train__lien" to={`/trajet?${new URLSearchParams({ de: t.de, a: t.a, jour: aujourdhuiIso(), heure: t.heure })}`}>
-              <strong>{t.heure} · {t.de} → {t.a}</strong>
-              <EtatTrain favori={t} tempsReel={tempsReel} risques={risques} />
+          <li key={idTrain(train)} className="favori-train">
+            <Link className="favori-train__lien" to={`/trajet?${new URLSearchParams({ de: train.de, a: train.a, jour: aujourdhuiIso(), heure: train.heure })}`}>
+              <strong>{train.heure} · {train.de} → {train.a}</strong>
+              <EtatTrain favori={train} tempsReel={tempsReel} risques={risques} />
             </Link>
             <div className="favori-train__actions">
-              <button type="button" aria-pressed={surveilleCeTrain} onClick={() => surveiller(t)}
+              <button type="button" aria-pressed={surveilleCeTrain} onClick={() => surveiller(train)}
                       className={surveilleCeTrain ? "favori-train__surveiller favori-train__surveiller--actif" : "favori-train__surveiller"}>
                 {surveilleCeTrain ? t("fav.surveille") : t("fav.surveiller")}
               </button>
-              <button type="button" className="favoris__retirer" onClick={() => basculerTrain(t)}
-                      aria-label={tr("fav.etoile.retirer", { heure: t.heure })}>{tr("fav.retirer")}</button>
+              <button type="button" className="favoris__retirer" onClick={() => basculerTrain(train)}
+                      aria-label={t("fav.etoile.retirer", { heure: train.heure })}>{t("fav.retirer")}</button>
             </div>
           </li>
         );
@@ -183,19 +201,18 @@ export function ListeTrainsFavoris() {
 export const lienVille = (trajet) => `/bus?${new URLSearchParams({ t: JSON.stringify(trajet) })}`;
 
 export function ListeVilleFavoris() {
-  const { t: tr } = useLangue();
-  const t = tr;                                  // hors des listes ; dans les .map, « t » est un trajet
+  const { t } = useLangue();                     // « t » : le traducteur (chaque trajet s'appelle « trajet »)
   const { ville, basculerVille } = useFavorisPlus();
   if (!ville.length) {
     return <p className="favoris__vide">{t("fav.ville.vide")}</p>;
   }
   return (
     <ul className="favoris__liste">
-      {ville.map((t) => (
-        <li key={idVille(t)} className="favoris__element">
-          <Link to={lienVille(t)} className="favoris__lien"><span>{t.A.nom} → {t.B.nom}</span><small>{t.ville}</small></Link>
-          <button type="button" className="favoris__retirer" onClick={() => basculerVille(t)}
-                  aria-label={tr("fav.retirer.aria", { trajet: `${t.A.nom} → ${t.B.nom}` })}>{tr("fav.retirer")}</button>
+      {ville.map((trajet) => (
+        <li key={idVille(trajet)} className="favoris__element">
+          <Link to={lienVille(trajet)} className="favoris__lien"><span>{trajet.A.nom} → {trajet.B.nom}</span><small>{trajet.ville}</small></Link>
+          <button type="button" className="favoris__retirer" onClick={() => basculerVille(trajet)}
+                  aria-label={t("fav.retirer.aria", { trajet: `${trajet.A.nom} → ${trajet.B.nom}` })}>{t("fav.retirer")}</button>
         </li>
       ))}
     </ul>

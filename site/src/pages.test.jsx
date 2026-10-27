@@ -110,3 +110,26 @@ test("la page Bus s'affiche, avec les six villes et les deux champs", () => {
   expect(html).toContain("D&#x27;où partez-vous ?");
   expect(html).toContain("Chercher le trajet");
 });
+
+test("la page Favoris et l'accueil s'affichent avec des favoris (trains, trajets, En ville)", async () => {
+  const memoire = {
+    "quai-nord:favoris": JSON.stringify([{ de: "Boulogne Ville", a: "Calais Ville" }]),
+    "quai-nord:trains-favoris": JSON.stringify([{ de: "Boulogne Ville", a: "Calais Ville", heure: "17:12" }]),
+    "quai-nord:ville-favoris": JSON.stringify([{ code: "calais", ville: "Calais", A: { nom: "Gare", lat: 50.9, lon: 1.8 }, B: { nom: "Hôpital", lat: 50.95, lon: 1.85 } }]),
+  };
+  const avant = globalThis.localStorage;
+  globalThis.localStorage = { getItem: (k) => memoire[k] ?? null, setItem: () => {}, removeItem: () => {} };
+  try {
+    const { default: PageFavoris } = await import("./pages/Favoris");
+    const { default: PageAccueil } = await import("./pages/Accueil");
+    const favoris = renderToString(<MemoryRouter><PageFavoris /></MemoryRouter>);
+    expect(favoris).toContain("17:12");
+    expect(favoris).toContain("Hôpital");
+    const accueil = renderToString(<MemoryRouter><PageAccueil /></MemoryRouter>);
+    expect(accueil).toContain("17:12");                       // le train en favori, sur l'accueil aussi
+    // Le trajet Boulogne -> Calais (en favori ET avec un train favori) n'apparaît qu'UNE fois
+    expect(accueil.match(/favoris__element/g).length).toBe(1);
+  } finally {
+    globalThis.localStorage = avant;
+  }
+});

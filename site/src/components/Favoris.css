@@ -92,3 +92,5 @@
   background: #FFFFFF; color: var(--nuit); border: 1.5px solid #C9D3E3; cursor: pointer; }
 .favori-train__surveiller--actif { background: var(--nuit); color: #FFFFFF; border-color: var(--nuit); }
 .favoris__lien small { font-weight: 500; color: var(--texte-doux); }
+
+.favoris__heures { display: block; margin-top: 2px; font-size: 13px; font-weight: 700; opacity: 0.85; }

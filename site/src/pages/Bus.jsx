@@ -10,7 +10,7 @@ import {
   lieuxPrepares, arretsCorrespondants, chercherLieu, distance, libelleGare, reseauDeVille, lienCarte, nettoyerLieu,
 } from "../data/bus";
 import { aujourdhuiIso, heureActuelle, enMinutes } from "../data/horaires";
-import { chargerHoraires, trajetEntrePoints, minutesEnHeure, arretsDeLaCourse, passagesALArret, arretsAutour,
+import { chargerHoraires, trajetEntrePoints, minutesEnHeure, arretsDeLaCourse, terminusDeLaCourse, arretsDuPassage, passagesALArret, arretsAutour,
   chargerDirectBus, busAvecDirect, relierAuDirect, autresDescentes } from "../data/trajetBus";
 import { normaliser } from "../data/horaires";
 import { joliNom } from "../data/bus";
@@ -285,7 +285,8 @@ function CarteLigne({ b, maintenant, rapide, onDetail, reseau, descentes, B }) {
     <section className={rapide ? "bus__carte bus__carte--meilleur" : "bus__carte bus__carte--option"}>
       {rapide && <span className="bus__badge">{t("ville.rapide")}</span>}
       <div className="bus__ligne"><PuceLigne ligne={b.ligne} />
-        <strong>{nomTransport(b.ligne, t)} {b.ligne.nom} · {t("ville.direction", { direction: b.direction })}</strong>
+        {/* Le terminus du PROCHAIN bus, pas la liste de tous ceux de la ligne */}
+        <strong>{nomTransport(b.ligne, t)} {b.ligne.nom} · {t("ville.direction", { direction: (p && terminusDeLaCourse(reseau, p.parcours, b.ligne.nom)) || b.direction })}</strong>
         {dans && <span className={p?.direct ? "bus__dans bus__dans--direct" : "bus__dans"}>{p?.direct && <SignalDirect />}{dans}</span>}</div>
       {b.marcheAvant > 0 && (
         <div className="bus__detail">{t("ville.marche", { minutes: b.marcheAvant, arret: b.depart.nom })}
@@ -297,7 +298,7 @@ function CarteLigne({ b, maintenant, rapide, onDetail, reseau, descentes, B }) {
           <p><strong>{t("ville.passe", { arret: b.depart.nom, dans, heure: minutesEnHeure(p.depart) })}</strong>
             {p.direct && p.prevue !== p.depart && <span className="bus__prevu"> {t("ville.prevu", { heure: minutesEnHeure(p.prevue) })}</span>}</p>
           <p><strong>{t("ville.arrive", { arret: b.arrivee.nom, heure: minutesEnHeure(p.arrivee) })}</strong>
-            {b.marcheApres ? t("ville.puis.pied", { minutes: b.marcheApres }) : ""} · {t("ville.arrets", { nombre: b.arrets })}</p>
+            {b.marcheApres ? t("ville.puis.pied", { minutes: b.marcheApres }) : ""} · {t("ville.arrets", { nombre: arretsDuPassage(p, b.arrets) })}</p>
           {b.marcheApres > 0 && B && <LienMarche vers={B} genre="lieu" nom={B.nom} />}
           {autresDescentes(reseau, b, descentes).map((o) => (
             <p key={o.id} className="bus__detail">{t("ville.ou.descendre", { arret: o.nom, heure: minutesEnHeure(o.minute) })}
@@ -451,7 +452,7 @@ function DetailCourse({ course, reseau, ville, onFermer, onChoix }) {
       <button type="button" className="course__retour" onClick={onFermer}>{t("ville.retour")}</button>
       <div className="course__entete">
         <PuceLigne ligne={bus.ligne} />
-        <div><strong>{t("ville.direction", { direction: bus.direction })}</strong>
+        <div><strong>{t("ville.direction", { direction: terminusDeLaCourse(reseau, passage.parcours, bus.ligne.nom) || bus.direction })}</strong>
           <small>{t("ville.depart.de", { arret: bus.depart.nom, heure: minutesEnHeure(passage.depart) })} · {reseau?.reseau || ville.nom}</small></div>
       </div>
       {bus.passages.length > 1 && (

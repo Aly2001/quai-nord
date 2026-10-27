@@ -7,7 +7,7 @@
 // =====================================================================
 import { useEffect, useState } from "react";
 import { busDirects, arretsProches, distance, minutesAPied, rayonMarche } from "./bus";
-import { prochainsPassages, MARGE_ARRET } from "./trajetBus";
+import { prochainsPassages, terminusDeLaCourse, MARGE_ARRET } from "./trajetBus";
 import { synchroniserNotifications, trainsPourLeServeur } from "./notifications";
 
 const CLE = "quai-nord:trains-suivis";
@@ -86,7 +86,10 @@ const GRANDES_GARES = /lille|amiens|paris|arras|dunkerque|calais ville|douai|len
 export const margeEnGare = (nomGare) => (GRANDES_GARES.test(nomGare || "") ? 10 : 5);
 
 // Le meilleur moyen d'être à la gare AU PLUS TARD à « limite » (minutes du jour), en partant de A :
-//   { mode: "bus", ligne, direction, arretDepart, arretArrivee, heureBus, arriveeGare, departMaison, marcheAvant, marcheApres }
+//   { mode: "bus", ligne, direction, terminus, arretDepart, arretArrivee, heureBus, heureDescente, arriveeGare,
+//     departMaison, marcheAvant, marcheApres }
+// « direction » regroupe tous les terminus possibles de la ligne ; « terminus » est celui du bus CHOISI
+// (le 14:17 va à C.cial la Française, pas « ou 2 autres terminus »).
 //   { mode: "pied", departMaison, arriveeGare, marche }
 // On prend le DERNIER bus qui arrive à temps (on ne fait pas partir le voyageur trop tôt pour rien),
 // et la marche quand elle reste raisonnable (20 min) ou qu'aucun bus n'arrive à temps.
@@ -96,6 +99,10 @@ export const MARCHE_MAX = 45;            // minutes : au-delà, on ne conseille 
 // Quand l'aller n'a pas de sens, on le dit au lieu d'inventer :
 //   { mode: "loin", metres }   : on est dans une autre ville (il faut d'abord un train, ou une autre adresse) ;
 //   { mode: "aucun", marche, metres } : pas de bus direct, et trop loin à pied.
+// Un aller enregistré avant cette version n'a ni « terminus » ni « heureDescente » : on les retrouve au mieux
+export const terminusDe = (aller) => aller.terminus || aller.direction;
+export const heureDescenteDe = (aller) => aller.heureDescente ?? aller.arriveeGare - (aller.marcheApres || 0);
+
 export function allerALaGare(reseau, horaires, A, gare, dateIso, limite) {
   const metres = Math.round(distance(A.lat, A.lon, gare.lat, gare.lon));
   if (metres > TRES_LOIN) return { mode: "loin", metres };
@@ -115,8 +122,11 @@ export function allerALaGare(reseau, horaires, A, gare, dateIso, limite) {
     const dernier = aTemps[aTemps.length - 1];
     if (!dernier) continue;
     const option = {
-      mode: "bus", ligne: b.ligne, ligneId: b.ligneId, direction: b.direction, arrets: b.arrets,
-      arretDepart: b.depart, arretArrivee: b.arrivee, heureBus: dernier.depart, arriveeGare: dernier.arrivee + marcheApres,
+      // Le nombre d'arrêts de CETTE course (une variante de la ligne peut en desservir plus ou moins)
+      mode: "bus", ligne: b.ligne, ligneId: b.ligneId, direction: b.direction, arrets: dernier.descente - dernier.montee,
+      terminus: terminusDeLaCourse(reseau, dernier.parcours, b.ligne.nom) || b.direction,
+      arretDepart: b.depart, arretArrivee: b.arrivee, heureBus: dernier.depart, heureDescente: dernier.arrivee,
+      arriveeGare: dernier.arrivee + marcheApres,
       departMaison: dernier.depart - marcheAvant - MARGE_ARRET, marcheAvant, marcheApres,
     };
     if (!meilleur || option.departMaison > meilleur.departMaison) meilleur = option;

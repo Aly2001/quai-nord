@@ -11,7 +11,7 @@ import { useTitrePage } from "../components/titrePage";
 import { useLangue } from "../langue/langue";
 import { LienMarche } from "../components/Marche";
 import { lienPartir, LigneEtape } from "../components/Suivre";
-import { useSuivis, prochaineOccasion, allerALaGare, margeEnGare, enMinutesDuJour, BOUGE, TRES_LOIN, MARCHE_MAX } from "../data/suivi";
+import { useSuivis, prochaineOccasion, allerALaGare, margeEnGare, enMinutesDuJour, BOUGE, TRES_LOIN, MARCHE_MAX, terminusDe, heureDescenteDe } from "../data/suivi";
 import { chargerReseau, chargerGaresCouvertes, chercherLieu, distance, RESEAUX, gareLaPlusProche, lienCarte } from "../data/bus";
 import { enDuree } from "../langue/langue";
 import { chargerHoraires, minutesEnHeure } from "../data/trajetBus";
@@ -214,16 +214,18 @@ function Itineraire({ suivi, jour, contexte, calculer }) {
             <small>{t("partir.jusqua", { arret: aller.arretDepart.nom })}</small>
             {arret && <LienMarche vers={{ lat: arret[1], lon: arret[2] }} />}</div></li>
           <li><span>🚌</span><div><strong>{minutesEnHeure(aller.heureBus)} · {t(aller.ligne.mode === "metro" ? "ville.mode.metro" : aller.ligne.mode === "tram" ? "ville.mode.tram" : "ville.mode.bus")} {aller.ligne.nom}</strong>
-            <small>{t("ville.direction", { direction: aller.direction })} · {t("ville.arrets", { nombre: aller.arrets })}</small></div></li>
-          <li><span>🚉</span><div><strong>{minutesEnHeure(aller.arriveeGare)} · {suivi.de}</strong>
-            <small>{t("partir.marge", { minutes: enMinutesDuJour(suivi.heure) - aller.arriveeGare })}</small>
+            <small>{t("ville.direction", { direction: terminusDe(aller) })} · {t("ville.arrets", { nombre: aller.arrets })}</small></div></li>
+          {/* La descente : l'heure du bus à l'arrêt, puis la marche jusqu'à la gare (son bouton est ICI) */}
+          <li><span>🚏</span><div><strong>{minutesEnHeure(heureDescenteDe(aller))} · {t("partir.descendez", { arret: aller.arretArrivee.nom })}</strong>
+            <small>{aller.marcheApres > 0 ? t("partir.puis", { minutes: aller.marcheApres }) : t("partir.devant")}</small>
             {aller.marcheApres > 0 && <LienMarche vers={gare} genre="gare" />}</div></li>
         </>) : (
           <li><span>🚶</span><div><strong>{minutesEnHeure(aller.departMaison)} · {t("partir.marchez", { minutes: aller.marche })}</strong>
             <small>{t("partir.jusqua.gare", { gare: suivi.de })}</small><LienMarche vers={gare} genre="gare" /></div></li>
         )}
         <li className="partir__train"><span>🚆</span><div><strong>{suivi.heure} · {suivi.de} → {suivi.a}</strong>
-          <small>{t("partir.arrivee", { heure: suivi.arrivee })}{suivi.correspondance ? ` · ${t("partir.correspondance", { gare: suivi.correspondance })}` : ""}</small></div></li>
+          <small>{aller.mode === "bus" ? `${t("partir.marge.court", { minutes: enMinutesDuJour(suivi.heure) - aller.arriveeGare })} · ` : ""}
+            {t("partir.arrivee", { heure: suivi.arrivee })}{suivi.correspondance ? ` · ${t("partir.correspondance", { gare: suivi.correspondance })}` : ""}</small></div></li>
       </ol>
       </>)}
       <button type="button" className="partir__plustard" onClick={() => navigate(`${lienPartir(suivi)}&preparer=1`)}>

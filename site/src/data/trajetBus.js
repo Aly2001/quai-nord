@@ -6,7 +6,7 @@
 //   jours   : des calendriers, une suite de 0 et de 1 (un caractère par jour depuis debut) ;
 //   departs : pour chaque parcours (dans le même ordre que reseau.parcours), { calendrier: [minutes de départ] }.
 // L'heure à un arrêt = le départ du voyage au premier arrêt + la durée jusqu'à cet arrêt (parcours.minutes).
-import { DOSSIER_BUS, RESEAUX_BUS, arretsProches, busDirects, distance, minutesAPied, rayonMarche, joliNom } from "./bus";
+import { DOSSIER_BUS, RESEAUX_BUS, arretsProches, busDirects, distance, minutesAPied, rayonMarche, joliNom, nettoyerDirection } from "./bus";
 
 const MINUTES_PAR_JOUR = 1440;
 export const MARCHE_CONSEILLEE = 20;      // minutes : en dessous, sans bus direct, on conseille la marche
@@ -123,6 +123,18 @@ export function trajetEntrePoints(reseau, horaires, A, B, dateIso, maintenant, n
 
 // ---------- Le détail d'une course : tous ses arrêts, avec l'heure de passage ----------
 // role : « avant » (avant la montée), « montee », « trajet », « descente », « apres »
+// Le terminus d'une course PRÉCISE : la direction de son parcours, pas toutes celles de la ligne.
+// Une ligne peut aller vers 3 terminus (« C.cial la Française (ou 2 autres terminus) ») : le bus de 14:17,
+// lui, n'en a qu'un. Même règle partout où l'on montre UN bus : En ville, le détail de la course, l'écran Partir.
+export function terminusDeLaCourse(reseau, indiceParcours, nomLigne) {
+  const parcours = reseau?.parcours?.[indiceParcours];
+  return parcours ? nettoyerDirection(parcours.direction, nomLigne) : null;
+}
+
+// Le nombre d'arrêts de CETTE course (une variante de la ligne peut en desservir plus ou moins)
+export const arretsDuPassage = (passage, parDefaut) =>
+  (passage && passage.descente !== undefined ? passage.descente - passage.montee : parDefaut);
+
 export function arretsDeLaCourse(reseau, passage, joli = (n) => n) {
   const p = reseau.parcours[passage.parcours];
   return p.arrets.map((id, x) => ({

@@ -24,3 +24,10 @@ test("le pluriel suit le nombre", () => {
   expect(traduire("fr", "ville.possibilites", { nombre: 1 })).toBe("1 possibilité");
   expect(traduire("en", "ville.possibilites", { nombre: 3 })).toBe("3 options");
 });
+
+import faqFr from "../data/faq.json";
+import faqEn from "../data/faq.en.json";
+test("la FAQ anglaise a les mêmes thèmes, le même nombre de questions et de paragraphes", () => {
+  const forme = (d) => d.faq.map((g) => [g.id, g.questions.map((q) => [q.reponse.length, Boolean(q.lien)])]);
+  expect(forme(faqEn)).toEqual(forme(faqFr));
+});

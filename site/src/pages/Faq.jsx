@@ -1,13 +1,16 @@
 import { useEffect } from "react";
 import { Link, useLocation } from "react-router-dom";
 import DecorVoies from "../components/DecorVoies";
-import { faq, SNCF_CONNECT } from "../data/faq";
+import { faqDe, SNCF_CONNECT } from "../data/faq";
+import { useLangue } from "../langue/langue";
 import "./Faq.css";
 import { useTitrePage } from "../components/titrePage";
 
 export default function Faq() {
   useTitrePage("Questions fréquentes", "Les réponses aux questions sur Quai Nord : le calcul du risque de retard, les données utilisées, Nora et les bus depuis les gares.");
   // Arrivée sur /faq#risque : on fait défiler jusqu'au bon thème
+  const { t, langue } = useLangue();
+  const faq = faqDe(langue);
   const { hash } = useLocation();
   useEffect(() => {
     if (hash) document.getElementById(hash.slice(1))?.scrollIntoView();
@@ -19,14 +22,14 @@ export default function Faq() {
       <section className="bandeau-resultats">
         <DecorVoies cadrage="xMidYMid slice" discret />
         <div className="conteneur bandeau-resultats__contenu">
-          <p className="bandeau-resultats__surtitre">Aide</p>
-          <h1 className="bandeau-resultats__titre">Questions fréquentes</h1>
-          <p className="bandeau-resultats__date">Ce que fait Quai Nord, et ce qu'il ne fait pas.</p>
+          <p className="bandeau-resultats__surtitre">{t("faq.surtitre")}</p>
+          <h1 className="bandeau-resultats__titre">{t("faq.titre")}</h1>
+          <p className="bandeau-resultats__date">{t("faq.sous")}</p>
         </div>
       </section>
 
       {/* ---------- Sommaire : un lien par thème ---------- */}
-      <nav aria-label="Thèmes" className="faq__sommaire">
+      <nav aria-label={t("faq.themes")} className="faq__sommaire">
         {faq.map((groupe) => (
           <a key={groupe.id} href={`#${groupe.id}`} className="faq__theme-lien">{groupe.theme}</a>
         ))}
@@ -56,14 +59,12 @@ export default function Faq() {
       ))}
 
       <section className="faq__fin">
-        <h2 className="titre-section">Vous n'avez pas trouvé votre réponse ?</h2>
-        <p className="texte-doux">
-          Pour les billets, les horaires officiels et les perturbations, le site de référence reste SNCF Connect.
-        </p>
+        <h2 className="titre-section">{t("faq.fin")}</h2>
+        <p className="texte-doux">{t("faq.fin.texte")}</p>
         <div className="faq__actions">
-          <Link to="/" className="faq__bouton">Rechercher un trajet</Link>
+          <Link to="/" className="faq__bouton">{t("nora.rechercher")}</Link>
           <a href={SNCF_CONNECT} target="_blank" rel="noopener noreferrer" className="faq__bouton faq__bouton--secondaire">
-            Aller sur SNCF Connect ↗
+            {t("nora.sncf")}
           </a>
         </div>
       </section>

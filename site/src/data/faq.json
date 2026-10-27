@@ -157,8 +157,8 @@
         {
           "question": "Pourquoi l'état en direct n'apparaît-il pas toujours ?",
           "reponse": [
-            "La SNCF ne publie l'état en direct que pour les trains qui circulent dans l'heure qui vient. Quai Nord ne l'affiche que s'il date de moins de 15 minutes, pour ne jamais montrer une information périmée.",
-            "Sur la version en ligne, le site étant mis à jour une fois par nuit, l'état en direct n'est pas encore disponible : il le sera prochainement."
+            "La SNCF ne publie l'état en direct que pour les trains qui circulent dans les prochaines heures, ou déjà annoncés supprimés. Quai Nord le relit toutes les 2 minutes, et ne l'affiche que s'il date de moins de 15 minutes, pour ne jamais montrer une information périmée.",
+            "Pour demain et après-demain, seules les suppressions déjà annoncées par la SNCF sont affichées."
           ]
         },
         {

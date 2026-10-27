@@ -167,6 +167,9 @@ export const TEXTES = {
     "plus.apropos.texte": "Quai Nord est né d'une question simple : mon TER sera-t-il à l'heure ? Conçu et développé par Aly Keita, de la collecte des données en temps réel jusqu'à l'assistante IA.",
     "plus.github": "Code sur GitHub ↗", "plus.aide": "Aide et informations", "plus.faq": "Questions fréquentes",
     "plus.risque": "Comment est calculé le risque ?", "plus.sources": "Sources et licences",
+    // ----- La FAQ (les questions elles-mêmes sont dans faq.json et faq.en.json) -----
+    "faq.surtitre": "Aide", "faq.titre": "Questions fréquentes", "faq.sous": "Ce que fait Quai Nord, et ce qu'il ne fait pas.", "faq.themes": "Thèmes",
+    "faq.fin": "Vous n'avez pas trouvé votre réponse ?", "faq.fin.texte": "Pour les billets, les horaires officiels et les perturbations, le site de référence reste SNCF Connect.",
     // ----- Le pied de page -----
     "pied.texte": "Projet d'Aly Keita, sans lien avec la SNCF. Données SNCF Voyageurs (GTFS et GTFS-RT, licence ODbL), Open-Meteo (CC BY 4.0), réseaux {reseaux} (Licence Ouverte), © les contributeurs d'OpenStreetMap.",
   },
@@ -318,6 +321,8 @@ export const TEXTES = {
     "plus.apropos.texte": "Quai Nord began with a simple question: will my TER train be on time? Designed and built by Aly Keita, from real-time data collection to the AI assistant.",
     "plus.github": "Code on GitHub ↗", "plus.aide": "Help and information", "plus.faq": "FAQ",
     "plus.risque": "How is the risk calculated?", "plus.sources": "Sources and licences",
+    "faq.surtitre": "Help", "faq.titre": "FAQ", "faq.sous": "What Quai Nord does, and what it doesn't.", "faq.themes": "Topics",
+    "faq.fin": "Didn't find your answer?", "faq.fin.texte": "For tickets, official timetables and disruptions, SNCF Connect remains the reference website.",
     "pied.texte": "A project by Aly Keita, not affiliated with SNCF. Data: SNCF Voyageurs (GTFS and GTFS-RT, ODbL licence), Open-Meteo (CC BY 4.0), {reseaux} networks (Licence Ouverte), © OpenStreetMap contributors.",
   },
 };

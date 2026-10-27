@@ -1,0 +1,176 @@
+{
+  "sncf_connect": "https://www.sncf-connect.com",
+  "faq": [
+    {
+      "theme": "The service",
+      "id": "service",
+      "questions": [
+        {
+          "question": "What is Quai Nord for?",
+          "reponse": [
+            "Quai Nord helps you find out whether your train is likely to be late.",
+            "Search for a journey from a station in Hauts-de-France: the site shows the trains, their delay risk estimated from delays actually observed, the weather forecast at departure and, on the day, their live status when available."
+          ]
+        },
+        {
+          "question": "Can I book or buy a ticket here?",
+          "reponse": [
+            "No. Quai Nord doesn't sell tickets or make any bookings.",
+            "To buy a ticket, go to SNCF Connect, the official SNCF website."
+          ],
+          "lien": {
+            "texte": "Go to SNCF Connect",
+            "url": "https://www.sncf-connect.com"
+          }
+        },
+        {
+          "question": "How do I install Quai Nord as an app?",
+          "reponse": [
+            "On iPhone, open the site in Safari, tap the Share button, then “Add to Home Screen”.",
+            "On Android, open the site in Chrome, then the ⋮ menu and “Install app”. The Quai Nord icon then appears among your apps."
+          ]
+        },
+        {
+          "question": "Is Quai Nord an official SNCF website?",
+          "reponse": [
+            "No. Quai Nord is a personal, independent project by Aly Keita, a data science student, built from the open data published by SNCF Voyageurs.",
+            "For any official information (timetables, disruptions, tickets), check SNCF Connect."
+          ]
+        },
+        {
+          "question": "Which trains and stations are covered?",
+          "reponse": [
+            "Departure must be from one of the 334 stations in Hauts-de-France, or from Paris Gare du Nord for trains serving the region (handy for the return trip). Arrival can be any station served, including outside the region.",
+            "All trains in SNCF's open data are included: TER, Intercités and TGV."
+          ]
+        },
+        {
+          "question": "Who is Nora?",
+          "reponse": [
+            "Nora is Quai Nord's AI assistant. She answers questions about the app, explains a delay risk and can find your next trains.",
+            "To write her answers, your questions are sent to Google's Gemini service. Quai Nord uses its free version: Google may use these exchanges to improve its services, and people may review them. Quai Nord does not keep them. Nora can make mistakes: never share personal information with her."
+          ]
+        },
+        {
+          "question": "Can Nora help me with buses?",
+          "reponse": [
+            "Yes, in Lille, Calais, Boulogne-sur-Mer, Dunkirk, Amiens and Arras, between a station and your destination, both ways: for example “I'm at Lille Flandres station, I'm going to the university”, or “I'm at the beach, which bus to the station?”. Nora gives the direct buses, and in Lille the metro and tram: the line, the stops and the direction.",
+            "The lines come from the open data of the ilévia (Lille), Imag'in (Calais), Marinéo (Boulogne-sur-Mer), DK'Bus (Dunkirk), Ametis (Amiens) and Artis (Arras) networks, and places from OpenStreetMap. Check the times with the network before you leave."
+          ]
+        },
+        {
+          "question": "Does Nora use my location?",
+          "reponse": [
+            "Only if you tap the “My location” button, and after your phone agrees.",
+            "Your location stays on your phone: it is used to find the nearest station and stop, then forgotten. It is never sent to Nora, to Google or to Quai Nord, and is never stored."
+          ]
+        }
+      ]
+    },
+    {
+      "theme": "Searching",
+      "id": "recherche",
+      "questions": [
+        {
+          "question": "Why can't I see my train?",
+          "reponse": [
+            "There are several possible reasons: the journey needs more than one change; the change is between two different stations (for example Lille Flandres and Lille Europe); the change time is under 5 minutes or over 1 h 30; the train leaves before the chosen time or has already left; the requested day is beyond the day after tomorrow.",
+            "Timetables are also updated once a night: a train added or changed during the day may not appear yet. If in doubt, check SNCF Connect."
+          ],
+          "lien": {
+            "texte": "Check on SNCF Connect",
+            "url": "https://www.sncf-connect.com"
+          }
+        },
+        {
+          "question": "Why only today, tomorrow and the day after?",
+          "reponse": [
+            "SNCF timetables often change at the last minute (engineering works, adjustments). By sticking to the next three days, Quai Nord shows recent, reliable timetables."
+          ]
+        },
+        {
+          "question": "Why does the departure time change on its own?",
+          "reponse": [
+            "For today, Quai Nord never shows a train that has already left. If the chosen time has passed, the search starts from the current time."
+          ]
+        }
+      ]
+    },
+    {
+      "theme": "The delay risk",
+      "id": "risque",
+      "questions": [
+        {
+          "question": "How is the delay risk calculated?",
+          "reponse": [
+            "Every 5 minutes, Quai Nord records the delays announced by SNCF. For each train, it calculates the share of its runs that arrived 5 minutes late or more.",
+            "If a train has few observations so far, the calculation also relies on how its line usually behaves at that time. The source used is shown under each risk."
+          ]
+        },
+        {
+          "question": "Why a delay of “5 minutes or more”?",
+          "reponse": [
+            "It's a threshold commonly used to measure train punctuality. Also, the delays announced by SNCF usually come in steps of 5 minutes: 5, 10, 15 minutes…"
+          ]
+        },
+        {
+          "question": "Why doesn't a train that's never late show 0%?",
+          "reponse": [
+            "No train has zero risk. When a train has only been observed a few times without a delay, we simply don't have enough hindsight to say so yet.",
+            "Its risk is therefore “adjusted” towards its line's: this is statistical smoothing. The more the train is observed, the more its risk reflects its own behaviour. Below 1%, the site shows “< 1%”."
+          ]
+        },
+        {
+          "question": "Is it a prediction?",
+          "reponse": [
+            "Not yet: it's an estimate based on delays observed in the past. A prediction model (time, line, weather, current delay) is being prepared.",
+            "No calculation can foresee a sudden incident, such as a breakdown or an obstacle on the track."
+          ]
+        },
+        {
+          "question": "What do “tight connection” and “connection at risk” mean?",
+          "reponse": [
+            "A connection is flagged as tight when the change lasts 10 minutes or less and the first train is often late.",
+            "It is flagged as at risk, on the day, when the first train is announced with almost as much delay as, or more than, the time planned for the change."
+          ]
+        }
+      ]
+    },
+    {
+      "theme": "The data",
+      "id": "donnees",
+      "questions": [
+        {
+          "question": "Where does the data come from?",
+          "reponse": [
+            "Timetables and delays come from SNCF Voyageurs' open data (GTFS and GTFS-RT formats), published on transport.data.gouv.fr under the ODbL licence.",
+            "The weather comes from Open-Meteo, under the CC BY 4.0 licence."
+          ]
+        },
+        {
+          "question": "How often is the data updated?",
+          "reponse": [
+            "Delays are collected every 5 minutes. Timetables, weather, risks and the site are updated every night, around 4 am.",
+            "The date of the last update is always shown under the search form."
+          ]
+        },
+        {
+          "question": "Why doesn't the live status always appear?",
+          "reponse": [
+            "SNCF only publishes the live status for trains running in the next few hours, or already announced as cancelled. Quai Nord reads it every 2 minutes, and only shows it if it is less than 15 minutes old, so it never shows outdated information.",
+            "For tomorrow and the day after, only the cancellations already announced by SNCF are shown."
+          ]
+        },
+        {
+          "question": "Are my searches stored?",
+          "reponse": [
+            "No. There is no account, your searches are not stored and the site doesn't use cookies.",
+            "Your favourite journeys are stored only on your device, never on our servers.",
+            "When Nora looks for a place that isn't already in her data, your destination is sent to the OpenStreetMap search services (Photon, Overpass) and to the Base Adresse Nationale, without any information about you.",
+            "Only an anonymous audience measurement counts visits (number of pages viewed, where visitors come from), without ever identifying visitors."
+          ]
+        }
+      ]
+    }
+  ]
+}

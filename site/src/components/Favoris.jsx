@@ -4,6 +4,8 @@ import { useFavoris } from "../data/favoris";
 import { useFavorisPlus, etatDuTrain, idTrain, idVille } from "../data/favorisPlus";
 import { useLangue } from "../langue/langue";
 import { aujourdhuiIso, heureActuelle, useIndexHoraires, trouverGare, DOSSIER, useTempsReel, useRisques, ajouterMinutes } from "../data/horaires";
+import { MAXIMUM_LISTE } from "../data/listeLimitee";
+import { FeuillePleine } from "./FeuillePleine";
 import "./Favoris.css";
 
 // L'adresse de recherche d'un favori : aujourd'hui, à partir de maintenant
@@ -14,19 +16,26 @@ export function lienFavori({ de, a }) {
 // ---------- Le bouton étoile, sur la page des résultats ----------
 export function BoutonFavori({ de, a }) {
   const { t } = useLangue();
-  const { estFavori, basculer } = useFavoris();
+  const { favoris, estFavori, basculer, retirer, maximum } = useFavoris();
+  const [plein, setPlein] = useState(false);
   if (!de || !a) return null;
   const actif = estFavori(de, a);
-  return (
+  return (<>
+    {plein && (
+      <FeuillePleine titre={`☆ ${t("plein.trajets.titre", { max: maximum })}`} question={t("plein.trajets.question", { trajet: `${de} → ${a}` })}
+                     elements={favoris.map((f) => ({ cle: `${f.de}|${f.a}`, texte: `${f.de} → ${f.a}` }))}
+                     action={t("plein.retirer")} onFermer={() => setPlein(false)}
+                     onRetirer={(cle) => { const [x, y] = cle.split("|"); retirer(x, y); basculer(de, a); setPlein(false); }} />
+    )}
     <button type="button" className={actif ? "bouton-favori bouton-favori--actif" : "bouton-favori"}
-            aria-pressed={actif} onClick={() => basculer(de, a)}>
+            aria-pressed={actif} onClick={() => { if (basculer(de, a) === "plein") setPlein(true); }}>
       <svg viewBox="0 0 24 24" width="20" height="20" aria-hidden="true"
            fill={actif ? "currentColor" : "none"} stroke="currentColor" strokeWidth="2" strokeLinejoin="round">
         <path d="M12 3l2.8 5.7 6.2.9-4.5 4.4 1 6.2-5.5-2.9-5.5 2.9 1-6.2L3 9.6l6.2-.9z" />
       </svg>
       {actif ? t("fav.dans") : t("fav.ajouter")}
     </button>
-  );
+  </>);
 }
 
 // ---------- La liste des favoris (accueil, page Plus) ----------
@@ -91,17 +100,24 @@ export function ListeFavoris({ sombre = false, gestion = false }) {
 // ---------- Un train précis : l'étoile sur sa carte, dans les résultats ----------
 export function EtoileTrain({ trajet }) {
   const { t } = useLangue();
-  const { estTrainFavori, basculerTrain } = useFavorisPlus();
+  const { trains, estTrainFavori, basculerTrain } = useFavorisPlus();
+  const [plein, setPlein] = useState(false);
   const train = { de: trajet.gareDepart, a: trajet.gareArrivee, heure: trajet.heure };
   const actif = estTrainFavori(train);
-  return (
+  return (<>
+    {plein && (
+      <FeuillePleine titre={`☆ ${t("plein.trains.titre", { max: MAXIMUM_LISTE })}`} question={t("plein.trains.question", { heure: train.heure })}
+                     elements={trains.map((x) => ({ cle: idTrain(x), texte: `${x.heure} · ${x.de} → ${x.a}` }))}
+                     action={t("plein.retirer")} onFermer={() => setPlein(false)}
+                     onRetirer={(cle) => { basculerTrain(trains.find((x) => idTrain(x) === cle)); basculerTrain(train); setPlein(false); }} />
+    )}
     <button type="button" className={actif ? "etoile-train etoile-train--actif" : "etoile-train"} aria-pressed={actif}
-            onClick={() => basculerTrain(train)}
+            onClick={() => { if (basculerTrain(train) === "plein") setPlein(true); }}
             aria-label={t(actif ? "fav.etoile.retirer" : "fav.etoile.ajouter", { heure: trajet.heure })}>
       <svg viewBox="0 0 24 24" width="20" height="20" aria-hidden="true" fill={actif ? "currentColor" : "none"}
            stroke="currentColor" strokeWidth="2" strokeLinejoin="round"><path d="M12 3l2.8 5.7 6.2.9-4.5 4.4 1 6.2-5.5-2.9-5.5 2.9 1-6.2L3 9.6l6.2-.9z" /></svg>
     </button>
-  );
+  </>);
 }
 
 // Les départs du jour d'une gare (le même fichier que la page des résultats)
@@ -221,14 +237,22 @@ export function ListeVilleFavoris() {
 
 export function EtoileVille({ trajet }) {
   const { t } = useLangue();
-  const { estVilleFavori, basculerVille } = useFavorisPlus();
+  const { ville, estVilleFavori, basculerVille } = useFavorisPlus();
+  const [plein, setPlein] = useState(false);
   const actif = estVilleFavori(trajet);
-  return (
+  return (<>
+    {plein && (
+      <FeuillePleine titre={`☆ ${t("plein.trajets.titre", { max: MAXIMUM_LISTE })}`}
+                     question={t("plein.trajets.question", { trajet: `${trajet.A.nom} → ${trajet.B.nom}` })}
+                     elements={ville.map((x) => ({ cle: idVille(x), texte: `${x.A.nom} → ${x.B.nom}` }))}
+                     action={t("plein.retirer")} onFermer={() => setPlein(false)}
+                     onRetirer={(cle) => { basculerVille(ville.find((x) => idVille(x) === cle)); basculerVille(trajet); setPlein(false); }} />
+    )}
     <button type="button" className={actif ? "bouton-favori bouton-favori--actif" : "bouton-favori"} aria-pressed={actif}
-            onClick={() => basculerVille(trajet)}>
+            onClick={() => { if (basculerVille(trajet) === "plein") setPlein(true); }}>
       <svg viewBox="0 0 24 24" width="18" height="18" aria-hidden="true" fill={actif ? "currentColor" : "none"}
            stroke="currentColor" strokeWidth="2" strokeLinejoin="round"><path d="M12 3l2.8 5.7 6.2.9-4.5 4.4 1 6.2-5.5-2.9-5.5 2.9 1-6.2L3 9.6l6.2-.9z" /></svg>
       {actif ? t("fav.dans") : t("fav.ajouter")}
     </button>
-  );
+  </>);
 }

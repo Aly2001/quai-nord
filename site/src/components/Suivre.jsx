@@ -2,7 +2,9 @@
 import { useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import { useLangue } from "../langue/langue";
-import { useSuivis, idSuivi, prochainTrainSuivi, trainsSuivisPourLeServeur, prochaineOccasion, etapeDuVoyage } from "../data/suivi";
+import { useSuivis, idSuivi, prochainTrainSuivi, trainsSuivisPourLeServeur, prochaineOccasion, etapeDuVoyage, MAXIMUM } from "../data/suivi";
+import { placeRestante } from "../data/listeLimitee";
+import { FeuillePleine } from "./FeuillePleine";
 import { etatNotifications, activerNotifications, desactiverNotifications } from "../data/notifications";
 import { minutesEnHeure } from "../data/trajetBus";
 import { dateLongue } from "../data/horaires";
@@ -16,8 +18,9 @@ export const lienPartir = (suivi) => `/partir?${new URLSearchParams({ id: idSuiv
 export function BoutonSuivre({ trajet, jour }) {
   const { t } = useLangue();
   const navigate = useNavigate();
-  const { estSuivi, suivre } = useSuivis();
+  const { estSuivi, suivre, suivis, nePlusSuivre } = useSuivis();
   const [ouvert, setOuvert] = useState(false);
+  const [enAttente, setEnAttente] = useState(null);         // le train à suivre, quand la liste est pleine
   const [repetition, setRepetition] = useState("une");
   const dejaSuivi = estSuivi(trajet.gareDepart, trajet.gareArrivee, trajet.heure);
 
@@ -27,8 +30,21 @@ export function BoutonSuivre({ trajet, jour }) {
       correspondance: trajet.correspondance ? trajet.correspondance.gare : null,
       repetition, jour: repetition === "semaine" ? null : jour,
     };
-    suivre(suivi);
     setOuvert(false);
+    if (suivre(suivi) === "plein") { setEnAttente(suivi); return; }     // le voyageur choisit lequel arrêter
+    apresSuivi(suivi);
+  }
+
+  // Un train de la liste est arrêté par le voyageur : le nouveau prend sa place, dans le même geste
+  function remplacer(cle) {
+    const ancien = suivis.find((s) => idSuivi(s) === cle);
+    const nouveau = enAttente;
+    setEnAttente(null);
+    if (ancien) nePlusSuivre(ancien);
+    if (suivre(nouveau) !== "plein") apresSuivi(nouveau);
+  }
+
+  function apresSuivi(suivi) {
     // Les notifications : demandées dans le même geste (l'iPhone l'exige), seulement si c'est possible
     if (["a-demander", "autorise"].includes(etatNotifications())) activerNotifications(trainsSuivisPourLeServeur()).catch(() => {});
     navigate(`${lienPartir(suivi)}&preparer=1`);              // tout de suite : « Et pour aller à la gare ? »
@@ -40,6 +56,13 @@ export function BoutonSuivre({ trajet, jour }) {
               onClick={() => (dejaSuivi ? navigate("/favoris") : setOuvert(true))}>
         {CLOCHE} {dejaSuivi ? t("suivi.actif") : t("suivi.bouton")}
       </button>
+      {enAttente && (
+        <FeuillePleine titre={`🔔 ${t("plein.suivis.titre", { max: MAXIMUM })}`}
+                       question={t("plein.suivis.question", { heure: enAttente.heure })}
+                       elements={suivis.map((s) => ({ cle: idSuivi(s), texte: `${s.heure} · ${s.de} → ${s.a}`,
+                         detail: s.repetition === "semaine" ? t("suivi.semaine") : t("suivi.une", { jour: dateLongue(s.jour) }) }))}
+                       action={t("plein.arreter")} onRetirer={remplacer} onFermer={() => setEnAttente(null)} />
+      )}
       {ouvert && (
         <div className="feuille-suivre" role="dialog" aria-modal="true" aria-label={t("suivi.titre")}>
           <button type="button" className="feuille-suivre__fond" aria-label={t("suivi.fermer")} onClick={() => setOuvert(false)} />
@@ -112,6 +135,7 @@ export function ListeSuivis() {
   return (
     <>
       <EtatNotifications />
+      <Compteur nombre={suivis.length} />
       <ul className="favoris__liste">
         {suivis.map((s) => (
           <li key={idSuivi(s)} className="favori-train">
@@ -129,6 +153,18 @@ export function ListeSuivis() {
       </ul>
       <button type="button" className="suivi__tout-arreter" onClick={() => { toutArreter(); desactiverNotifications(); }}>{t("suivi.tout")}</button>
     </>
+  );
+}
+
+// « 3 trains sur 5 · vous pouvez encore en suivre 2 » : la place qui reste se voit AVANT d'être pleine
+function Compteur({ nombre }) {
+  const { t } = useLangue();
+  const reste = placeRestante(Array(nombre), MAXIMUM);
+  return (
+    <p className="suivi__compteur">
+      <strong>{t(nombre <= 1 ? "suivi.compteur.un" : "suivi.compteur", { nombre, max: MAXIMUM })}</strong>
+      {" · "}{reste > 0 ? t("suivi.compteur.reste", { reste }) : t("suivi.compteur.plein")}
+    </p>
   );
 }
 

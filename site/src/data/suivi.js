@@ -9,10 +9,11 @@ import { useEffect, useState } from "react";
 import { busDirects, arretsProches, distance, minutesAPied, rayonMarche } from "./bus";
 import { prochainsPassages, terminusDeLaCourse, MARGE_ARRET } from "./trajetBus";
 import { synchroniserNotifications, trainsPourLeServeur } from "./notifications";
+import { ajouterSansPerdre, MAXIMUM_LISTE } from "./listeLimitee";
 
 const CLE = "quai-nord:trains-suivis";
 const EVENEMENT = "quai-nord:suivis-modifies";
-const MAXIMUM = 5;
+export const MAXIMUM = MAXIMUM_LISTE;              // le serveur des alertes accepte 5 trains par téléphone
 export const APRES_ARRIVEE = 30;                  // minutes : un voyage ponctuel est oublié 30 min après l'arrivée
 export const BOUGE = 300;                         // mètres : au-delà, « vous n'êtes plus au même endroit »
 
@@ -167,8 +168,12 @@ export function useSuivis() {
   }, []);
 
   const suivre = (suivi) => {
-    const liste = lire().filter((s) => idSuivi(s) !== idSuivi(suivi));
-    ecrire([suivi, ...liste].slice(0, MAXIMUM));
+    // Le ménage d'abord : un voyage déjà terminé ne prend jamais la place d'un nouveau train.
+    // Pleine : « plein », et rien n'est retiré (l'écran demande lequel arrêter).
+    const r = ajouterSansPerdre(nettoyer(lire()).gardes, suivi, idSuivi, MAXIMUM);
+    if (r.plein) return "plein";
+    ecrire(r.liste);
+    return "ajoute";
   };
   const nePlusSuivre = (suivi) => ecrire(lire().filter((s) => idSuivi(s) !== idSuivi(suivi)));
   const toutArreter = () => ecrire([]);

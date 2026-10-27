@@ -49,3 +49,4 @@
 .etape--route { color: #1F6F8B; font-weight: 700; }
 .etape--fini { color: #2E8B57; font-weight: 700; }
 .prochain-train__etape { font-size: 15px; }
+.suivi__compteur { margin: 0 0 10px; font-size: 15px; color: var(--nuit); }

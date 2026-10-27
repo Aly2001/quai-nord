@@ -5,9 +5,10 @@
 // =====================================================================
 import { useEffect, useState } from "react";
 import { normaliser, trajetsDirects, infoDirect, risqueDuTrain, niveauRisque } from "./horaires";
+import { ajouterSansPerdre, MAXIMUM_LISTE } from "./listeLimitee";
 
 const CLES = { trains: "quai-nord:trains-favoris", ville: "quai-nord:ville-favoris", surveille: "quai-nord:train-surveille" };
-const MAXIMUM = 5;
+const MAXIMUM = MAXIMUM_LISTE;
 const EVENEMENT = "quai-nord:favoris-modifies";
 
 function lire(cle, defaut) {
@@ -36,21 +37,31 @@ export function useFavorisPlus() {
     return () => { window.removeEventListener(EVENEMENT, relire); window.removeEventListener("storage", relire); };
   }, []);
 
+  // Les deux renvoient « plein » quand la liste est pleine : rien n'est retiré sans le choix du voyageur
   const basculerTrain = (train) => {
     const liste = lire(CLES.trains, []);
     const id = idTrain(train);
     if (liste.some((t) => idTrain(t) === id)) {
       ecrire(CLES.trains, liste.filter((t) => idTrain(t) !== id));
       if (lire(CLES.surveille, null) === id) ecrire(CLES.surveille, null);
-    } else {
-      ecrire(CLES.trains, [{ de: train.de, a: train.a, heure: train.heure }, ...liste].slice(0, MAXIMUM));
+      return "retire";
     }
+    const r = ajouterSansPerdre(liste, { de: train.de, a: train.a, heure: train.heure }, idTrain, MAXIMUM);
+    if (r.plein) return "plein";
+    ecrire(CLES.trains, r.liste);
+    return "ajoute";
   };
   const basculerVille = (trajet) => {
     const liste = lire(CLES.ville, []);
     const id = idVille(trajet);
-    ecrire(CLES.ville, liste.some((t) => idVille(t) === id) ? liste.filter((t) => idVille(t) !== id)
-      : [trajet, ...liste].slice(0, MAXIMUM));
+    if (liste.some((t) => idVille(t) === id)) {
+      ecrire(CLES.ville, liste.filter((t) => idVille(t) !== id));
+      return "retire";
+    }
+    const r = ajouterSansPerdre(liste, trajet, idVille, MAXIMUM);
+    if (r.plein) return "plein";
+    ecrire(CLES.ville, r.liste);
+    return "ajoute";
   };
   const surveiller = (train) => {
     const id = train ? idTrain(train) : null;

@@ -1,0 +1,10 @@
+/* La feuille « liste pleine » (s'appuie sur la feuille de Suivre.css) */
+.feuille-pleine__liste { margin: 0; padding: 0; list-style: none; display: flex; flex-direction: column; }
+.feuille-pleine__liste li { display: flex; align-items: center; justify-content: space-between; gap: 10px;
+  min-height: 60px; padding: 8px 0; border-top: 1px solid #E3E8EE; }
+.feuille-pleine__liste li > span { display: flex; flex-direction: column; min-width: 0; }
+.feuille-pleine__liste small { font-size: 13px; color: var(--texte-doux); }
+.feuille-pleine__liste button { flex: none; min-height: 44px; padding: 0 14px; font: inherit; font-weight: 700; font-size: 14px;
+  border-radius: 999px; border: 1.5px solid #E8B4B4; background: #FFFFFF; color: #B91C1C; cursor: pointer; }
+.feuille-pleine__annuler { min-height: 50px; font: inherit; font-weight: 700; font-size: 16px; border: 0; border-radius: 12px;
+  background: #EEF1F5; color: var(--nuit); cursor: pointer; }

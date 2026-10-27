@@ -4,9 +4,10 @@
 //  Un favori = deux gares. On le recherche toujours « à partir de maintenant ».
 // =====================================================================
 import { useEffect, useState } from "react";
+import { ajouterSansPerdre, MAXIMUM_LISTE } from "./listeLimitee";
 
 const CLE = "quai-nord:favoris";
-const MAXIMUM = 5;
+const MAXIMUM = MAXIMUM_LISTE;
 const EVENEMENT = "quai-nord:favoris-modifies";   // prévient les autres composants
 
 function lire() {
@@ -46,14 +47,17 @@ export function useFavoris() {
     return favoris.some((f) => meme(f, de, a));
   }
 
+  // Renvoie « plein » quand la liste est pleine : rien n'est retiré, l'écran demande lequel retirer
   function basculer(de, a) {
     const liste = lire();
     if (liste.some((f) => meme(f, de, a))) {
       ecrire(liste.filter((f) => !meme(f, de, a)));
-    } else {
-      // Le dernier ajouté en premier, sans dépasser le maximum
-      ecrire([{ de, a }, ...liste].slice(0, MAXIMUM));
+      return "retire";
     }
+    const r = ajouterSansPerdre(liste, { de, a }, (f) => `${f.de}|${f.a}`, MAXIMUM);
+    if (r.plein) return "plein";
+    ecrire(r.liste);
+    return "ajoute";
   }
 
   function retirer(de, a) {

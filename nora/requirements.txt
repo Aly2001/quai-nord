@@ -3,3 +3,4 @@ fastapi
 uvicorn[standard]
 httpx
 gtfs-realtime-bindings
+google-cloud-storage

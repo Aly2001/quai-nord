@@ -5,3 +5,5 @@ pandas
 matplotlib
 scikit-learn
 joblib
+pywebpush
+google-cloud-storage

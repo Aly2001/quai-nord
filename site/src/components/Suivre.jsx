@@ -2,7 +2,8 @@
 import { useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import { useLangue } from "../langue/langue";
-import { useSuivis, idSuivi, prochainTrainSuivi } from "../data/suivi";
+import { useSuivis, idSuivi, prochainTrainSuivi, trainsSuivisPourLeServeur } from "../data/suivi";
+import { etatNotifications, activerNotifications, desactiverNotifications } from "../data/notifications";
 import { minutesEnHeure } from "../data/trajetBus";
 import { dateLongue } from "../data/horaires";
 import "./Suivre.css";
@@ -28,6 +29,8 @@ export function BoutonSuivre({ trajet, jour }) {
     };
     suivre(suivi);
     setOuvert(false);
+    // Les notifications : demandées dans le même geste (l'iPhone l'exige), seulement si c'est possible
+    if (["a-demander", "autorise"].includes(etatNotifications())) activerNotifications(trainsSuivisPourLeServeur()).catch(() => {});
     navigate(`${lienPartir(suivi)}&preparer=1`);              // tout de suite : « Et pour aller à la gare ? »
   }
 
@@ -60,6 +63,7 @@ export function BoutonSuivre({ trajet, jour }) {
               {trajet.correspondance && <li><strong>{t("suivi.a2")}</strong><small>{t("suivi.a2.detail", { gare: trajet.correspondance.gare })}</small></li>}
               <li><strong>{t("suivi.a3")}</strong><small>{t("suivi.a3.detail")}</small></li>
             </ul>
+            {etatNotifications() === "installer" && <p className="feuille-suivre__note">{t("notif.installer")}</p>}
             <button type="button" className="feuille-suivre__activer" onClick={activer}>{t("suivi.activer")}</button>
             <p className="feuille-suivre__prive">{t("suivi.prive")}</p>
           </div>
@@ -105,6 +109,7 @@ export function ListeSuivis() {
   if (!suivis.length) return <p className="favoris__vide">{t("suivi.vide")}</p>;
   return (
     <>
+      <EtatNotifications />
       <ul className="favoris__liste">
         {suivis.map((s) => (
           <li key={idSuivi(s)} className="favori-train">
@@ -120,7 +125,33 @@ export function ListeSuivis() {
           </li>
         ))}
       </ul>
-      <button type="button" className="suivi__tout-arreter" onClick={toutArreter}>{t("suivi.tout")}</button>
+      <button type="button" className="suivi__tout-arreter" onClick={() => { toutArreter(); desactiverNotifications(); }}>{t("suivi.tout")}</button>
     </>
+  );
+}
+
+// ---------- L'état des notifications, dans Mes trains suivis ----------
+function EtatNotifications() {
+  const { t } = useLangue();
+  const [etat, setEtat] = useState(etatNotifications);
+  const [erreur, setErreur] = useState(false);
+  async function activer() {
+    setErreur(false);
+    try { await activerNotifications(trainsSuivisPourLeServeur()); } catch { setErreur(true); }
+    setEtat(etatNotifications());
+  }
+  if (etat === "autorise") {
+    return (
+      <p className="notif notif--oui">🔔 {t("notif.actives")}
+        <button type="button" onClick={async () => { await desactiverNotifications(); setEtat("a-demander"); }}>{t("notif.couper")}</button></p>
+    );
+  }
+  if (etat === "installer") return <p className="notif">📲 {t("notif.installer")}</p>;
+  if (etat === "refuse") return <p className="notif">🔕 {t("notif.refusees")}</p>;
+  if (etat === "impossible") return null;
+  return (
+    <p className="notif">🔔 {t("notif.proposer")}
+      <button type="button" onClick={activer}>{t("notif.activer")}</button>
+      {erreur && <small>{t("notif.erreur")}</small>}</p>
   );
 }

@@ -38,3 +38,7 @@ donnees_bus/
 
 # Le modèle entraîné chaque nuit sur la VM (refait à chaque fois)
 modele/
+
+# Les alertes : la clé privée des notifications et l'état des envois restent sur la VM
+secrets/
+alertes_etat.json

@@ -198,6 +198,12 @@ export const TEXTES = {
     "partir.supprime": "Votre {heure} est supprimé, d'après la SNCF.", "partir.autres": "Voir les autres trains",
     "partir.retard": "Votre {heure} a {minutes} min de retard.", "partir.prudence": "Par prudence, partez comme prévu : un retard peut se réduire.",
     "partir.alheure": "Votre {heure} est à l'heure, d'après la SNCF.",
+    // ----- Les notifications -----
+    "notif.actives": "Notifications activées sur ce téléphone.", "notif.couper": "Les couper",
+    "notif.installer": "Pour recevoir les alertes sur iPhone, installez d'abord Quai Nord sur l'écran d'accueil (Partager, puis « Sur l'écran d'accueil »).",
+    "notif.refusees": "Notifications refusées : vous pouvez les autoriser dans les réglages du téléphone.",
+    "notif.proposer": "Recevoir les alertes de ces trains ?", "notif.activer": "Activer les notifications",
+    "notif.erreur": "Impossible pour l'instant : réessayez plus tard.",
     // ----- Le pied de page -----
     "pied.texte": "Projet d'Aly Keita, sans lien avec la SNCF. Données SNCF Voyageurs (GTFS et GTFS-RT, licence ODbL), Open-Meteo (CC BY 4.0), réseaux {reseaux} (Licence Ouverte), © les contributeurs d'OpenStreetMap.",
   },
@@ -377,6 +383,11 @@ export const TEXTES = {
     "partir.supprime": "Your {heure} is cancelled, according to SNCF.", "partir.autres": "See other trains",
     "partir.retard": "Your {heure} is {minutes} min late.", "partir.prudence": "To be safe, leave as planned: a delay can shrink.",
     "partir.alheure": "Your {heure} is on time, according to SNCF.",
+    "notif.actives": "Notifications are on for this phone.", "notif.couper": "Turn them off",
+    "notif.installer": "To get alerts on iPhone, first install Quai Nord on your home screen (Share, then “Add to Home Screen”).",
+    "notif.refusees": "Notifications refused: you can allow them in your phone's settings.",
+    "notif.proposer": "Get alerts for these trains?", "notif.activer": "Turn on notifications",
+    "notif.erreur": "Not possible right now: try again later.",
     "pied.texte": "A project by Aly Keita, not affiliated with SNCF. Data: SNCF Voyageurs (GTFS and GTFS-RT, ODbL licence), Open-Meteo (CC BY 4.0), {reseaux} networks (Licence Ouverte), © OpenStreetMap contributors.",
   },
 };

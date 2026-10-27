@@ -8,6 +8,7 @@
 import { useEffect, useState } from "react";
 import { busDirects, arretsProches, distance, minutesAPied, rayonMarche } from "./bus";
 import { prochainsPassages, MARGE_ARRET } from "./trajetBus";
+import { synchroniserNotifications, trainsPourLeServeur } from "./notifications";
 
 const CLE = "quai-nord:trains-suivis";
 const EVENEMENT = "quai-nord:suivis-modifies";
@@ -112,7 +113,9 @@ function lire() {
 function ecrire(liste) {
   try { localStorage.setItem(CLE, JSON.stringify(liste)); } catch { /* stockage indisponible */ }
   window.dispatchEvent(new Event(EVENEMENT));
+  synchroniserNotifications(trainsPourLeServeur(liste, idSuivi));     // le serveur des alertes, s'il est utilisé
 }
+export const trainsSuivisPourLeServeur = () => trainsPourLeServeur(lire(), idSuivi);
 
 export function useSuivis() {
   const [etat, setEtat] = useState(() => {

@@ -635,3 +635,55 @@ def test_la_langue_du_site_est_transmise_a_gemini():
 def test_une_langue_inconnue_est_refusee():
     corps = dict(UNE_QUESTION, langue="xx")
     assert client.post("/api/nora", json=corps).status_code == 422
+
+
+
+# ---------- Les alertes : l'abonnement, rangé dans le stockage (un dictionnaire, ici) ----------
+class FauxCoffre:
+    def __init__(self):
+        self.fichiers = {}
+    def ecrire(self, nom, contenu):
+        self.fichiers[nom] = contenu
+    def supprimer(self, nom):
+        self.fichiers.pop(nom, None)
+
+
+ABONNEMENT = {
+    "abonnement": {"endpoint": "https://web.push.apple.com/QWERTY123456789", "keys": {"p256dh": "B" * 40, "auth": "A" * 16}},
+    "langue": "fr",
+    "trains": [{"de": "Boulogne - Tintelleries", "a": "Calais Ville", "heure": "07:13", "arrivee": "07:39", "repetition": "une",
+                "jour": "2026-10-28", "rappel": {"minute": 422, "texte": "À pied, 6 min"}, "url": "/partir?id=x"}],
+}
+
+
+def test_un_abonnement_est_range_puis_efface(monkeypatch):
+    faux = FauxCoffre()
+    monkeypatch.setattr(module, "coffre", faux)
+    assert client.post("/api/alertes/abonnement", json=ABONNEMENT).json() == {"ok": True, "trains": 1}
+    [(nom, contenu)] = faux.fichiers.items()
+    assert nom.startswith("alertes/") and "apple" not in nom           # le nom ne révèle pas l'adresse
+    assert contenu["trains"][0]["heure"] == "07:13"
+    vide = dict(ABONNEMENT, trains=[])
+    client.post("/api/alertes/abonnement", json=vide)                     # plus aucun train : tout est effacé
+    assert faux.fichiers == {}
+
+
+def test_une_adresse_d_envoi_inconnue_est_refusee(monkeypatch):
+    monkeypatch.setattr(module, "coffre", FauxCoffre())
+    pirate = {**ABONNEMENT, "abonnement": {**ABONNEMENT["abonnement"], "endpoint": "https://exemple.com/voler/1234567890"}}
+    assert client.post("/api/alertes/abonnement", json=pirate).status_code == 422
+
+
+def test_le_desabonnement_efface(monkeypatch):
+    faux = FauxCoffre()
+    monkeypatch.setattr(module, "coffre", faux)
+    client.post("/api/alertes/abonnement", json=ABONNEMENT)
+    client.post("/api/alertes/desabonnement", json={"endpoint": ABONNEMENT["abonnement"]["endpoint"]})
+    assert faux.fichiers == {}
+
+
+def test_la_cle_publique(monkeypatch):
+    monkeypatch.setattr(module, "CLE_PUBLIQUE_VAPID", "")
+    assert client.get("/api/alertes/cle").status_code == 503
+    monkeypatch.setattr(module, "CLE_PUBLIQUE_VAPID", "BCLEPUBLIQUE")
+    assert client.get("/api/alertes/cle").json() == {"cle": "BCLEPUBLIQUE"}

@@ -61,3 +61,28 @@ self.addEventListener("fetch", (evenement) => {
     evenement.respondWith(reseauPuisMemoire(requete));
   }
 });
+
+// ---------- Les notifications des trains suivis ----------
+// Le serveur envoie { titre, corps, url } : on l'affiche, et le toucher ouvre la bonne page (écran Partir…)
+self.addEventListener("push", (evenement) => {
+  let message = {};
+  try { message = evenement.data ? evenement.data.json() : {}; } catch { message = { corps: evenement.data?.text() }; }
+  evenement.waitUntil(self.registration.showNotification(message.titre || "Quai Nord", {
+    body: message.corps || "",
+    icon: "/icons/icone-192.png",
+    badge: "/icons/icone-192.png",
+    data: { url: message.url || "/" },
+    tag: message.url || "quai-nord",          // une nouvelle alerte pour le même train remplace l'ancienne
+  }));
+});
+
+self.addEventListener("notificationclick", (evenement) => {
+  evenement.notification.close();
+  const url = evenement.notification.data?.url || "/";
+  evenement.waitUntil(self.clients.matchAll({ type: "window", includeUncontrolled: true }).then((fenetres) => {
+    for (const fenetre of fenetres) {
+      if ("focus" in fenetre) { fenetre.navigate(url); return fenetre.focus(); }
+    }
+    return self.clients.openWindow(url);
+  }));
+});

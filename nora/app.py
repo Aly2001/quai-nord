@@ -708,3 +708,125 @@ def bus_direct(code: str):
         raise HTTPException(503, "Le direct de ce réseau est momentanément indisponible.")
     _cache_bus[code] = {"lu_a": maintenant, "contenu": contenu}
     return contenu
+
+
+
+# ======================================================================
+#  LES ALERTES DES TRAINS SUIVIS (notifications web, sans compte)
+# ======================================================================
+# Le téléphone envoie son « adresse d'envoi » anonyme (créée par le navigateur) et ses trains suivis.
+# On les range dans le stockage Google Cloud, un petit fichier par téléphone ; la VM les relit toutes
+# les 5 minutes (alertes.py) et envoie les alertes. Aucun nom, numéro ou e-mail : seulement cette adresse.
+import hashlib
+
+SEAU_ALERTES = os.environ.get("NORA_SEAU_ALERTES", "quai-nord-transfert-aly")
+CLE_PUBLIQUE_VAPID = os.environ.get("NORA_VAPID_PUBLIC", "")
+# Les services d'envoi des navigateurs (Apple, Google, Mozilla, Microsoft) : on refuse toute autre adresse
+SERVICES_PUSH = re.compile(r"^https://([a-z0-9.-]+\.)?(push\.apple\.com|fcm\.googleapis\.com|googleapis\.com|"
+                           r"push\.services\.mozilla\.com|notify\.windows\.com)/")
+
+
+class Coffre:
+    """Le stockage des abonnements : Google Cloud Storage en ligne (remplacé par un dictionnaire dans les tests)."""
+    def __init__(self):
+        self._seau = None
+
+    def seau(self):
+        if self._seau is None:
+            from google.cloud import storage                      # chargé seulement quand on s'en sert
+            self._seau = storage.Client().bucket(SEAU_ALERTES)
+        return self._seau
+
+    def ecrire(self, nom, contenu):
+        self.seau().blob(nom).upload_from_string(json.dumps(contenu, ensure_ascii=False), content_type="application/json")
+
+    def supprimer(self, nom):
+        blob = self.seau().blob(nom)
+        if blob.exists():
+            blob.delete()
+
+
+coffre = Coffre()
+
+
+class CleAbonnement(BaseModel):
+    p256dh: str = Field(min_length=10, max_length=200)
+    auth: str = Field(min_length=8, max_length=100)
+
+
+class AdresseEnvoi(BaseModel):
+    endpoint: str = Field(min_length=20, max_length=600)
+    keys: CleAbonnement
+
+
+class Rappel(BaseModel):
+    minute: int = Field(ge=-120, le=1440 + 120)                # l'heure de départ de chez soi (minutes du jour)
+    texte: str = Field(max_length=120)                         # « Bus 5 à 11:36, Place de Lorraine »
+
+
+class TrainSuivi(BaseModel):
+    de: str = Field(max_length=80)
+    a: str = Field(max_length=80)
+    heure: str = Field(pattern=r"^\d{2}:\d{2}$")
+    arrivee: str = Field(pattern=r"^\d{2}:\d{2}$")
+    repetition: str = Field(pattern="^(une|semaine)$")
+    jour: str | None = Field(default=None, pattern=r"^\d{4}-\d{2}-\d{2}$")
+    rappel: Rappel | None = None
+    url: str = Field(default="/", max_length=300, pattern=r"^/")
+
+
+class Abonnement(BaseModel):
+    abonnement: AdresseEnvoi
+    langue: str = Field(default="fr", pattern="^(fr|en)$")
+    trains: list[TrainSuivi] = Field(max_length=5)
+
+
+_abonnements_minute = defaultdict(deque)
+
+
+def verifier_limites(requete):
+    """Au plus 20 enregistrements par minute et par visiteur (le site en envoie un à chaque train suivi)."""
+    visiteur, maintenant = adresse_visiteur(requete), time.time()
+    file = _abonnements_minute[visiteur]
+    while file and maintenant - file[0] > 60:
+        file.popleft()
+    if len(file) >= 20:
+        raise HTTPException(429, "Trop de demandes : réessayez dans une minute.")
+    file.append(maintenant)
+
+
+def nom_du_fichier(endpoint):
+    """Un nom de fichier tiré de l'adresse (empreinte) : l'adresse elle-même n'apparaît pas dans le nom."""
+    return f"alertes/{hashlib.sha256(endpoint.encode()).hexdigest()[:32]}.json"
+
+
+@app.get("/api/alertes/cle")
+def alertes_cle():
+    if not CLE_PUBLIQUE_VAPID:
+        raise HTTPException(503, "Les alertes ne sont pas encore activées.")
+    return {"cle": CLE_PUBLIQUE_VAPID}
+
+
+@app.post("/api/alertes/abonnement")
+def alertes_abonnement(demande: Abonnement, requete: Request):
+    if not SERVICES_PUSH.match(demande.abonnement.endpoint):
+        raise HTTPException(422, "Adresse d'envoi inconnue.")
+    verifier_limites(requete)
+    nom = nom_du_fichier(demande.abonnement.endpoint)
+    if not demande.trains:                                       # plus aucun train suivi : on efface tout
+        coffre.supprimer(nom)
+        return {"ok": True, "trains": 0}
+    contenu = demande.model_dump()
+    contenu["maj"] = int(time.time())
+    coffre.ecrire(nom, contenu)
+    return {"ok": True, "trains": len(demande.trains)}
+
+
+class Desabonnement(BaseModel):
+    endpoint: str = Field(min_length=20, max_length=600)
+
+
+@app.post("/api/alertes/desabonnement")
+def alertes_desabonnement(demande: Desabonnement):
+    coffre.supprimer(nom_du_fichier(demande.endpoint))
+    return {"ok": True}

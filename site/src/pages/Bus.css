@@ -137,3 +137,5 @@ a.bus__voir-arrets { text-decoration: none; }
 .bus__prevu { font-size: 14px; color: var(--texte-doux); }
 .signal-direct { vertical-align: -2px; margin-right: 2px; }
 .panneau-arret__entete .signal-direct { color: #6FD39A; }
+
+.bus__entete-actions { display: flex; gap: 8px; align-items: center; }

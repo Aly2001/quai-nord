@@ -1,6 +1,7 @@
 import { Routes, Route } from "react-router-dom";
 import Header from "./components/Header";
 import Footer from "./components/Footer";
+import { BandeauMiseAJour, BandeauHorsConnexion } from "./components/Bandeaux";
 import SuiviVisites from "./components/SuiviVisites";
 import BarreOnglets from "./components/BarreOnglets";
 import Accueil from "./pages/Accueil";
@@ -20,6 +21,7 @@ export default function App() {
     <div className="page">
       <SuiviVisites />
       <Header />
+      <BandeauHorsConnexion />
 
       <main className="conteneur">
         {/* Selon l'adresse, React affiche UNE de ces pages */}
@@ -40,6 +42,7 @@ export default function App() {
 
       <Footer />
       <BarreOnglets />
+      <BandeauMiseAJour />
     </div>
   );
 }

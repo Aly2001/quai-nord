@@ -1,6 +1,7 @@
 import { useEffect, useId, useMemo, useState } from "react";
 import { Link, useSearchParams } from "react-router-dom";
-import { EtoileVille } from "../components/Favoris";
+import { EtoileVille, lienVille } from "../components/Favoris";
+import { BoutonPartager } from "../components/Bandeaux";
 import { useLangue } from "../langue/langue";
 import { useTitrePage } from "../components/titrePage";
 import {
@@ -342,8 +343,17 @@ function Resultat({ etat, reseau, ville, code, onDetail }) {
       <section className="bus__entete">
         <p>{nomA} → {B.nom}</p>
         {/* Le favori garde les deux lieux ; « Ma position » reste « là où l'on sera », sans coordonnées */}
-        <EtoileVille trajet={{ code, ville: ville.ville, B: { nom: B.nom, lat: B.lat, lon: B.lon, cat: B.cat || null },
-          A: A.cat === "position" ? { nom: "Ma position", cat: "position" } : { nom: A.nom, lat: A.lat, lon: A.lon, cat: A.cat || null } }} />
+        {(() => {
+          const favori = { code, ville: ville.ville, B: { nom: B.nom, lat: B.lat, lon: B.lon, cat: B.cat || null },
+            A: A.cat === "position" ? { nom: "Ma position", cat: "position" } : { nom: A.nom, lat: A.lat, lon: A.lon, cat: A.cat || null } };
+          return (
+            <div className="bus__entete-actions">
+              <EtoileVille trajet={favori} />
+              {/* Partager : jamais « Ma position » avec ses coordonnées (le lien relocalise celui qui l'ouvre) */}
+              <BoutonPartager classe="bouton-favori" titre={`${nomA} → ${B.nom}`} chemin={lienVille(favori)} />
+            </div>
+          );
+        })()}
         {possibilites.length > 0 && (
           <p className="bus__entete-grand">{t("ville.possibilites", { nombre: possibilites.length })}</p>
         )}

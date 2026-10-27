@@ -170,6 +170,10 @@ export const TEXTES = {
     // ----- La FAQ (les questions elles-mêmes sont dans faq.json et faq.en.json) -----
     "faq.surtitre": "Aide", "faq.titre": "Questions fréquentes", "faq.sous": "Ce que fait Quai Nord, et ce qu'il ne fait pas.", "faq.themes": "Thèmes",
     "faq.fin": "Vous n'avez pas trouvé votre réponse ?", "faq.fin.texte": "Pour les billets, les horaires officiels et les perturbations, le site de référence reste SNCF Connect.",
+    // ----- L'application (PWA) -----
+    "pwa.maj.titre": "Nouvelle version disponible", "pwa.maj.texte": "Les dernières améliorations de Quai Nord", "pwa.maj.bouton": "Mettre à jour",
+    "pwa.horsligne": "Hors connexion", "pwa.horsligne.texte": "horaires enregistrés, pas de direct ni de Nora",
+    "pwa.partager": "Partager", "pwa.copie": "Lien copié", "pwa.partage.train": "Train de {heure} · {de} → {a}",
     // ----- Le pied de page -----
     "pied.texte": "Projet d'Aly Keita, sans lien avec la SNCF. Données SNCF Voyageurs (GTFS et GTFS-RT, licence ODbL), Open-Meteo (CC BY 4.0), réseaux {reseaux} (Licence Ouverte), © les contributeurs d'OpenStreetMap.",
   },
@@ -323,6 +327,9 @@ export const TEXTES = {
     "plus.risque": "How is the risk calculated?", "plus.sources": "Sources and licences",
     "faq.surtitre": "Help", "faq.titre": "FAQ", "faq.sous": "What Quai Nord does, and what it doesn't.", "faq.themes": "Topics",
     "faq.fin": "Didn't find your answer?", "faq.fin.texte": "For tickets, official timetables and disruptions, SNCF Connect remains the reference website.",
+    "pwa.maj.titre": "New version available", "pwa.maj.texte": "The latest improvements to Quai Nord", "pwa.maj.bouton": "Update",
+    "pwa.horsligne": "Offline", "pwa.horsligne.texte": "saved timetables, no live updates or Nora",
+    "pwa.partager": "Share", "pwa.copie": "Link copied", "pwa.partage.train": "{heure} train · {de} → {a}",
     "pied.texte": "A project by Aly Keita, not affiliated with SNCF. Data: SNCF Voyageurs (GTFS and GTFS-RT, ODbL licence), Open-Meteo (CC BY 4.0), {reseaux} networks (Licence Ouverte), © OpenStreetMap contributors.",
   },
 };

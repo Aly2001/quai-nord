@@ -9,12 +9,18 @@
 //  - les pages (/, /trajet, /carte...)  -> d'abord internet, sinon la page en mémoire
 //  - le temps réel                      -> jamais en mémoire (une info périmée serait trompeuse)
 // =====================================================================
-const VERSION = "quai-nord-v2";
+const VERSION = "quai-nord-v3";
 const ESSENTIEL = ["/", "/manifest.webmanifest", "/icons/icone-192.png", "/icons/favicon-32.png"];
+// Une nouvelle version s'installe en arrière-plan, puis ATTEND : c'est le voyageur qui choisit
+// le moment (« Mettre à jour »), pour ne jamais recharger la page au milieu d'une recherche.
 
 self.addEventListener("install", (evenement) => {
   evenement.waitUntil(caches.open(VERSION).then((cache) => cache.addAll(ESSENTIEL)));
-  self.skipWaiting();
+});
+
+// Le site envoie ce message quand le voyageur touche « Mettre à jour »
+self.addEventListener("message", (evenement) => {
+  if (evenement.data?.type === "METTRE_A_JOUR") self.skipWaiting();
 });
 
 self.addEventListener("activate", (evenement) => {

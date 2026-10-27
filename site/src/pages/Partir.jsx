@@ -160,7 +160,10 @@ function Itineraire({ suivi, jour, contexte, calculer }) {
 
   return (
     <section className="partir__itineraire">
-      {lieu.etat === "meme" && <p className="partir__lieu partir__lieu--meme">📍 {t("partir.meme", { lieu: aller.mode === "bus" ? aller.arretDepart.nom : aller.depuis.nom })}</p>}
+      {/* Parti de « Ma position » : on parle de l'arrêt (s'il y a un bus), sinon simplement du même endroit */}
+      {lieu.etat === "meme" && (
+        <p className="partir__lieu partir__lieu--meme">📍 {aller.mode === "bus" ? t("partir.meme", { lieu: aller.arretDepart.nom }) : t("partir.meme.endroit")}</p>
+      )}
       {lieu.etat === "bouge" && <p className="partir__lieu partir__lieu--bouge">📍 {t("partir.bouge")}</p>}
       {(lieu.etat === "adresse" || lieu.etat === "inconnu") && (
         <p className="partir__lieu">📍 {t("partir.depuis", { lieu: aller.depuis.nom })}

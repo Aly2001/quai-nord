@@ -34,3 +34,6 @@
 .suivi__aller { color: var(--texte-doux); }
 .suivi__tout-arreter { align-self: center; margin-top: 10px; min-height: 44px; padding: 0 16px; font: inherit; font-weight: 700;
   border: 0; border-radius: 999px; background: #FDE2E2; color: #B91C1C; cursor: pointer; }
+
+/* Dans « Mes trains suivis », un lien a l'allure d'un bouton (pas de soulignement, centré) */
+.favori-train__actions a.favori-train__surveiller { display: inline-flex; align-items: center; text-decoration: none; }

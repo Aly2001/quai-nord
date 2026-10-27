@@ -207,7 +207,10 @@ export function distance(lat1, lon1, lat2, lon2) {
   return 2 * 6_371_000 * Math.asin(Math.sqrt(a));
 }
 
-export const minutesAPied = (metres) => Math.max(1, Math.round(metres / VITESSE_MARCHE));
+// Par prudence : la distance est « à vol d'oiseau », or les rues font des détours (un quart de plus, en moyenne),
+// et on arrondit toujours vers le HAUT. Mieux vaut arriver avec une minute d'avance qu'une minute de retard.
+const DETOURS = 1.25;
+export const minutesAPied = (metres) => Math.max(1, Math.ceil((metres * DETOURS) / VITESSE_MARCHE));
 
 // Les arrêts à moins de `rayon` mètres d'un point : [[identifiant, distance], ...]
 export function arretsProches(reseau, lat, lon, rayon = RAYON_DESTINATION) {

@@ -10,6 +10,7 @@ import { DOSSIER_BUS, RESEAUX_BUS, arretsProches, busDirects, distance, minutesA
 
 const MINUTES_PAR_JOUR = 1440;
 export const MARCHE_CONSEILLEE = 20;      // minutes : en dessous, sans bus direct, on conseille la marche
+export const MARGE_ARRET = 2;             // minutes : on vise d'être à l'arrêt au moins 2 min AVANT le bus
 
 // ---------- Le fichier d'horaires d'une ville : téléchargé une fois, seulement quand on cherche un bus ----------
 const enCours = new Map();
@@ -98,7 +99,8 @@ export function trajetEntrePoints(reseau, horaires, A, B, dateIso, maintenant, n
   const lignes = busDirects(reseau, prochesA, prochesB, 12).map((b) => {
     const marcheAvant = minutesAPied(b.depart.marche);
     const marcheApres = minutesAPied(b.arrivee.marche);
-    const passages = prochainsPassages(reseau, horaires, b.ligneId, b.depart.id, b.arrivee.id, dateIso, maintenant + marcheAvant);
+    // Un bus qu'on attraperait de justesse n'est pas proposé : il faut être à l'arrêt avec un peu de marge
+    const passages = prochainsPassages(reseau, horaires, b.ligneId, b.depart.id, b.arrivee.id, dateIso, maintenant + marcheAvant + MARGE_ARRET);
     const premier = passages[0];
     return { ...b, marcheAvant, marcheApres, passages, arriveeFinale: premier ? premier.arrivee + marcheApres : null };
   });

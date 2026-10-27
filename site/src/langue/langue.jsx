@@ -16,12 +16,23 @@ export function langueDeDepart() {
   return telephone.toLowerCase().startsWith("en") ? "en" : "fr";
 }
 
+// Une durée lisible : « 45 min », « 1 h 04 », « 2 h » (au-delà de 59 minutes, on passe aux heures)
+export function enDuree(minutes) {
+  const m = Math.max(0, Math.round(Number(minutes)));
+  if (m < 60) return `${m} min`;
+  const h = Math.floor(m / 60), reste = m % 60;
+  return reste ? `${h} h ${String(reste).padStart(2, "0")}` : `${h} h`;
+}
+
 // 2. Traduire : la phrase dans la langue choisie, le français en secours, puis les trous remplis
 export function traduire(langue, cle, valeurs = {}) {
   const phrase = TEXTES[langue]?.[cle] ?? TEXTES.fr[cle] ?? cle;
   // « (s) » : le pluriel, selon le nombre (1 possibilité, 3 possibilités)
   const accordee = valeurs.nombre === undefined ? phrase : phrase.replace(/\(s\)/g, valeurs.nombre > 1 ? "s" : "");
-  return accordee.replace(/\{(\w+)\}/g, (_, nom) => (valeurs[nom] ?? `{${nom}}`));
+  // « {minutes} min » (ou « minutes ») : la durée est écrite d'office en heures au-delà de 59 min
+  const durees = accordee.replace(/\{(\w+)\} min(?:utes)?\b/g, (tout, nom) =>
+    (typeof valeurs[nom] === "number" ? enDuree(valeurs[nom]) : tout));
+  return durees.replace(/\{(\w+)\}/g, (_, nom) => (valeurs[nom] ?? `{${nom}}`));
 }
 
 // 3. Partager la langue dans tout le site (un « contexte » React : toutes les pages lisent la même)

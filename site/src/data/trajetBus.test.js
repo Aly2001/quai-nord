@@ -130,6 +130,7 @@ describe("descendre au bon arrêt", () => {
     const [p] = prochainsPassages(reseau, horaires, "L5", "A1", "M1", "2026-10-21", 860);
     const b = { arrivee: { id: "M1" }, passages: [p] };
     const autres = autresDescentes(reseau, b, new Map([["M1", 100], ["B1", 300]]));
-    expect(autres.map((o) => [o.nom, minutesEnHeure(o.minute), o.marche])).toEqual([["Gare", "14:40", 4]]);
+    // 300 m à vol d'oiseau : 375 m par les rues, à 80 m/min, arrondi vers le haut = 5 min
+    expect(autres.map((o) => [o.nom, minutesEnHeure(o.minute), o.marche])).toEqual([["Gare", "14:40", 5]]);
   });
 });

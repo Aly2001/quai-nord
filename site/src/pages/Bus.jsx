@@ -2,7 +2,7 @@ import { useEffect, useId, useMemo, useState } from "react";
 import { Link, useSearchParams } from "react-router-dom";
 import { EtoileVille, lienVille } from "../components/Favoris";
 import { BoutonPartager } from "../components/Bandeaux";
-import { useLangue } from "../langue/langue";
+import { useLangue, enDuree } from "../langue/langue";
 import { useTitrePage } from "../components/titrePage";
 import {
   RESEAUX, chargerReseau, chargerGaresCouvertes, gareLaPlusProche, arretLePlusProche, DISTANCE_MAX_GARE,
@@ -376,14 +376,14 @@ function Resultat({ etat, reseau, ville, code, onDetail }) {
         <section className="bus__carte">
           <p className="bus__carte-titre">{t("ville.demain.titre")}</p>
           <p>Le premier demain : le <strong>{trajet.lendemain.ligne.nom}</strong> à {minutesEnHeure(trajet.lendemain.passages[0].depart)},
-            de l'arrêt {trajet.lendemain.depart.nom}. À pied : {trajet.minutesAPied} min.</p>
+            de l'arrêt {trajet.lendemain.depart.nom}. À pied : {enDuree(trajet.minutesAPied)}.</p>
           <a className="bus__bouton" href={lienCarte(A, B)} target="_blank" rel="noopener noreferrer">{t("ville.carte")}</a>
         </section>
       )}
       {trajet.conseil === "aucun" && (
         <section className="bus__carte">
           <p className="bus__carte-titre">{t("ville.aucun.titre")}</p>
-          <p>À pied : {trajet.minutesAPied} min. Un trajet avec un changement est peut-être possible :</p>
+          <p>À pied : {enDuree(trajet.minutesAPied)}. Un trajet avec un changement est peut-être possible :</p>
           <a className="bus__bouton" href={lienCarte(A, B)} target="_blank" rel="noopener noreferrer">{t("ville.carte")}</a>
         </section>
       )}
@@ -552,7 +552,7 @@ function PassagesArret({ reseau, code, position, onLocaliser }) {
             <div className="panneau-arret__entete"><span>LIGNE · DIRECTION</span><span>{direct ? <><SignalDirect /> EN DIRECT</> : "PRÉVU"}</span></div>
             {passages.length === 0 && <p className="panneau-arret__vide">Aucun passage dans les 3 prochaines heures.</p>}
             {passages.map((g) => {
-              const attente = (m) => { const d = Math.round(m - maintenant); return d <= 0 ? "à l'arrêt" : `${d} min`; };
+              const attente = (m) => { const d = Math.round(m - maintenant); return d <= 0 ? "à l'arrêt" : enDuree(d); };
               return (
                 <div key={`${g.ligneId}|${g.direction}`} className="panneau-arret__rang">
                   <PuceLigne ligne={g.ligne} />

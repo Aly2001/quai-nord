@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from "react";
 import { Link } from "react-router-dom";
-import { useLangue } from "../langue/langue";
+import { useLangue, enDuree } from "../langue/langue";
 import {
   DOSSIER, useIndexHoraires, useRisques, normaliser, joursAVenir, aujourdhuiIso, heureActuelle,
   trajetsDirects, formatDuree, risqueDuTrain, niveauRisque,
@@ -650,15 +650,15 @@ export default function NoraConversation({ contexte = null, accueil = null, sugg
                         <span className="bus-meilleur__trajet">{meilleur.depart.nom} → {meilleur.arrivee.nom}</span>
                       </span>
                       <span className="bus-meilleur__badge">
-                        {t("nora.rapide")}{meilleur.minutesBus !== null ? ` · ${meilleur.minutesTotal} min` : ""}
+                        {t("nora.rapide")}{meilleur.minutesBus !== null ? ` · ${enDuree(meilleur.minutesTotal)}` : ""}
                       </span>
                     </div>
                     <ol className="bus-meilleur__etapes">
                       {langue === "en" ? (<>
-                        <li>{t("nora.marchez")} <strong>{minutesAPied(meilleur.depart.marche)} min</strong> {t("nora.jusqua")} <strong>{meilleur.depart.nom}</strong></li>
+                        <li>{t("nora.marchez")} <strong>{enDuree(minutesAPied(meilleur.depart.marche))}</strong> {t("nora.jusqua")} <strong>{meilleur.depart.nom}</strong></li>
                         <li>{t("nora.prenez")} <strong>{meilleur.ligne.mode === "metro" ? "metro" : meilleur.ligne.mode === "tram" ? "tram" : "bus"} {meilleur.ligne.nom}</strong>, {t("nora.direction")} <strong>{meilleur.direction}</strong> · {t("nora.arrets", { nombre: meilleur.arrets })}{meilleur.nuit ? t("nora.nuit") : ""}{meilleur.occasionnel ? t("nora.rare") : ""}</li>
                       </>) : (<>
-                        <li>Marchez <strong>{minutesAPied(meilleur.depart.marche)} min</strong> jusqu'à {decrireLigne(meilleur.ligne).station} <strong>{meilleur.depart.nom}</strong></li>
+                        <li>Marchez <strong>{enDuree(minutesAPied(meilleur.depart.marche))}</strong> jusqu'à {decrireLigne(meilleur.ligne).station} <strong>{meilleur.depart.nom}</strong></li>
                         <li>Prenez <strong>{decrireLigne(meilleur.ligne).prendre}</strong>, direction <strong>{meilleur.direction}</strong> · {decrireLigne(meilleur.ligne).arrets(meilleur.arrets)}{meilleur.nuit ? " (ligne de nuit)" : ""}{meilleur.occasionnel ? " (service peu fréquent)" : ""}</li>
                       </>)}
                       <li>{t("nora.descendez")} <strong>{meilleur.arrivee.nom}</strong>, {t("nora.puis.pied", { minutes: minutesAPied(meilleur.arrivee.marche) })}</li>
@@ -675,7 +675,7 @@ export default function NoraConversation({ contexte = null, accueil = null, sugg
                           {b.nuit && <> <span className="bus-autre__nuit">{t("nora.ligne.nuit")}</span></>}
                         </span>
                       </span>
-                      <strong>{b.minutesBus !== null ? `${b.minutesTotal} min` : t("nora.arrets", { nombre: b.arrets })}</strong>
+                      <strong>{b.minutesBus !== null ? enDuree(b.minutesTotal) : t("nora.arrets", { nombre: b.arrets })}</strong>
                     </a>
                   ))}
                 </>

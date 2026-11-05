@@ -64,16 +64,28 @@ self.addEventListener("fetch", (evenement) => {
 
 // ---------- Les notifications des trains suivis ----------
 // Le serveur envoie { titre, corps, url } : on l'affiche, et le toucher ouvre la bonne page (écran Partir…)
+// Une notification dont l'heure est passée (le bus est passé, le train est parti) n'a plus rien à dire : on l'efface.
+// « expire » (en millisecondes) vient du serveur des alertes ; une notification sans « expire » reste.
+async function effacerPerimees() {
+  const toutes = await self.registration.getNotifications();
+  toutes.filter((n) => n.data?.expire && n.data.expire < Date.now()).forEach((n) => n.close());
+}
+
 self.addEventListener("push", (evenement) => {
   let message = {};
   try { message = evenement.data ? evenement.data.json() : {}; } catch { message = { corps: evenement.data?.text() }; }
-  evenement.waitUntil(self.registration.showNotification(message.titre || "Quai Nord", {
+  evenement.waitUntil(effacerPerimees().catch(() => {}).then(() => self.registration.showNotification(message.titre || "Quai Nord", {
     body: message.corps || "",
     icon: "/icons/icone-192.png",
     badge: "/icons/icone-192.png",
-    data: { url: message.url || "/" },
-    tag: message.url || "quai-nord",          // une nouvelle alerte pour le même train remplace l'ancienne
-  }));
+    data: { url: message.url || "/", expire: message.expire || null },
+    tag: message.tag || message.url || "quai-nord",   // une nouvelle alerte pour le même train (ou bus) remplace l'ancienne
+  })));
+});
+
+// Le site demande le ménage en revenant au premier plan (voir main.jsx)
+self.addEventListener("message", (evenement) => {
+  if (evenement.data === "quai-nord:effacer-perimees") evenement.waitUntil(effacerPerimees().catch(() => {}));
 });
 
 self.addEventListener("notificationclick", (evenement) => {

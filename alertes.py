@@ -262,6 +262,22 @@ def decider_bus(rappel, minute_bus, deja, maintenant):
     return valeurs, {**deja, "envoye": True}
 
 
+def expiration(jour, minute):
+    """Le moment (en millisecondes) où une notification n'a plus de sens : le téléphone l'efface ensuite tout seul."""
+    debut = datetime(jour.year, jour.month, jour.day, tzinfo=PARIS)
+    return int((debut + timedelta(minutes=minute)).timestamp() * 1000)
+
+
+def fin_de_validite(type_, train, valeurs, jour):
+    """Rappel : jusqu'au départ du train ; retard : jusqu'au départ annoncé ; suppression : 30 min après l'heure prévue."""
+    depart = en_minutes(train["heure"])
+    if type_ == "retard":
+        return expiration(jour, depart + valeurs.get("minutes", 0) + 2)
+    if type_ == "rappel":
+        return expiration(jour, depart + 1)
+    return expiration(jour, depart + 30)
+
+
 def la_nuit(maintenant):
     return maintenant.hour >= NUIT[0] or maintenant.hour < NUIT[1]
 
@@ -315,7 +331,8 @@ def main(arguments=None):
             print(f"   bus      {valeurs['heure']} {rappel['ligne']} {rappel['arret']} : {titre}")
             if essai:
                 continue
-            if envoyer(abonnement["abonnement"], titre, corps, SITE + "/bus", blob):
+            if envoyer(abonnement["abonnement"], titre, corps, SITE + "/bus", blob,
+                       expire=expiration(jour, minute_bus + 1), tag=f"bus|{rappel['ligneId']}|{rappel['arret']}"):
                 envoyes += 1
                 etat[cle] = {**nouvel, "le": jour.isoformat()}      # noté seulement si l'envoi a réussi
         for train in abonnement.get("trains", []):
@@ -338,7 +355,8 @@ def main(arguments=None):
                     print(f"   {type_:8} {train['heure']} {train['de']} -> {train['a']} : {titre}")
                     if essai:
                         continue
-                    if not envoyer(abonnement["abonnement"], titre, corps, SITE + train.get("url", "/"), blob):
+                    if not envoyer(abonnement["abonnement"], titre, corps, SITE + train.get("url", "/"), blob,
+                                   expire=fin_de_validite(type_, train, valeurs, jour)):
                         tout_envoye = False
                         break
                     envoyes += 1
@@ -366,14 +384,17 @@ def charger_cle():
 _cle = None
 
 
-def envoyer(abonnement, titre, corps, url, blob):
+def envoyer(abonnement, titre, corps, url, blob, expire=None, tag=None):
     """Envoie une notification. Si le téléphone n'existe plus (adresse expirée), on efface son abonnement.
     Une erreur sur un envoi n'arrête jamais les autres : on la note, et on réessaiera au prochain passage."""
     global _cle
     from pywebpush import webpush, WebPushException
     try:
         _cle = _cle or charger_cle()
-        webpush(subscription_info=abonnement, data=json.dumps({"titre": titre, "corps": corps, "url": url}),
+        message = {"titre": titre, "corps": corps, "url": url, "expire": expire}
+        if tag:
+            message["tag"] = tag
+        webpush(subscription_info=abonnement, data=json.dumps(message),
                 vapid_private_key=_cle, vapid_claims={"sub": SITE}, ttl=3600)
         return True
     except WebPushException as erreur:

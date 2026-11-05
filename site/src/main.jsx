@@ -50,7 +50,10 @@ if (import.meta.env.PROD && "serviceWorker" in navigator) {
         });
       });
       // En revenant sur l'application (elle reste souvent ouverte), on regarde s'il y a du nouveau
-      document.addEventListener("visibilitychange", () => { if (document.visibilityState === "visible") inscription.update(); });
+      // … et on efface les notifications périmées (un bus déjà passé, un train déjà parti)
+      const menage = () => navigator.serviceWorker.controller?.postMessage("quai-nord:effacer-perimees");
+      menage();
+      document.addEventListener("visibilitychange", () => { if (document.visibilityState === "visible") { inscription.update(); menage(); } });
     }).catch(() => {});
   });
   // La nouvelle version a pris la main : on recharge une seule fois

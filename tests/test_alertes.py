@@ -115,3 +115,13 @@ def test_le_rappel_du_bus_respecte_les_jours():
     samedi = datetime(2026, 11, 7, 10, 14, tzinfo=PARIS)
     assert al.decider_bus(RAPPEL, 619, {}, samedi)[0] is None
     assert al.decider_bus(dict(RAPPEL, jours=[5]), 619, {}, samedi)[0] is not None
+
+
+def test_une_notification_passee_s_efface_toute_seule():
+    jeudi = date(2026, 11, 5)
+    bus = datetime.fromtimestamp(al.expiration(jeudi, 10 * 60 + 20) / 1000, PARIS)
+    assert (bus.hour, bus.minute) == (10, 20)                                  # le bus de 10:19, + 1 min
+    retard = al.fin_de_validite("retard", TRAIN, {"minutes": 8}, JOUR)
+    assert datetime.fromtimestamp(retard / 1000, PARIS).strftime("%H:%M") == "07:23"   # départ annoncé 07:21, + 2 min
+    rappel = al.fin_de_validite("rappel", TRAIN, {}, JOUR)
+    assert datetime.fromtimestamp(rappel / 1000, PARIS).strftime("%H:%M") == "07:14"

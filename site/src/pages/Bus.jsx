@@ -95,6 +95,7 @@ export default function Bus() {
   const { t } = useLangue();
   useTitrePage("En ville", "Bus, tram, métro ou à pied, d'un endroit à un autre, dans six villes des Hauts-de-France.");
   const [code, setCode] = useState(RESEAUX[0].code);
+  const [aOuvrir, setAOuvrir] = useState(null);          // un bus favori touché dans « Un trajet » : ouvert dans « Prochains passages »
   const [parPosition, setParPosition] = useState(false);
   const [charge, setCharge] = useState({ code: null, reseau: null });   // le réseau téléchargé, et pour quelle ville
   const [depart, setDepart] = useState({ texte: "", lieu: null });
@@ -219,13 +220,17 @@ export default function Bus() {
       {mode === "passages" && (
         <>
           <ChampVille code={code} onChoix={choisirVille} onLocaliser={maPosition} parPosition={parPosition} />
-          <PassagesArret reseau={reseau} code={code} position={depart.lieu?.cat === "position" ? depart.lieu : null} onLocaliser={maPosition} onVille={choisirVille} />
+          <PassagesArret key={aOuvrir?.n || "passages"} aOuvrir={aOuvrir?.favori} reseau={reseau} code={code}
+                         position={depart.lieu?.cat === "position" ? depart.lieu : null} onLocaliser={maPosition} onVille={choisirVille} />
         </>
       )}
 
       {mode === "trajet" && (<>
       <form className="bus__formulaire" onSubmit={chercher}>
         <ChampVille code={code} onChoix={choisirVille} onLocaliser={maPosition} parPosition={parPosition} />
+        {/* Les bus favoris de la ville, tout de suite visibles : un toucher ouvre leurs horaires */}
+        <MesBus reseau={reseau} code={code} onVille={choisirVille}
+                onOuvrir={(favori) => { setAOuvrir({ favori, n: Date.now() }); setMode("passages"); }} />
 
         <div className="bus__champs">
           <ChampLieu label={t("ville.depart")} champ={depart} onChange={setDepart} reseau={reseau} repere={repere}
@@ -493,10 +498,10 @@ function DetailCourse({ course, reseau, ville, onFermer, onChoix }) {
 }
 
 // ---------- Les prochains passages à un arrêt : comme le panneau de l'arrêt ----------
-function PassagesArret({ reseau, code, position, onLocaliser, onVille }) {
+function PassagesArret({ reseau, code, position, onLocaliser, onVille, aOuvrir }) {
   const { t } = useLangue();
   // La vue ouverte (« course » ou « horaires ») appartient à une ville : changer de ville la referme
-  const [vueBrute, setVueBrute] = useState(null);
+  const [vueBrute, setVueBrute] = useState(() => (aOuvrir ? { type: "horaires", favori: aOuvrir, code } : null));
   const vue = vueBrute?.code === code ? vueBrute : null;
   const setVue = (v) => setVueBrute(v && { ...v, code });
   const [texte, setTexte] = useState("");
@@ -681,9 +686,21 @@ function ArretsDuBus({ reseau, code, arret, groupe, course, onFermer, onChoix, r
 }
 
 // ---------- « ⭐ Mes bus à Calais » : les bus favoris de la ville choisie, avec leur prochain passage ----------
-function MesBus({ reseau, horaires, code, maintenant, onOuvrir, onVille }) {
+function MesBus({ reseau, horaires: donnes, code, maintenant: donne, onOuvrir, onVille }) {
   const { t } = useLangue();
   const { bus } = useBusFavoris();
+  // Dans l'onglet « Un trajet », les horaires et l'heure ne sont pas encore là : on les prend ici
+  const [charges, setCharges] = useState({ code: null, horaires: null });
+  const [ici_, setIci] = useState(() => enMinutes(heureActuelle()));
+  useEffect(() => {
+    if (donnes) return undefined;
+    let annule = false;
+    chargerHoraires(code).then((h) => { if (!annule) setCharges({ code, horaires: h }); });
+    const m = setInterval(() => setIci(enMinutes(heureActuelle())), 30_000);
+    return () => { annule = true; clearInterval(m); };
+  }, [code, donnes]);
+  const horaires = donnes || (charges.code === code ? charges.horaires : null);
+  const maintenant = donne ?? ici_;
   const ici = bus.filter((b) => b.code === code);
   const ailleurs = bus.filter((b) => b.code !== code);
   if (!bus.length) return null;

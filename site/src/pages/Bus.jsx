@@ -10,10 +10,12 @@ import {
   lieuxPrepares, arretsCorrespondants, chercherLieu, distance, libelleGare, reseauDeVille, lienCarte, nettoyerLieu,
 } from "../data/bus";
 import { aujourdhuiIso, heureActuelle, enMinutes } from "../data/horaires";
-import { chargerHoraires, trajetEntrePoints, minutesEnHeure, arretsDeLaCourse, terminusDeLaCourse, arretsDuPassage, passagesALArret, arretsAutour,
+import { chargerHoraires, trajetEntrePoints, minutesEnHeure, arretsDeLaCourse, terminusDeLaCourse, arretsDuPassage, passagesALArret, arretsAutour, journeeALArret,
   chargerDirectBus, busAvecDirect, relierAuDirect, autresDescentes } from "../data/trajetBus";
 import { normaliser } from "../data/horaires";
 import { joliNom } from "../data/bus";
+import { useBusFavoris, idBus } from "../data/busFavoris";
+import { FeuillePleine } from "../components/FeuillePleine";
 import "../components/RechercheTrajet.css";
 import "./Bus.css";
 
@@ -215,7 +217,7 @@ export default function Bus() {
       {mode === "passages" && (
         <>
           <ChampVille code={code} onChoix={choisirVille} onLocaliser={maPosition} parPosition={parPosition} />
-          <PassagesArret reseau={reseau} code={code} position={depart.lieu?.cat === "position" ? depart.lieu : null} onLocaliser={maPosition} />
+          <PassagesArret reseau={reseau} code={code} position={depart.lieu?.cat === "position" ? depart.lieu : null} onLocaliser={maPosition} onVille={choisirVille} />
         </>
       )}
 
@@ -489,7 +491,12 @@ function DetailCourse({ course, reseau, ville, onFermer, onChoix }) {
 }
 
 // ---------- Les prochains passages à un arrêt : comme le panneau de l'arrêt ----------
-function PassagesArret({ reseau, code, position, onLocaliser }) {
+function PassagesArret({ reseau, code, position, onLocaliser, onVille }) {
+  const { t } = useLangue();
+  // La vue ouverte (« course » ou « horaires ») appartient à une ville : changer de ville la referme
+  const [vueBrute, setVueBrute] = useState(null);
+  const vue = vueBrute?.code === code ? vueBrute : null;
+  const setVue = (v) => setVueBrute(v && { ...v, code });
   const [texte, setTexte] = useState("");
   const [choisi, setChoisi] = useState(null);           // { nom, ids }
   const [horaires, setHoraires] = useState(null);
@@ -518,7 +525,9 @@ function PassagesArret({ reseau, code, position, onLocaliser }) {
     }
     return [...groupes.entries()].slice(0, 6).map(([nom, ids]) => ({ nom, ids }));
   }, [reseau, texte]);
-  const prevus = reseau && horaires && arret ? passagesALArret(reseau, horaires, arret.ids, aujourdhuiIso(), maintenant - 3, 3) : [];
+  // Les passages gardent leurs courses (toutes celles des 3 heures) : un bus touché ouvre SES arrêts
+  const prevus = reseau && horaires && arret ? passagesALArret(reseau, horaires, arret.ids, aujourdhuiIso(), maintenant - 3, 12)
+    .map((g) => ({ ...g, heures: g.heures.slice(0, 3) })) : [];
   // Avec le direct : chaque heure prévue prend son heure attendue, quand on sait la relier
   const passages = prevus.map((g) => {
     if (!direct) return { ...g, enDirect: false, heures: g.heures.filter((h) => h >= maintenant).slice(0, 2) };
@@ -529,8 +538,23 @@ function PassagesArret({ reseau, code, position, onLocaliser }) {
   }).filter((g) => g.heures.length).sort((x, y) => x.heures[0] - y.heures[0]);
   const metres = arret && autour.find((a) => a.nom === arret.nom)?.metres;
 
+  if (vue?.type === "course" && reseau) {
+    return <ArretsDuBus reseau={reseau} code={code} arret={vue.arret} groupe={vue.groupe} course={vue.course} retour={vue.retour}
+                        onFermer={() => setVue(vue.depuis || null)} onChoix={(c) => setVue({ ...vue, course: c })} />;
+  }
+  if (vue?.type === "horaires" && reseau && horaires) {
+    const f = vue.favori;
+    return <HorairesFavori reseau={reseau} horaires={horaires} favori={f} maintenant={maintenant} onFermer={() => setVue(null)}
+                           onChoix={(c, jour) => {
+                             const groupe = { ligneId: f.ligneId, ligne: f.ligne, direction: f.direction,
+                               courses: journeeALArret(reseau, horaires, f.arret.ids, jour, f.ligneId, f.direction).filter((x) => x.depart >= c.depart) };
+                             setVue({ type: "course", arret: f.arret, groupe, course: c, retour: t("bus.retour.horaires"), depuis: vue });
+                           }} />;
+  }
   return (
     <div className="passages">
+      <MesBus reseau={reseau} horaires={horaires} code={code} maintenant={maintenant}
+              onOuvrir={(favori) => setVue({ type: "horaires", favori })} onVille={onVille} />
       <div className="boite champ-gare">
         <div className="boite__contenu">
           <label htmlFor="passages-arret">Un arrêt</label>
@@ -562,12 +586,15 @@ function PassagesArret({ reseau, code, position, onLocaliser }) {
             {passages.map((g) => {
               const attente = (m) => { const d = Math.round(m - maintenant); return d <= 0 ? "à l'arrêt" : enDuree(d); };
               return (
-                <div key={`${g.ligneId}|${g.direction}`} className="panneau-arret__rang">
+                <button key={`${g.ligneId}|${g.direction}`} type="button" className="panneau-arret__rang panneau-arret__rang--bouton"
+                        onClick={() => setVue({ type: "course", arret, groupe: g, course: g.courses[0], retour: t("bus.retour.passages") })}
+                        aria-label={t("bus.voir", { ligne: g.ligne.nom, direction: g.direction })}>
                   <PuceLigne ligne={g.ligne} />
                   <span className="panneau-arret__direction">{g.direction}</span>
                   <span className="panneau-arret__temps"><strong>{attente(g.heures[0])}</strong>
                     {g.heures[1] !== undefined && <small>puis {attente(g.heures[1])}</small>}</span>
-                </div>
+                  <span className="panneau-arret__fleche" aria-hidden="true">›</span>
+                </button>
               );
             })}
           </div>
@@ -586,6 +613,141 @@ function PassagesArret({ reseau, code, position, onLocaliser }) {
         </section>
       )}
     </div>
+  );
+}
+
+// =====================================================================
+//  Les bus d'un arrêt : chaque bus se touche, et les bus favoris (ligne + arrêt + direction)
+// =====================================================================
+const ajouterJours = (iso, n) => new Date(Date.UTC(+iso.slice(0, 4), +iso.slice(5, 7) - 1, +iso.slice(8, 10) + n)).toISOString().slice(0, 10);
+
+// ---------- Les arrêts du bus touché, depuis l'arrêt où l'on est jusqu'au terminus ----------
+function ArretsDuBus({ reseau, code, arret, groupe, course, onFermer, onChoix, retour }) {
+  const { t } = useLangue();
+  const { estFavori, basculer, retirer, bus: favoris, maximum } = useBusFavoris();
+  const [plein, setPlein] = useState(false);
+  const tous = arretsDeLaCourse(reseau, course, joliNom).filter((a) => a.role !== "avant");
+  const terminus = terminusDeLaCourse(reseau, course.parcours, groupe.ligne.nom) || groupe.direction;
+  const favori = { code, ligneId: groupe.ligneId, ligne: groupe.ligne, direction: groupe.direction, arret: { nom: arret.nom, ids: arret.ids } };
+  const actif = estFavori(favori);
+  const departs = groupe.courses.slice(0, 4);
+  return (
+    <section className="course" aria-label={t("bus.arrets.titre")}>
+      <button type="button" className="course__retour" onClick={onFermer}>‹ {retour}</button>
+      <div className="course__entete">
+        <PuceLigne ligne={groupe.ligne} />
+        <div><strong>{t("ville.direction", { direction: terminus })}</strong>
+          <small>{t("bus.depuis", { arret: arret.nom, nombre: tous.length - 1, heure: minutesEnHeure(tous[tous.length - 1].minute) })}</small></div>
+      </div>
+      <button type="button" className={actif ? "bus__favori bus__favori--actif" : "bus__favori"} aria-pressed={actif}
+              onClick={() => { if (basculer(favori) === "plein") setPlein(true); }}>
+        {actif ? `★ ${t("bus.favori.dans")}` : `☆ ${t("bus.favori.ajouter", { ligne: groupe.ligne.nom, arret: arret.nom })}`}
+      </button>
+      {departs.length > 1 && (
+        <div className="course__departs" role="group" aria-label={t("bus.choisir")}>
+          {departs.map((c) => (
+            <button key={c.depart} type="button" aria-pressed={c.depart === course.depart}
+                    className={c.depart === course.depart ? "course__depart course__depart--actif" : "course__depart"}
+                    onClick={() => onChoix(c)}>{minutesEnHeure(c.depart)}</button>
+          ))}
+        </div>
+      )}
+      <ol className="course__arrets" style={{ "--couleur-ligne": groupe.ligne.couleur }}>
+        {tous.map((a, i) => {
+          const role = i === 0 ? "montee" : i === tous.length - 1 ? "descente" : "trajet";
+          return (
+            <li key={a.id + a.minute} className={`course__arret course__arret--${role}`}>
+              <span className="course__heure">{minutesEnHeure(a.minute)}</span>
+              <span className="course__rond" aria-hidden="true" />
+              <span className="course__nom">{a.nom}
+                {role === "montee" && <span className="course__etiquette course__etiquette--descente">{t("bus.ici")}</span>}
+                {role === "descente" && <span className="course__etiquette course__etiquette--montee">{t("bus.terminus")}</span>}
+              </span>
+            </li>
+          );
+        })}
+      </ol>
+      <p className="bus__source">{t("bus.exact")}</p>
+      {plein && (
+        <FeuillePleine titre={`⭐ ${t("bus.plein.titre", { max: maximum })}`} question={t("bus.plein.question", { ligne: groupe.ligne.nom, arret: arret.nom })}
+                       elements={favoris.map((b) => ({ cle: idBus(b), texte: `${b.ligne.nom} · ${b.arret.nom}`, detail: t("bus.vers", { direction: b.direction }) }))}
+                       action={t("plein.retirer")} onFermer={() => setPlein(false)}
+                       onRetirer={(cle) => { retirer(cle); basculer(favori); setPlein(false); }} />
+      )}
+    </section>
+  );
+}
+
+// ---------- « ⭐ Mes bus à Calais » : les bus favoris de la ville choisie, avec leur prochain passage ----------
+function MesBus({ reseau, horaires, code, maintenant, onOuvrir, onVille }) {
+  const { t } = useLangue();
+  const { bus } = useBusFavoris();
+  const ici = bus.filter((b) => b.code === code);
+  const ailleurs = bus.filter((b) => b.code !== code);
+  if (!bus.length) return null;
+  const ville = (c) => RESEAUX.find((r) => r.code === c)?.ville || c;
+  const autreVille = ailleurs[0]?.code;
+  return (
+    <section className="mes-bus">
+      {ici.length > 0 && <h2 className="mes-bus__titre">⭐ {t("bus.mes", { ville: ville(code) })} <small>{t("bus.compte", { nombre: bus.length, max: 5 })}</small></h2>}
+      {reseau && horaires && ici.map((b) => {
+        const suivants = journeeALArret(reseau, horaires, b.arret.ids, aujourdhuiIso(), b.ligneId, b.direction).filter((c) => c.depart >= maintenant);
+        const [premier, ...apres] = suivants;
+        return (
+          <button key={idBus(b)} type="button" className="mes-bus__carte" onClick={() => onOuvrir(b)}>
+            <PuceLigne ligne={b.ligne} />
+            <span className="mes-bus__texte"><strong>{b.arret.nom}</strong><small>{t("bus.vers", { direction: b.direction })}</small>
+              <small>{premier ? <><b>{t("bus.dans", { minutes: Math.max(0, premier.depart - maintenant), heure: minutesEnHeure(premier.depart) })}</b>
+                {apres.length > 0 && ` · ${t("bus.puis", { heures: apres.slice(0, 2).map((c) => minutesEnHeure(c.depart)).join(", ") })}`}</>
+                : t("bus.plusaujourdhui")}</small></span>
+            <span aria-hidden="true">›</span>
+          </button>
+        );
+      })}
+      {autreVille && (
+        <button type="button" className="mes-bus__ailleurs" onClick={() => onVille?.(autreVille)}>
+          {t(ailleurs.length > 1 ? "bus.ailleurs.plusieurs" : "bus.ailleurs", { nombre: ailleurs.length, ville: ville(autreVille) })}
+        </button>
+      )}
+    </section>
+  );
+}
+
+// ---------- Les horaires de la journée d'un bus favori, heure par heure ----------
+function HorairesFavori({ reseau, horaires, favori, maintenant, onFermer, onChoix }) {
+  const { t } = useLangue();
+  const [decalage, setDecalage] = useState(0);              // 0 : aujourd'hui, 1 : demain
+  const jour = ajouterJours(aujourdhuiIso(), decalage);
+  const courses = journeeALArret(reseau, horaires, favori.arret.ids, jour, favori.ligneId, favori.direction);
+  const prochain = decalage === 0 ? courses.find((c) => c.depart >= maintenant) : null;
+  const parHeure = new Map();
+  courses.forEach((c) => { const h = Math.floor(c.depart / 60); parHeure.set(h, [...(parHeure.get(h) || []), c]); });
+  return (
+    <section className="horaires-bus" aria-label={t("bus.horaires")}>
+      <button type="button" className="course__retour" onClick={onFermer}>‹ {t("bus.retour.ville")}</button>
+      <div className="course__entete"><PuceLigne ligne={favori.ligne} />
+        <div><strong>{favori.arret.nom}</strong><small>{t("bus.vers", { direction: favori.direction })}</small></div></div>
+      {prochain && <p className="horaires-bus__prochain"><small>{t("bus.prochain")}</small>
+        <strong>{t("bus.dans", { minutes: Math.max(0, prochain.depart - maintenant), heure: minutesEnHeure(prochain.depart) })}</strong></p>}
+      <div className="horaires-bus__jour">
+        <strong>{decalage === 0 ? t("jour.aujourdhui") : t("jour.demain")}</strong>
+        <button type="button" onClick={() => setDecalage(decalage === 0 ? 1 : 0)}>{decalage === 0 ? `${t("jour.demain")} →` : `← ${t("jour.aujourdhui")}`}</button>
+      </div>
+      {courses.length === 0 ? <p className="panneau-arret__vide">{t("bus.aucun")}</p> : (
+        <div className="horaires-bus__grille">
+          {[...parHeure.entries()].map(([h, cs]) => (
+            <div key={h} className="horaires-bus__heure"><strong>{h % 24} h</strong>
+              <span>{cs.map((c) => {
+                const passe = decalage === 0 && c.depart < maintenant;
+                const classe = passe ? "horaires-bus__minute horaires-bus__minute--passe" : c === prochain ? "horaires-bus__minute horaires-bus__minute--prochain" : "horaires-bus__minute";
+                return <button key={c.depart} type="button" className={classe} onClick={() => onChoix(c, jour)}
+                               aria-label={minutesEnHeure(c.depart)}>{String(c.depart % 60).padStart(2, "0")}</button>;
+              })}</span></div>
+          ))}
+        </div>
+      )}
+      <p className="bus__source">{t("bus.horaires.note")}</p>
+    </section>
   );
 }
 

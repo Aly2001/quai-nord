@@ -139,3 +139,40 @@ a.bus__voir-arrets { text-decoration: none; }
 .panneau-arret__entete .signal-direct { color: #6FD39A; }
 
 .bus__entete-actions { display: flex; gap: 8px; align-items: center; }
+
+/* ---------- Chaque bus se touche ---------- */
+.panneau-arret__rang--bouton { width: 100%; grid-template-columns: auto 1fr auto auto; border: 0; border-top: 1px solid #22305A;
+  background: transparent; font: inherit; color: inherit; text-align: left; cursor: pointer; }
+.panneau-arret__rang--bouton:focus-visible { outline: 3px solid var(--signal); outline-offset: -3px; }
+.panneau-arret__fleche { font-size: 22px; color: #9FB1CC; }
+.bus__favori { align-self: stretch; min-height: 50px; padding: 0 14px; font: inherit; font-weight: 700; font-size: 16px; text-align: left;
+  color: var(--nuit); background: #FFF8E1; border: 1.5px solid var(--signal); border-radius: 12px; cursor: pointer; }
+.bus__favori--actif { background: #FFFFFF; border-color: #C9D3E3; }
+
+/* ---------- Mes bus (favoris de la ville) ---------- */
+.mes-bus { display: flex; flex-direction: column; gap: 8px; margin-bottom: 6px; }
+.mes-bus__titre { margin: 0; font-family: "Barlow Condensed", sans-serif; font-size: 22px; }
+.mes-bus__titre small { font-family: "Barlow", sans-serif; font-weight: 500; font-size: 14px; color: var(--texte-doux); }
+.mes-bus__carte { display: flex; align-items: center; gap: 12px; width: 100%; min-height: 72px; padding: 12px 14px; font: inherit; color: var(--nuit);
+  text-align: left; background: #FFFFFF; border: 1px solid #E3E8EE; border-radius: 12px; cursor: pointer; }
+.mes-bus__texte { flex: 1; min-width: 0; display: flex; flex-direction: column; }
+.mes-bus__texte small { font-size: 14px; color: var(--texte-doux); }
+.mes-bus__texte b { color: #1F6F8B; }
+.mes-bus__ailleurs { align-self: flex-start; min-height: 40px; padding: 0 2px; font: inherit; font-size: 14px; font-weight: 600; color: #1F6F8B;
+  background: transparent; border: 0; text-decoration: underline; cursor: pointer; }
+
+/* ---------- Les horaires d'un bus favori ---------- */
+.horaires-bus { display: flex; flex-direction: column; gap: 12px; }
+.horaires-bus__prochain { margin: 0; padding: 12px 14px; border-radius: 12px; background: var(--nuit); color: #FFFFFF; display: flex; flex-direction: column; }
+.horaires-bus__prochain small { color: #C9D3E3; }
+.horaires-bus__prochain strong { font-family: "Barlow Condensed", sans-serif; font-size: 28px; color: var(--signal); }
+.horaires-bus__jour { display: flex; justify-content: space-between; align-items: center; }
+.horaires-bus__jour button { min-height: 40px; font: inherit; font-weight: 600; color: #1F6F8B; background: transparent; border: 0; text-decoration: underline; cursor: pointer; }
+.horaires-bus__grille { padding: 4px 14px 10px; border-radius: 14px; background: #FFFFFF; border: 1px solid #E3E8EE; }
+.horaires-bus__heure { display: grid; grid-template-columns: 44px 1fr; gap: 8px; align-items: center; padding: 6px 0; border-top: 1px solid #EEF1F5; }
+.horaires-bus__heure:first-child { border-top: 0; }
+.horaires-bus__heure > span { display: flex; flex-wrap: wrap; gap: 6px; }
+.horaires-bus__minute { min-width: 44px; min-height: 40px; font: inherit; font-weight: 600; font-size: 15px; color: var(--nuit);
+  background: #EEF1F5; border: 0; border-radius: 8px; cursor: pointer; }
+.horaires-bus__minute--passe { background: transparent; color: #9AA3B5; text-decoration: line-through; font-weight: 500; }
+.horaires-bus__minute--prochain { background: var(--signal); font-weight: 800; }

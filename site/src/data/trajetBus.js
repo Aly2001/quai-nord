@@ -147,9 +147,11 @@ export function arretsDeLaCourse(reseau, passage, joli = (n) => n) {
 }
 
 // ---------- Le panneau d'un arrêt : les prochains passages, ligne par ligne ----------
-// ids : les identifiants d'un même arrêt (ses différents quais). Renvoie, pour chaque ligne et direction,
-// les prochains passages : [{ ligne, direction, ligneId, heures: [minutes] }], du plus proche au plus lointain.
-export function passagesALArret(reseau, horaires, ids, dateIso, apres, parLigne = 2) {
+// ids : les identifiants d'un même arrêt (ses différents quais).
+// coursesALArret : pour chaque ligne et direction, les COURSES qui passent à cet arrêt entre « apres » et « avant »
+//   (minutes du jour) : [{ ligne, direction, ligneId, courses: [{ depart, parcours, montee, descente, origine }] }].
+//   Chaque course garde son parcours : en la touchant, on retrouve SES arrêts (une variante peut passer ailleurs).
+export function coursesALArret(reseau, horaires, ids, dateIso, apres, avant) {
   if (!horaires) return [];
   const aujourdhui = calendriersDuJour(horaires, dateIso);
   const veille = new Date(Date.UTC(+dateIso.slice(0, 4), +dateIso.slice(5, 7) - 1, +dateIso.slice(8, 10) - 1)).toISOString().slice(0, 10);
@@ -163,13 +165,15 @@ export function passagesALArret(reseau, horaires, ids, dateIso, apres, parLigne 
       const ligne = reseau.lignes[p.ligne];
       const direction = joliNom(p.direction);
       const cle = `${p.ligne}|${direction}`;
-      const groupe = groupes.get(cle) || { ligneId: p.ligne, ligne, direction, heures: new Set() };
+      const groupe = groupes.get(cle) || { ligneId: p.ligne, ligne, direction, courses: new Map() };
       for (const [calendrier, departs] of Object.entries(horaires.departs[k] || {})) {
         for (const [actifs, decalage] of [[aujourdhui, 0], [hier, -MINUTES_PAR_JOUR]]) {
           if (!actifs.has(calendrier)) continue;
           for (const d of departs) {
             const m = d + decalageArret + decalage;
-            if (m >= apres && m < apres + 180) groupe.heures.add(m);   // les 3 prochaines heures
+            if (m >= apres && m < avant && !groupe.courses.has(m)) {
+              groupe.courses.set(m, { depart: m, parcours: k, montee: i, descente: p.arrets.length - 1, origine: d + decalage });
+            }
           }
         }
       }
@@ -177,9 +181,22 @@ export function passagesALArret(reseau, horaires, ids, dateIso, apres, parLigne 
     });
   });
   return [...groupes.values()]
-    .map((g) => ({ ...g, heures: [...g.heures].sort((a, b) => a - b).slice(0, parLigne) }))
-    .filter((g) => g.heures.length)
+    .map((g) => ({ ...g, courses: [...g.courses.values()].sort((a, b) => a.depart - b.depart) }))
+    .filter((g) => g.courses.length);
+}
+
+// Les prochains passages (3 heures) : [{ ligne, direction, ligneId, heures: [minutes], courses }], du plus proche au plus lointain
+export function passagesALArret(reseau, horaires, ids, dateIso, apres, parLigne = 2) {
+  return coursesALArret(reseau, horaires, ids, dateIso, apres, apres + 180)
+    .map((g) => ({ ...g, courses: g.courses.slice(0, parLigne), heures: g.courses.slice(0, parLigne).map((c) => c.depart) }))
     .sort((a, b) => a.heures[0] - b.heures[0]);
+}
+
+// Toute la journée d'UNE ligne, dans UNE direction, à un arrêt (les horaires d'un bus favori)
+export function journeeALArret(reseau, horaires, ids, dateIso, ligneId, direction) {
+  const groupe = coursesALArret(reseau, horaires, ids, dateIso, 0, MINUTES_PAR_JOUR * 1.25)
+    .find((g) => g.ligneId === ligneId && g.direction === direction);
+  return groupe ? groupe.courses : [];
 }
 
 // Les arrêts proches d'un point, regroupés par nom (plusieurs quais = un seul arrêt), du plus proche au plus loin

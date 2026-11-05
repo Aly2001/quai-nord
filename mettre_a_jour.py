@@ -1,15 +1,16 @@
 """
 Mise à jour complète du site, en une seule commande.
 
-Enchaîne les 8 étapes, dans l'ordre :
+Enchaîne les 9 étapes, dans l'ordre :
   1. charger_gtfs.py        -> horaires théoriques SNCF du jour
   2. collecter_meteo.py     -> météo observée et prévue (Open-Meteo)
   3. exporter_horaires.py   -> fichiers d'horaires pour le site
   4. construire_retards.py  -> table propre des retards, avec la météo
   5. exporter_risques.py    -> risque de retard de chaque train
   6. entrainer_modele.py    -> entraîne et évalue le modèle de prédiction (facultative, pas encore utilisé par le site)
-  7. publier_site.py        -> remise en ligne du site (Firebase)
-  8. sauvegarder.py         -> sauvegarde de sncf.db dans Cloud Storage (facultative)
+  7. exporter_pages.py      -> les chiffres des pages Analyses et Prédiction (facultative)
+  8. publier_site.py        -> remise en ligne du site (Firebase)
+  9. sauvegarder.py         -> sauvegarde de sncf.db dans Cloud Storage (facultative)
 
 Si une étape obligatoire échoue, on s'arrête : inutile de continuer avec des données
 incomplètes. Une étape FACULTATIVE (la sauvegarde) qui échoue est seulement signalée :
@@ -33,10 +34,11 @@ ETAPES = [
     "construire_retards.py",
     "exporter_risques.py",
     "entrainer_modele.py",
+    "exporter_pages.py",
     "publier_site.py",
     "sauvegarder.py",
 ]
-FACULTATIVES = {"sauvegarder.py", "entrainer_modele.py"}
+FACULTATIVES = {"sauvegarder.py", "entrainer_modele.py", "exporter_pages.py"}
 FICHIER_SUIVI = Path("derniere_mise_a_jour.txt")   # date de la dernière réussite
 
 

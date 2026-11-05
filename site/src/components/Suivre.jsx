@@ -2,7 +2,8 @@
 import { useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import { useLangue } from "../langue/langue";
-import { useSuivis, idSuivi, prochainTrainSuivi, trainsSuivisPourLeServeur, prochaineOccasion, etapeDuVoyage, MAXIMUM } from "../data/suivi";
+import { useSuivis, idSuivi, prochainTrainSuivi, trainsSuivisPourLeServeur, prochaineOccasion, MAXIMUM } from "../data/suivi";
+import { useMomentDuSuivi } from "../data/directSuivi";
 import { placeRestante } from "../data/listeLimitee";
 import { FeuillePleine } from "./FeuillePleine";
 import { etatNotifications, activerNotifications, desactiverNotifications } from "../data/notifications";
@@ -101,6 +102,7 @@ export function MonProchainTrain() {
   const { t } = useLangue();
   const { suivis } = useSuivis();
   const prochain = prochainTrainSuivi(suivis);
+  const { moment } = useMomentDuSuivi(prochain?.suivi, prochain?.jour);
   if (!prochain) return null;
   const { suivi, jour } = prochain;
   const aujourdhui = jour === new Date().toLocaleDateString("sv-SE");
@@ -112,8 +114,8 @@ export function MonProchainTrain() {
     <Link to={lienPartir(suivi)} className="prochain-train">
       <span className="prochain-train__haut">{t("suivi.prochain", { quand })}</span>
       <strong className="prochain-train__trajet">{suivi.heure} · {suivi.de} → {suivi.a}</strong>
-      {etapeDuVoyage(suivi, jour).etape !== "avant" && etapeDuVoyage(suivi, jour).etape !== "autrejour" ? (
-        <LigneEtape suivi={suivi} jour={jour} classe="prochain-train__etape" />
+      {!["avant", "autrejour"].includes(moment.etape) || moment.sansAller ? (
+        <LigneEtape suivi={suivi} jour={jour} classe="prochain-train__etape" moment={moment} />
       ) : aller ? (
         <span className="prochain-train__partir">
           <span aria-hidden="true">🏠</span>
@@ -195,13 +197,24 @@ function EtatNotifications() {
 }
 
 // ---------- Ce qui compte MAINTENANT pour ce voyage, en une ligne ----------
-export function LigneEtape({ suivi, jour = prochaineOccasion(suivi), classe = "suivi__aller" }) {
+// Le moment vient de moment.js (avec le direct) : la même phrase partout, et jamais « arrivé » trop tôt.
+export function LigneEtape({ suivi, jour = prochaineOccasion(suivi), classe = "suivi__aller", moment: donne }) {
   const { t } = useLangue();
-  const { etape, minutes } = etapeDuVoyage(suivi, jour);
-  const aller = suivi.aller && (suivi.aller.mode === "bus" || (suivi.aller.mode === "pied" && suivi.aller.marche <= 45)) ? suivi.aller : null;
-  if (etape === "arrive") return <small className={`${classe} etape--fini`}>✅ {t("etape.arrive", { gare: suivi.a, heure: suivi.arrivee })}</small>;
-  if (etape === "enroute") return <small className={`${classe} etape--route`}>🚆 {t("etape.enroute", { gare: suivi.a, heure: suivi.arrivee })}</small>;
-  if (etape === "presse") return <small className={`${classe} etape--presse`}>⏱️ {t("partir.trainpart", { minutes })}</small>;
-  if (aller) return <small className={classe}>🏠 {t("suivi.partez", { heure: minutesEnHeure(aller.departMaison) })}</small>;
-  return null;
+  const calcule = useMomentDuSuivi(donne ? null : suivi, jour).moment;
+  const m = donne || calcule;
+  const heure = minutesEnHeure;
+  switch (m.etape) {
+    case "supprime": return <small className={`${classe} etape--presse`}>🔴 {t("partir.supprime", { heure: suivi.heure })}</small>;
+    case "arrive": return <small className={`${classe} etape--fini`}>✅ {t("etape.arrive", { gare: suivi.a, heure: heure(m.arriveeAnnoncee) })}</small>;
+    case "enroute": return <small className={`${classe} etape--route`}>🚆 {t(m.direct ? "etape.enroute" : "etape.enroute.prevue", { gare: suivi.a, heure: heure(m.arriveeAnnoncee) })}</small>;
+    case "troptard": return <small className={`${classe} etape--presse`}>⚠️ {t("etape.troptard", { heure: suivi.heure })}</small>;
+    case "busrate": return <small className={`${classe} etape--presse`}>🚌 {t("etape.busrate", { heure: heure(m.heureBus) })}</small>;
+    case "serre": case "sauve": return <small className={`${classe} etape--presse`}>⏱️ {t("etape.presse", { minutes: m.minutesTrain })}</small>;
+    case "maintenant": return <small className={classe}>🏠 {t("partir.maintenant")}</small>;
+    case "avant":
+      if (m.retardDepart >= 1 && m.sansAller) return <small className={`${classe} etape--presse`}>⏱️ {t("etape.partannonce", { heure: heure(m.departAnnonce), minutes: m.retardDepart, prevu: suivi.heure })}</small>;
+      if (!m.sansAller && suivi.aller) return <small className={classe}>🏠 {t("suivi.partez", { heure: heure(suivi.aller.departMaison) })}</small>;
+      return null;
+    default: return null;
+  }
 }

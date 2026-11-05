@@ -5,7 +5,7 @@
 //  À chaque ouverture, si le départ était « Ma position », on vérifie où l'on est : au-delà de 300 m,
 //  l'itinéraire est recalculé depuis là où l'on est. La position reste sur le téléphone.
 // =====================================================================
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useState } from "react";
 import { Link, useNavigate, useSearchParams } from "react-router-dom";
 import { useTitrePage } from "../components/titrePage";
 import { useLangue } from "../langue/langue";
@@ -15,11 +15,10 @@ import { useSuivis, prochaineOccasion, allerALaGare, margeEnGare, enMinutesDuJou
 import { chargerReseau, chargerGaresCouvertes, chercherLieu, distance, RESEAUX, gareLaPlusProche, lienCarte } from "../data/bus";
 import { enDuree } from "../langue/langue";
 import { chargerHoraires, minutesEnHeure } from "../data/trajetBus";
-import { etatDuTrain } from "../data/favorisPlus";
-import { normaliser, dateLongue, useIndexHoraires, trouverGare, DOSSIER, useTempsReel, useRisques, trajetsDirects } from "../data/horaires";
+import { normaliser, dateLongue, trajetsDirects, ajouterMinutes } from "../data/horaires";
+import { useMomentDuSuivi } from "../data/directSuivi";
 import "./Partir.css";
 
-const maintenantEnMinutes = () => { const d = new Date(); return d.getHours() * 60 + d.getMinutes(); };
 const aujourdhuiLocal = () => new Date().toLocaleDateString("sv-SE");
 function positionActuelle() {
   return new Promise((ok, refus) => {
@@ -137,11 +136,10 @@ function PreparerAller({ suivi, contexte, calculer, onChoisi }) {
 function Itineraire({ suivi, jour, contexte, calculer }) {
   const { t } = useLangue();
   const navigate = useNavigate();
-  const [maintenant, setMaintenant] = useState(maintenantEnMinutes);
   // Un aller enregistré avant cette règle (« marchez 27 h ») est relu avec la règle d'aujourd'hui
   const [lieu, setLieu] = useState({ etat: suivi.aller.depuis.position ? "verification" : "adresse", aller: corrigerAller(suivi.aller) });
   const [absent, setAbsent] = useState(false);        // le train n'est plus dans les horaires de ce jour
-  useEffect(() => { const m = setInterval(() => setMaintenant(maintenantEnMinutes()), 30_000); return () => clearInterval(m); }, []);
+  const [quandMeme, setQuandMeme] = useState(false);   // « J'y vais quand même », malgré « trop tard »
   const aujourdhui = jour === aujourdhuiLocal();
 
   // Le départ était « Ma position » : est-on toujours au même endroit ?
@@ -162,23 +160,23 @@ function Itineraire({ suivi, jour, contexte, calculer }) {
   }
 
   const aller = lieu.aller;
-  const dans = Math.round(aller.departMaison - maintenant);
-  const avantTrain = enMinutesDuJour(suivi.heure) - maintenant;      // jusqu'au départ du train
+  // Tout part de MAINTENANT et des heures ANNONCÉES (moment.js) : la même règle que Mes trains suivis
+  const { moment: brut, etat, departs, maintenant } = useMomentDuSuivi(suivi, jour, aller);
+  const moment = quandMeme && brut.etape === "troptard" ? { ...brut, etape: "sauve" } : brut;
+  const partiMaintenant = ["maintenant", "serre", "sauve", "troptard"].includes(moment.etape);
   const gare = { lat: contexte.gare.lat, lon: contexte.gare.lon };
   const arret = aller.mode === "bus" ? contexte.reseau?.arrets[aller.arretDepart.id] : null;
 
   return (
     <section className="partir__itineraire">
       {/* Parti de « Ma position » : on parle de l'arrêt (s'il y a un bus), sinon simplement du même endroit */}
-      {lieu.etat === "meme" && (
-        <p className="partir__lieu partir__lieu--meme">📍 {aller.mode === "bus" ? t("partir.meme", { lieu: aller.arretDepart.nom }) : t("partir.meme.endroit")}</p>
-      )}
-      {lieu.etat === "bouge" && <p className="partir__lieu partir__lieu--bouge">📍 {t("partir.bouge")}</p>}
+      {/* Toujours au même endroit : rien n'a changé, donc rien à dire. Ailleurs : une ligne discrète. */}
+      {lieu.etat === "bouge" && <p className="partir__lieu">📍 {t("partir.bouge")}</p>}
       {(lieu.etat === "adresse" || lieu.etat === "inconnu") && (
         <p className="partir__lieu">📍 {t("partir.depuis", { lieu: aller.depuis.nom })}
           <button type="button" onClick={recalculerIci}>{t("partir.ailleurs")}</button></p>
       )}
-      <EtatDuTrain suivi={suivi} jour={jour} onAbsent={setAbsent} />
+      <EtatDuTrain suivi={suivi} jour={jour} etat={etat} departs={departs} onAbsent={setAbsent} />
       {aller.mode === "loin" && (
         <div className="partir__alerte partir__alerte--absent">
           <strong>🚆 {t("partir.loin", { gare: suivi.de, km: Math.round(aller.metres / 1000) })}</strong>
@@ -198,19 +196,12 @@ function Itineraire({ suivi, jour, contexte, calculer }) {
       )}
       {!absent && ["bus", "pied"].includes(aller.mode) && (<>
       <div className="partir__compte">
-        {aujourdhui && dans >= 0 ? (<>
-          <p>{t("partir.dans")}</p><p className="partir__grand">{minutesEnTexte(dans, t)}</p>
-          <p><strong>{t("suivi.partez", { heure: minutesEnHeure(aller.departMaison) })}</strong></p>
-        </>) : aujourdhui && avantTrain > 0 ? (<>
-          {/* L'heure de départ de chez soi est passée : on compte maintenant jusqu'au TRAIN */}
-          <p className="partir__grand partir__grand--petit">⏱️ {t("partir.trainpart", { minutes: avantTrain })}</p>
-          <p>{t("partir.trainpart.texte", { heure: minutesEnHeure(aller.departMaison) })}</p>
-        </>) : aujourdhui ? <p className="partir__etape"><LigneEtape suivi={suivi} jour={jour} classe="" /></p>
-          : <p><strong>{t("suivi.partez", { heure: minutesEnHeure(aller.departMaison) })}</strong></p>}
+        <Compte moment={moment} aller={aller} suivi={suivi} aujourdhui={aujourdhui} maintenant={maintenant}
+                departs={departs} onQuandMeme={() => setQuandMeme(true)} onRecalculer={recalculerIci} />
       </div>
       <ol className="partir__etapes">
         {aller.mode === "bus" ? (<>
-          <li><span>🚶</span><div><strong>{minutesEnHeure(aller.departMaison)} · {t("partir.marchez", { minutes: aller.marcheAvant })}</strong>
+          <li><span>🚶</span><div><strong>{partiMaintenant ? t("partir.maintenant.court") : minutesEnHeure(aller.departMaison)} · {t("partir.marchez", { minutes: aller.marcheAvant })}</strong>
             <small>{t("partir.jusqua", { arret: aller.arretDepart.nom })}</small>
             {arret && <LienMarche vers={{ lat: arret[1], lon: arret[2] }} />}</div></li>
           <li><span>🚌</span><div><strong>{minutesEnHeure(aller.heureBus)} · {t(aller.ligne.mode === "metro" ? "ville.mode.metro" : aller.ligne.mode === "tram" ? "ville.mode.tram" : "ville.mode.bus")} {aller.ligne.nom}</strong>
@@ -220,12 +211,13 @@ function Itineraire({ suivi, jour, contexte, calculer }) {
             <small>{aller.marcheApres > 0 ? t("partir.puis", { minutes: aller.marcheApres }) : t("partir.devant")}</small>
             {aller.marcheApres > 0 && <LienMarche vers={gare} genre="gare" />}</div></li>
         </>) : (
-          <li><span>🚶</span><div><strong>{minutesEnHeure(aller.departMaison)} · {t("partir.marchez", { minutes: aller.marche })}</strong>
+          <li><span>🚶</span><div><strong>{partiMaintenant ? t("partir.maintenant.court") : minutesEnHeure(aller.departMaison)} · {t("partir.marchez", { minutes: aller.marche })}</strong>
             <small>{t("partir.jusqua.gare", { gare: suivi.de })}</small><LienMarche vers={gare} genre="gare" /></div></li>
         )}
-        <li className="partir__train"><span>🚆</span><div><strong>{suivi.heure} · {suivi.de} → {suivi.a}</strong>
+        {/* Le train : l'heure ANNONCÉE à côté de l'heure prévue, et l'arrivée qui en découle */}
+        <li className="partir__train"><span>🚆</span><div><strong>{suivi.heure}{moment.retardDepart >= 1 && <> → <span className="partir__annonce">{t("partir.annonce", { heure: minutesEnHeure(moment.departAnnonce) })}</span></>} · {suivi.de} → {suivi.a}</strong>
           <small>{aller.mode === "bus" ? `${t("partir.marge.court", { minutes: enMinutesDuJour(suivi.heure) - aller.arriveeGare })} · ` : ""}
-            {t("partir.arrivee", { heure: suivi.arrivee })}{suivi.correspondance ? ` · ${t("partir.correspondance", { gare: suivi.correspondance })}` : ""}</small></div></li>
+            {moment.retardArrivee >= 1 ? t("partir.arrivee.vers", { heure: minutesEnHeure(moment.arriveeAnnoncee), prevue: suivi.arrivee }) : t("partir.arrivee", { heure: suivi.arrivee })}{suivi.correspondance ? ` · ${t("partir.correspondance", { gare: suivi.correspondance })}` : ""}</small></div></li>
       </ol>
       </>)}
       <button type="button" className="partir__plustard" onClick={() => navigate(`${lienPartir(suivi)}&preparer=1`)}>
@@ -235,27 +227,69 @@ function Itineraire({ suivi, jour, contexte, calculer }) {
   );
 }
 
-const minutesEnTexte = (m, t) => t("partir.duree", { minutes: m });
+const minutesEnTexte = (m, t) => (m >= 60 ? enDuree(m) : t("partir.duree", { minutes: m }));
 
-// ---------- L'état du train, en direct (aujourd'hui seulement) ----------
-function EtatDuTrain({ suivi, jour, onAbsent }) {
+// ---------- Le grand message : quoi faire MAINTENANT (voir moment.js) ----------
+function Compte({ moment, aller, suivi, aujourdhui, maintenant, departs, onQuandMeme, onRecalculer }) {
   const { t } = useLangue();
   const navigate = useNavigate();
   const { suivre, nePlusSuivre } = useSuivis();
-  const { index } = useIndexHoraires();
-  const aujourdhui = jour === aujourdhuiLocal();
-  const tempsReel = useTempsReel(aujourdhui);
-  const risques = useRisques();
-  const [departs, setDeparts] = useState(null);
-  const gare = useMemo(() => (index ? trouverGare(index.gares, suivi.de) : null), [index, suivi.de]);
-  useEffect(() => {
-    if (!gare || !jour) return undefined;
-    let annule = false;
-    fetch(`${DOSSIER}/${gare.slug}/${jour}.json`).then((r) => r.json())
-      .then((d) => { if (!annule) setDeparts(d.departs || []); }).catch(() => { if (!annule) setDeparts([]); });
-    return () => { annule = true; };
-  }, [gare?.slug, jour]);   // eslint-disable-line react-hooks/exhaustive-deps
-  const etat = departs ? etatDuTrain(suivi, departs, aujourdhui ? tempsReel : null, risques) : null;
+  if (!aujourdhui) return <p><strong>{t("suivi.partez", { heure: minutesEnHeure(aller.departMaison) })}</strong></p>;
+  const h = minutesEnHeure;
+  switch (moment.etape) {
+    case "avant":
+      return (<>
+        <p>{t("partir.dans")}</p><p className="partir__grand">{minutesEnTexte(moment.minutes, t)}</p>
+        <p><strong>{t("suivi.partez", { heure: h(aller.departMaison) })}</strong></p>
+      </>);
+    case "maintenant":
+      return (<>
+        <p>{t("partir.ilest", { heure: h(maintenant) })}</p><p className="partir__grand partir__grand--petit">{t("partir.maintenant")}</p>
+        <p><strong>{t("partir.serez", { heure: h(moment.arriveeGare) })}</strong></p>
+      </>);
+    case "serre": case "sauve":
+      return (<>
+        <p>{t("partir.ilest", { heure: h(maintenant) })}</p>
+        <p className="partir__grand partir__grand--petit partir__grand--presse">⏱️ {t("partir.presse")}</p>
+        <p><strong>{t("partir.serez", { heure: h(moment.arriveeGare) })}</strong></p>
+        {moment.etape === "sauve" && <p className="partir__nuance">{t("partir.sauve", { heure: h(moment.departAnnonce) })}</p>}
+      </>);
+    case "troptard": {
+      // Le premier train APRÈS celui-ci, vers la même gare : on propose de le suivre à la place
+      const suivant = trajetsDirects(departs || [], suivi.de, normaliser(suivi.a)).filter((x) => x.heure > suivi.heure)
+        .sort((x, y) => (x.heure < y.heure ? -1 : 1))[0];
+      const remplacer = () => {
+        const nouveau = { ...suivi, heure: suivant.heure, arrivee: suivant.arrivee, aller: undefined };
+        nePlusSuivre(suivi);
+        if (suivre(nouveau) !== "plein") navigate(`${lienPartir(nouveau)}&preparer=1`);
+      };
+      return (
+        <div className="partir__troptard" role="alert">
+          <p className="partir__troptard-titre">{t("partir.troptard")}</p>
+          <p>{t("partir.troptard.texte", { maintenant: h(maintenant), arrivee: h(moment.arriveeGare), heure: h(moment.departAnnonce) })}</p>
+          {suivant && <button type="button" className="partir__bouton partir__bouton--plein" onClick={remplacer}>
+            {t("partir.remplacer", { heure: suivant.heure, arrivee: suivant.arrivee })}</button>}
+          <button type="button" className="partir__quandmeme" onClick={onQuandMeme}>{t("partir.quandmeme")}</button>
+        </div>
+      );
+    }
+    case "busrate":
+      return (<>
+        <p className="partir__grand partir__grand--petit">🚌 {t("partir.busrate", { heure: h(moment.heureBus) })}</p>
+        <button type="button" className="partir__bouton partir__bouton--plein" onClick={onRecalculer}>{t("partir.recalculer")}</button>
+      </>);
+    default:
+      return <p className="partir__etape"><LigneEtape suivi={suivi} classe="" moment={moment} /></p>;
+  }
+}
+
+
+// ---------- L'état du train, en direct (aujourd'hui seulement) ----------
+// Il reçoit l'état calculé UNE fois pour tout l'écran (useMomentDuSuivi), pour que tout dise la même chose
+function EtatDuTrain({ suivi, jour, etat, departs, onAbsent }) {
+  const { t } = useLangue();
+  const navigate = useNavigate();
+  const { suivre, nePlusSuivre } = useSuivis();
   const estAbsent = etat?.statut === "absent" && departs.length > 0;
   useEffect(() => { onAbsent?.(estAbsent); }, [estAbsent]);   // eslint-disable-line react-hooks/exhaustive-deps
   if (!etat) return null;
@@ -268,7 +302,8 @@ function EtatDuTrain({ suivi, jour, onAbsent }) {
     );
   }
   if (etat.statut === "retard") {
-    return <p className="partir__alerte partir__alerte--retard">🟠 <span><strong>{t("partir.retard", { heure: suivi.heure, minutes: etat.minutes })}</strong> {t("partir.prudence")}</span></p>;
+    const annonce = etat.retardDepart >= 1 ? ` ${t("partir.retard.annonce", { heure: ajouterMinutes(suivi.heure, etat.retardDepart) })}` : "";
+    return <p className="partir__alerte partir__alerte--retard">🟠 <span><strong>{t("partir.retard", { heure: suivi.heure, minutes: etat.minutes })}</strong>{annonce} {t("partir.prudence")}</span></p>;
   }
   if (etat.statut === "heure") return <p className="partir__alerte partir__alerte--heure">🟢 {t("partir.alheure", { heure: suivi.heure })}</p>;
   if (etat.statut === "absent") {

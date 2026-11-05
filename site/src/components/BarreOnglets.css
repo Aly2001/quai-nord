@@ -73,3 +73,8 @@
   .entete__nora:hover,
   .entete__nora.active { color: #FFFFFF; border-color: var(--signal); }
 }
+
+/* Sous la barre : la même couleur jusqu'en bas de l'écran, même quand le navigateur laisse un espace (barre de Safari, rebond) */
+@media (max-width: 640px) {
+  .onglets::after { content: ""; position: absolute; left: 0; right: 0; top: 100%; height: 120px; background: var(--nuit); }
+}

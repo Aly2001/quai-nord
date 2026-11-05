@@ -88,8 +88,11 @@ export function etatDuTrain(favori, departs, tempsReel, risques) {
   const direct = infoDirect(tempsReel, tr.train.trip_id, tr.depart.stop_id, tr.arrivee.stop_id);
   if (direct?.supprime) return { statut: "supprime", trajet };
   const retard = Math.round(Math.max(direct?.retardDepart ?? 0, direct?.retardArrivee ?? 0) / 60);
-  if (direct && retard >= 1) return { statut: "retard", trajet, minutes: retard };
-  if (direct) return { statut: "heure", trajet };
+  // Les deux retards, en minutes : le départ ANNONCÉ et l'arrivée ANNONCÉE en découlent (voir moment.js)
+  const detail = direct ? { retardDepart: Math.round((direct.retardDepart ?? 0) / 60),
+    retardArrivee: Math.round((direct.retardArrivee ?? direct.retardDepart ?? 0) / 60) } : {};
+  if (direct && retard >= 1) return { statut: "retard", trajet, minutes: retard, ...detail };
+  if (direct) return { statut: "heure", trajet, ...detail };
   const risque = risqueDuTrain(risques, tr.train);
   const pourcentage = risque ? Math.round(risque.taux * 100) : null;      // taux : entre 0 et 1
   return { statut: "prevu", trajet, risque: pourcentage, niveau: pourcentage === null ? null : niveauRisque(pourcentage) };

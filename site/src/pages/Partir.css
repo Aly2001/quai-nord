@@ -45,3 +45,12 @@
   border-radius: 12px; background: var(--nuit); color: #FFFFFF; cursor: pointer; }
 
 .partir__etape { font-size: 20px; }
+
+/* Le moment du voyage (moment.js) */
+.partir__grand--presse { color: #C2410C; }
+.partir__nuance { margin: 6px auto 0; max-width: 34ch; font-size: 14px; color: var(--texte-doux); }
+.partir__annonce { color: #C2410C; }
+.partir__troptard { display: flex; flex-direction: column; gap: 10px; padding: 16px; border-radius: 14px; background: var(--nuit); color: #E3E8EE; text-align: left; }
+.partir__troptard p { margin: 0; line-height: 1.45; }
+.partir__troptard-titre { font-family: "Barlow Condensed", sans-serif; font-weight: 700; font-size: 28px; color: var(--signal); }
+.partir__quandmeme { align-self: center; min-height: 44px; padding: 0 12px; font: inherit; font-weight: 600; color: #FFFFFF; background: transparent; border: 0; text-decoration: underline; cursor: pointer; }

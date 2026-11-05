@@ -746,8 +746,9 @@ function MesBus({ reseau, horaires: donnes, code, maintenant: donne, onOuvrir, o
 // ---------- Les horaires de la journée d'un bus favori, heure par heure ----------
 function HorairesFavori({ reseau, horaires, favori: ancien, maintenant, onFermer, onChoix }) {
   const { t } = useLangue();
-  const { bus, arreterRappel } = useBusFavoris();
+  const { bus, arreterRappel, retirer } = useBusFavoris();
   const favori = bus.find((b) => idBus(b) === idBus(ancien)) || ancien;      // relu : les rappels ont pu changer
+  const [confirmer, setConfirmer] = useState(false);
   const rappels = rappelsValides(favori.rappels).sort((a, b) => a.heure - b.heure);
   const [decalage, setDecalage] = useState(0);              // 0 : aujourd'hui, 1 : demain
   const jour = ajouterJours(aujourdhuiIso(), decalage);
@@ -788,6 +789,17 @@ function HorairesFavori({ reseau, horaires, favori: ancien, maintenant, onFermer
         </div>
       )}
       <p className="bus__source">{t("bus.horaires.note2")}</p>
+      {/* Retirer le favori (et ses rappels) : comme « Ne plus suivre » pour un train, avec une confirmation si des rappels sont posés */}
+      {!confirmer ? (
+        <button type="button" className="bus__retirer" onClick={() => (rappels.length ? setConfirmer(true) : (retirer(idBus(favori)), onFermer()))}>
+          {t("bus.retirer")}</button>
+      ) : (
+        <div className="bus__confirmer" role="alert">
+          <p>{t(rappels.length > 1 ? "bus.retirer.confirmer" : "bus.retirer.confirmer.un", { nombre: rappels.length })}</p>
+          <button type="button" className="bus__retirer" onClick={() => { retirer(idBus(favori)); onFermer(); }}>{t("bus.retirer.oui")}</button>
+          <button type="button" className="mes-bus__ailleurs" onClick={() => setConfirmer(false)}>{t("plein.annuler")}</button>
+        </div>
+      )}
     </section>
   );
 }

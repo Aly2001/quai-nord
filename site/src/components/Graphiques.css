@@ -1,0 +1,17 @@
+.graphique { display: block; width: 100%; height: auto; }
+.graphique__grille { stroke: #E3E8EE; }
+.graphique__seuil { stroke: #2E8B57; stroke-width: 1.5; stroke-dasharray: 5 4; }
+.graphique__texte { font-size: 11px; fill: #6B7488; font-family: inherit; }
+.graphique__texte--seuil { fill: #2E8B57; font-weight: 700; }
+.graphique__texte--pic { fill: #C2410C; font-weight: 700; font-size: 12px; }
+.graphique__barre { fill: #C9D3E3; }
+.graphique__barre--pic { fill: #C2410C; }
+.barres { display: flex; flex-direction: column; gap: 8px; }
+.barres__ligne { display: grid; grid-template-columns: 84px 1fr 54px; align-items: center; gap: 8px; font-size: 14px; }
+.barres__nom { color: var(--texte-doux); }
+.barres--sombre .barres__nom { color: #E3E8EE; }
+.barres__piste { height: 12px; border-radius: 6px; background: #EEF1F5; }
+.barres--sombre .barres__piste { background: #2A3A5E; }
+.barres__barre { display: block; height: 100%; border-radius: 6px; background: var(--signal); }
+.barres__barre--fort { background: #C2410C; }
+.barres__valeur { text-align: right; font-weight: 700; }

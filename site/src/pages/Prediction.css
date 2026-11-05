@@ -1,163 +1,30 @@
-.prediction__entete {
-  display: flex;
-  flex-direction: column;
-  gap: 10px;
-  padding: 48px 0 32px;
-}
-
-.prediction__titre {
-  margin: 0;
-  font-family: var(--police-titre);
-  font-weight: 700;
-  font-size: clamp(44px, 6vw, 68px);
-  line-height: 0.95;
-}
-
-.prediction__mise-en-page { display: flex; flex-direction: column; gap: 16px; }
-
-/* ---------- Résultat ---------- */
-.resultat {
-  background: var(--nuit);
-  color: #FFFFFF;
-  border-radius: 8px;
-  padding: 36px;
-  display: flex;
-  flex-direction: column;
-  gap: 20px;
-  --couleur-risque: #5FB3CE;
-}
-
-.resultat--modere { --couleur-risque: #F2B33D; }
-.resultat--eleve { --couleur-risque: #F28C38; }
-
-.resultat p { margin: 0; }
-.resultat__train { font-size: 19px; }
-
-.resultat__chiffre {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: flex-end;
-  gap: 16px 32px;
-}
-
-.resultat__risque {
-  font-family: var(--police-titre);
-  font-weight: 700;
-  font-size: clamp(96px, 12vw, 140px);
-  line-height: 0.82;
-  white-space: nowrap;
-  color: var(--couleur-risque);
-}
-
-.resultat__niveau {
-  font-family: var(--police-titre);
-  font-weight: 700;
-  font-size: 34px;
-  line-height: 1;
-}
-
-.resultat__legende { font-size: 17px; color: #C9D3E3; margin-top: 6px !important; }
-
-.echelle {
-  position: relative;
-  height: 14px;
-  border-radius: 7px;
-  background: #2E3B5C;
-}
-
-.echelle__rempli {
-  position: absolute;
-  inset: 0 auto 0 0;
-  border-radius: 7px;
-  background: var(--couleur-risque);
-  transition: width 0.3s;
-}
-
-.echelle__curseur {
-  position: absolute;
-  top: -6px;
-  width: 4px;
-  height: 26px;
-  margin-left: -2px;
-  background: #FFFFFF;
-  border-radius: 2px;
-  transition: left 0.3s;
-}
-
-.echelle__graduations {
-  display: flex;
-  justify-content: space-between;
-  font-size: 14px;
-  color: #C9D3E3;
-  margin-top: -8px;
-}
-
-.resultat__explication {
-  border-top: 2px dashed var(--signal);
-  padding-top: 18px;
-  font-size: 16px;
-  color: #E3E8EE;
-}
-
-/* ---------- Deux colonnes ---------- */
-.prediction__colonnes {
-  display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(320px, 1fr));
-  gap: 16px;
-}
-
-.bloc-blanc {
-  background: #FFFFFF;
-  border: 1px solid var(--filet);
-  border-radius: 8px;
-  padding: 28px;
-  display: flex;
-  flex-direction: column;
-  gap: 16px;
-}
-
-.bloc-blanc h2 { margin: 0; font-size: 21px; font-weight: 600; }
-
-.facteur { display: flex; flex-direction: column; gap: 6px; }
-.facteur__ligne { display: flex; justify-content: space-between; gap: 12px; font-weight: 600; }
-.facteur__effet--augmente { color: var(--retard); }
-.facteur__effet--reduit { color: var(--mer); }
-
-.facteur__piste { height: 8px; background: #E9EEF3; border-radius: 4px; overflow: hidden; }
-.facteur__jauge { height: 100%; }
-.facteur__jauge--augmente { background: var(--retard); }
-.facteur__jauge--reduit { background: var(--mer); }
-.facteur__detail { margin: 0; font-size: 14px; color: #4A5468; }
-
-.autres { list-style: none; margin: 0; padding: 0; }
-.autres li { border-top: 1px solid #E3E8EE; }
-
-.autre {
-  width: 100%;
-  min-height: 56px;
-  display: grid;
-  grid-template-columns: 70px minmax(0, 1fr) auto;
-  align-items: center;
-  gap: 12px;
-  padding: 8px 6px;
-  background: none;
-  border: 0;
-  font: inherit;
-  color: var(--nuit);
-  text-align: left;
-  cursor: pointer;
-}
-
-.autre:hover, .autre--choisi { background: #EEF2F6; }
-.autre--choisi { box-shadow: inset 4px 0 0 var(--signal); }
-
-.autre__heure, .autre__risque {
-  font-family: var(--police-titre);
-  font-weight: 700;
-  font-size: 26px;
-}
-
-.autre__info { font-size: 15px; color: var(--texte-doux); }
-.autre__risque--faible { color: var(--mer); }
-.autre__risque--modere { color: #8A5A00; }
-.autre__risque--eleve { color: var(--retard); }
+.modele, .constats { max-width: 720px; margin: 0 auto; padding: 18px 16px 40px; display: flex; flex-direction: column; gap: 14px; }
+.surtitre--clair { color: var(--signal); }
+.modele__titre, .constats__titre { margin: 0; font-family: var(--police-titre); font-weight: 700; font-size: 34px; line-height: 1.05; }
+.modele__chapo, .constats__chapo { margin: 0; font-size: 16px; line-height: 1.45; color: var(--texte-doux); }
+.modele__bandeau { margin: 0; display: flex; align-items: center; gap: 12px; padding: 14px 16px; border-radius: 14px; background: #FFF8E1; border: 1px solid var(--signal); }
+.modele__bandeau span:first-child { font-size: 26px; }
+.modele__bandeau span:last-child { display: flex; flex-direction: column; }
+.modele__bandeau small { font-size: 14px; color: var(--texte-doux); }
+.modele__carte { display: flex; flex-direction: column; gap: 10px; padding: 16px; border-radius: 14px; background: #FFFFFF; border: 1px solid #E3E8EE; }
+.modele__carte h2 { margin: 0; font-family: var(--police-titre); font-size: 24px; line-height: 1.1; }
+.modele__carte p { margin: 0; font-size: 15px; line-height: 1.45; color: var(--texte-doux); }
+.modele__carte a { font-weight: 600; color: #1F6F8B; }
+.modele__carte--sombre { background: var(--nuit); border-color: var(--nuit); color: #FFFFFF; }
+.modele__carte--sombre h2 { color: #FFFFFF; }
+.modele__carte--sombre p { color: #E3E8EE; }
+.modele__duo { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: 10px; }
+.modele__duo p { display: flex; flex-direction: column; gap: 2px; padding: 12px; border-radius: 12px; background: #1E2E52; }
+.modele__duo small { font-size: 13px; color: #C9D3E3; }
+.modele__duo strong { font-family: var(--police-titre); font-size: 22px; line-height: 1.15; color: #FFFFFF; }
+.modele__note { margin: 0; font-size: 12px !important; color: #6B7488 !important; }
+.modele__note--clair { color: #C9D3E3 !important; }
+.jauge { display: flex; flex-direction: column; gap: 4px; padding: 12px; border-radius: 12px; background: #F5F7F9; }
+.jauge__nom { font-size: 14px; font-weight: 600; }
+.jauge__ligne { display: flex; align-items: baseline; gap: 8px; flex-wrap: wrap; font-size: 14px; color: var(--texte-doux); }
+.jauge__valeur { font-family: var(--police-titre); font-size: 32px; white-space: nowrap; color: #C2410C; }
+.jauge__valeur--ok { color: #2E8B57; }
+.jauge small { font-size: 13px; color: var(--texte-doux); }
+.legende { margin: 0; display: flex; flex-wrap: wrap; gap: 6px 14px; font-size: 13px; color: var(--texte-doux); }
+.legende > span { display: inline-flex; align-items: center; gap: 6px; }
+.legende__trait { width: 14px; height: 4px; border-radius: 2px; }

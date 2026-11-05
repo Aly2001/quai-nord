@@ -32,7 +32,7 @@ from fastapi import FastAPI, HTTPException, Request
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.middleware.gzip import GZipMiddleware
 from google.transit import gtfs_realtime_pb2
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, field_validator
 
 # ----------------------------------------------------------------------
 # Réglages (modifiables par variables d'environnement)
@@ -775,10 +775,38 @@ class TrainSuivi(BaseModel):
     url: str = Field(default="/", max_length=300, pattern=r"^/")
 
 
+class RappelBus(BaseModel):
+    """Le rappel d'un bus favori : de quoi retrouver le bus dans les horaires prévus, rien de plus."""
+    code: str = Field(pattern=r"^[a-z]{2,20}$")                # le réseau (« calais »)
+    ligneId: str = Field(min_length=1, max_length=60)
+    ligne: str = Field(min_length=1, max_length=12)            # « 4 », « B1 »
+    direction: str = Field(min_length=1, max_length=100)
+    arret: str = Field(min_length=1, max_length=100)
+    ids: list[str] = Field(max_length=10)
+    heure: int = Field(ge=0, le=1439)                          # l'heure visée (minutes du jour)
+    jours: list[int] = Field(min_length=1, max_length=7)       # 0 = lundi … 6 = dimanche
+    avance: int = Field(ge=1, le=30)                           # minutes avant le bus
+
+    @field_validator("jours")
+    @classmethod
+    def jours_valides(cls, jours):
+        if any(j < 0 or j > 6 for j in jours):
+            raise ValueError("jour invalide")
+        return sorted(set(jours))
+
+    @field_validator("ids")
+    @classmethod
+    def ids_courts(cls, ids):
+        if any(len(i) > 60 for i in ids):
+            raise ValueError("identifiant trop long")
+        return ids
+
+
 class Abonnement(BaseModel):
     abonnement: AdresseEnvoi
     langue: str = Field(default="fr", pattern="^(fr|en)$")
     trains: list[TrainSuivi] = Field(max_length=5)
+    bus: list[RappelBus] = Field(default_factory=list, max_length=5)    # les rappels des bus favoris
 
 
 _abonnements_minute = defaultdict(deque)
@@ -813,13 +841,13 @@ def alertes_abonnement(demande: Abonnement, requete: Request):
         raise HTTPException(422, "Adresse d'envoi inconnue.")
     verifier_limites(requete)
     nom = nom_du_fichier(demande.abonnement.endpoint)
-    if not demande.trains:                                       # plus aucun train suivi : on efface tout
+    if not demande.trains and not demande.bus:                   # plus rien à surveiller : on efface tout
         coffre.supprimer(nom)
-        return {"ok": True, "trains": 0}
+        return {"ok": True, "trains": 0, "bus": 0}
     contenu = demande.model_dump()
     contenu["maj"] = int(time.time())
     coffre.ecrire(nom, contenu)
-    return {"ok": True, "trains": len(demande.trains)}
+    return {"ok": True, "trains": len(demande.trains), "bus": len(demande.bus)}
 
 
 class Desabonnement(BaseModel):

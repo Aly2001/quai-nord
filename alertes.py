@@ -10,6 +10,8 @@ Les ALERTES des trains suivis, envoyées toutes les 5 minutes (planifiées sur l
                             une nouvelle alerte seulement s'il s'aggrave de 10 min ou plus ;
        - le rappel        : « Partez dans 10 min », 10 minutes avant l'heure de départ de chez soi.
   4. La nuit (23 h - 6 h), rien ne part : ce qui reste vrai au matin part à 6 h.
+  5. Les RAPPELS DES BUS FAVORIS : les jours choisis, « Bus 4 à UFR dans 5 min », pour le bus le plus proche de
+     l'heure choisie, retrouvé dans les horaires prévus du réseau (site/public/bus), une seule fois par jour.
 
 Les clés : la clé privée VAPID (secrets/vapid_private.pem) ne quitte jamais la VM et n'est pas dans Git.
     python alertes.py            (une vérification, comme le fera cron)
@@ -27,6 +29,7 @@ import requests                    # déjà utilisé par le collecteur sur la VM
 
 RACINE = Path(__file__).resolve().parent
 HORAIRES = RACINE / "site" / "public" / "horaires"
+BUS = RACINE / "site" / "public" / "bus"
 FICHIER_ETAT = RACINE / "alertes_etat.json"
 CLE_PRIVEE = RACINE / "secrets" / "vapid_private.pem"
 SEAU = "quai-nord-transfert-aly"
@@ -53,6 +56,7 @@ TEXTES = {
         "etat_heure": "À l'heure pour l'instant.",
         "etat_retard": "Retard annoncé : {minutes} min, mais partez comme prévu.",
         "etat_inconnu": "",
+        "bus": ("🚌 Bus {ligne} à {arret} dans {dans} min", "{heure} vers {direction}. Horaires prévus."),
     },
     "en": {
         "supprime": ("🔴 Your {heure} train is cancelled", "{de} → {a}. Next train: {suivant}.",
@@ -67,6 +71,7 @@ TEXTES = {
         "etat_heure": "On time for now.",
         "etat_retard": "{minutes} min delay announced, but leave as planned.",
         "etat_inconnu": "",
+        "bus": ("🚌 Bus {ligne} at {arret} in {dans} min", "{heure} towards {direction}. Scheduled times."),
     },
 }
 
@@ -198,6 +203,65 @@ def composer(type_, valeurs, langue):
     return titre.format(**valeurs), corps.format(**valeurs)
 
 
+# ---------- Les rappels des bus favoris (le même calcul que le site, voir trajetBus.js) ----------
+def charger_reseau(cache, code):
+    """Le réseau de bus et ses horaires prévus (site/public/bus), lus une seule fois par passage."""
+    if code not in cache:
+        try:
+            cache[code] = (json.loads((BUS / f"{code}.json").read_text(encoding="utf-8")),
+                           json.loads((BUS / f"{code}_horaires.json").read_text(encoding="utf-8")))
+        except (OSError, ValueError):
+            cache[code] = (None, None)
+    return cache[code]
+
+
+def calendriers_du_jour(horaires, jour):
+    """Les calendriers qui circulent ce jour-là (comme calendriersDuJour dans le site)."""
+    rang = (jour - datetime.strptime(horaires["debut"], "%Y-%m-%d").date()).days
+    return {str(n) for n, motif in enumerate(horaires["jours"]) if 0 <= rang < len(motif) and motif[rang] == "1"}
+
+
+def passages_du_bus(reseau, horaires, rappel, jour):
+    """Les heures de passage (minutes du jour) de la ligne, dans la direction, à l'arrêt du rappel ce jour-là.
+    L'arrêt est retrouvé par ses identifiants, ou par son nom si les identifiants ont changé."""
+    ids = {i for i in rappel["ids"] if i in reseau["arrets"]}
+    if not ids:
+        ids = {i for i, a in reseau["arrets"].items() if normaliser(a[0]) == normaliser(rappel["arret"])}
+    aujourdhui = calendriers_du_jour(horaires, jour)
+    hier = calendriers_du_jour(horaires, jour - timedelta(days=1))
+    direction = normaliser(rappel["direction"])
+    heures = set()
+    for k, p in enumerate(reseau["parcours"]):
+        if p["ligne"] != rappel["ligneId"] or normaliser(p["direction"]) != direction:
+            continue
+        for i, arret in enumerate(p["arrets"][:-1]):              # au terminus, le bus ne repart pas
+            if arret not in ids:
+                continue
+            decalage = p["minutes"][i] if p.get("minutes") else i * 2
+            for calendrier, departs in (horaires["departs"][k] or {}).items():
+                for actifs, veille in ((aujourdhui, 0), (hier, -1440)):
+                    if calendrier in actifs:
+                        heures.update(d + decalage + veille for d in departs if 0 <= d + decalage + veille < 1440)
+    return sorted(heures)
+
+
+def bus_le_plus_proche(heures, visee):
+    return min(heures, key=lambda h: (abs(h - visee), h)) if heures else None
+
+
+def decider_bus(rappel, minute_bus, deja, maintenant):
+    """Le rappel part une fois, entre « avance » minutes avant le bus et son passage. Renvoie (valeurs ou None, état)."""
+    if minute_bus is None or deja.get("envoye") or maintenant.weekday() not in rappel["jours"]:
+        return None, dict(deja)
+    minutes = maintenant.hour * 60 + maintenant.minute
+    dans = minute_bus - minutes
+    if not 0 < dans <= rappel["avance"]:
+        return None, dict(deja)
+    valeurs = {"ligne": rappel["ligne"], "arret": rappel["arret"], "dans": dans, "heure": en_heure(minute_bus),
+               "direction": rappel["direction"]}
+    return valeurs, {**deja, "envoye": True}
+
+
 def la_nuit(maintenant):
     return maintenant.hour >= NUIT[0] or maintenant.hour < NUIT[1]
 
@@ -235,8 +299,25 @@ def main(arguments=None):
     except Exception as erreur:                                      # sans direct : seulement les rappels
         print(f"Direct indisponible : {erreur}")
         direct = None
-    etat, cache, envoyes = lire_etat(), {}, 0
+    etat, cache, envoyes, reseaux = lire_etat(), {}, 0, {}
     for blob, abonnement in abonnements:
+        for rappel in abonnement.get("bus", []):
+            reseau, horaires_bus = charger_reseau(reseaux, rappel["code"])
+            if not reseau:
+                continue
+            jour = maintenant.date()
+            minute_bus = bus_le_plus_proche(passages_du_bus(reseau, horaires_bus, rappel, jour), rappel["heure"])
+            cle = f"{blob.name}|{jour}|bus|{rappel['code']}|{rappel['ligneId']}|{rappel['direction']}|{rappel['arret']}"
+            valeurs, nouvel = decider_bus(rappel, minute_bus, etat.get(cle, {}), maintenant)
+            if not valeurs or la_nuit(maintenant):
+                continue
+            titre, corps = composer("bus", valeurs, abonnement.get("langue", "fr"))
+            print(f"   bus      {valeurs['heure']} {rappel['ligne']} {rappel['arret']} : {titre}")
+            if essai:
+                continue
+            if envoyer(abonnement["abonnement"], titre, corps, SITE + "/bus", blob):
+                envoyes += 1
+                etat[cle] = {**nouvel, "le": jour.isoformat()}      # noté seulement si l'envoi a réussi
         for train in abonnement.get("trains", []):
             for jour in jours_a_verifier(train, maintenant):
                 departs = lire_departs(cache, index, train["de"], jour.isoformat())

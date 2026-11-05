@@ -659,13 +659,37 @@ ABONNEMENT = {
 def test_un_abonnement_est_range_puis_efface(monkeypatch):
     faux = FauxCoffre()
     monkeypatch.setattr(module, "coffre", faux)
-    assert client.post("/api/alertes/abonnement", json=ABONNEMENT).json() == {"ok": True, "trains": 1}
+    assert client.post("/api/alertes/abonnement", json=ABONNEMENT).json() == {"ok": True, "trains": 1, "bus": 0}
     [(nom, contenu)] = faux.fichiers.items()
     assert nom.startswith("alertes/") and "apple" not in nom           # le nom ne révèle pas l'adresse
     assert contenu["trains"][0]["heure"] == "07:13"
     vide = dict(ABONNEMENT, trains=[])
     client.post("/api/alertes/abonnement", json=vide)                     # plus aucun train : tout est effacé
     assert faux.fichiers == {}
+
+
+RAPPEL_BUS = {"code": "calais", "ligneId": "7", "ligne": "4", "direction": "C.cial la Francaise", "arret": "Ufr",
+              "ids": ["UFR1"], "heure": 615, "jours": [4, 0, 1, 0], "avance": 5}
+
+
+def test_les_rappels_de_bus_sont_gardes_meme_sans_train(monkeypatch):
+    faux = FauxCoffre()
+    monkeypatch.setattr(module, "coffre", faux)
+    reponse = client.post("/api/alertes/abonnement", json=dict(ABONNEMENT, trains=[], bus=[RAPPEL_BUS])).json()
+    assert reponse == {"ok": True, "trains": 0, "bus": 1}                 # un bus suffit : rien n'est effacé
+    [contenu] = faux.fichiers.values()
+    assert contenu["bus"][0]["jours"] == [0, 1, 4]                          # dédoublonnés et dans l'ordre
+    client.post("/api/alertes/abonnement", json=dict(ABONNEMENT, trains=[], bus=[]))
+    assert faux.fichiers == {}                                              # plus rien : tout est effacé
+
+
+def test_un_rappel_de_bus_invalide_est_refuse(monkeypatch):
+    monkeypatch.setattr(module, "coffre", FauxCoffre())
+    for mauvais in ({"jours": [7]}, {"avance": 0}, {"heure": 1500}, {"code": "../x"}, {"ids": ["x" * 80]}):
+        corps = dict(ABONNEMENT, bus=[{**RAPPEL_BUS, **mauvais}])
+        assert client.post("/api/alertes/abonnement", json=corps).status_code == 422, mauvais
+    trop = dict(ABONNEMENT, bus=[RAPPEL_BUS] * 6)
+    assert client.post("/api/alertes/abonnement", json=trop).status_code == 422
 
 
 def test_une_adresse_d_envoi_inconnue_est_refusee(monkeypatch):

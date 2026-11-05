@@ -74,3 +74,44 @@ def test_un_train_disparu_des_horaires_une_alerte_et_pas_de_rappel():
 def test_le_train_le_plus_proche():
     departs = [dict(HORAIRE, heure=h) for h in ("05:49", "07:13", "07:27")]
     assert al.train_le_plus_proche(departs, "06:24", "Calais Ville") == "07:13"
+
+
+# ---------- Les rappels des bus favoris, sur les VRAIES données de Calais ----------
+import json as _json
+from datetime import timedelta as _td
+
+_RESEAU = _json.loads((al.BUS / "calais.json").read_text(encoding="utf-8"))
+_HORAIRES = _json.loads((al.BUS / "calais_horaires.json").read_text(encoding="utf-8"))
+_LIGNE4 = next(k for k, l in _RESEAU["lignes"].items() if l["nom"] == "4")
+_UFR = [i for i, a in _RESEAU["arrets"].items() if a[0] == "UFR"]
+RAPPEL = {"code": "calais", "ligneId": _LIGNE4, "ligne": "4", "direction": "C.cial la Francaise", "arret": "UFR",
+          "ids": _UFR, "heure": 615, "jours": [0, 1, 2, 3, 4], "avance": 5}
+JEUDI = date(2026, 11, 5)
+
+
+def test_les_passages_du_bus_comme_le_site():
+    heures = al.passages_du_bus(_RESEAU, _HORAIRES, RAPPEL, JEUDI)
+    assert al.en_heure(al.bus_le_plus_proche(heures, 615)) == "10:19"          # la 4 à UFR, un jeudi (vu dans la maquette)
+    assert heures == sorted(heures) and len(heures) > 20
+
+
+def test_l_arret_est_retrouve_par_son_nom_si_les_identifiants_changent():
+    sans_ids = dict(RAPPEL, ids=["N_EXISTE_PLUS"])
+    assert al.passages_du_bus(_RESEAU, _HORAIRES, sans_ids, JEUDI) == al.passages_du_bus(_RESEAU, _HORAIRES, RAPPEL, JEUDI)
+
+
+def test_le_rappel_du_bus_part_une_fois_au_bon_moment():
+    bus = 10 * 60 + 19
+    assert al.decider_bus(RAPPEL, bus, {}, a(10, 10, 5).replace(month=11))[0] is None        # trop tôt (9 min avant)
+    valeurs, etat = al.decider_bus(RAPPEL, bus, {}, a(10, 14, 5).replace(month=11))
+    assert valeurs["dans"] == 5
+    titre, corps = al.composer("bus", valeurs, "fr")
+    assert titre == "🚌 Bus 4 à UFR dans 5 min" and "10:19" in corps and "prévus" in corps
+    assert al.decider_bus(RAPPEL, bus, etat, a(10, 16, 5).replace(month=11))[0] is None      # déjà envoyé
+    assert al.decider_bus(RAPPEL, bus, {}, a(10, 19, 5).replace(month=11))[0] is None        # le bus passe : trop tard
+
+
+def test_le_rappel_du_bus_respecte_les_jours():
+    samedi = datetime(2026, 11, 7, 10, 14, tzinfo=PARIS)
+    assert al.decider_bus(RAPPEL, 619, {}, samedi)[0] is None
+    assert al.decider_bus(dict(RAPPEL, jours=[5]), 619, {}, samedi)[0] is not None

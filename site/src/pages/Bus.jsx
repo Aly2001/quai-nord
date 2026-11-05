@@ -14,7 +14,9 @@ import { chargerHoraires, trajetEntrePoints, minutesEnHeure, arretsDeLaCourse, t
   chargerDirectBus, busAvecDirect, relierAuDirect, autresDescentes } from "../data/trajetBus";
 import { normaliser } from "../data/horaires";
 import { joliNom } from "../data/bus";
-import { useBusFavoris, idBus } from "../data/busFavoris";
+import { useBusFavoris, idBus, DEFAUT_RAPPEL } from "../data/busFavoris";
+import { etatNotifications, activerNotifications } from "../data/notifications";
+import { trainsSuivisPourLeServeur } from "../data/suivi";
 import { FeuillePleine } from "../components/FeuillePleine";
 import "../components/RechercheTrajet.css";
 import "./Bus.css";
@@ -714,14 +716,19 @@ function MesBus({ reseau, horaires, code, maintenant, onOuvrir, onVille }) {
 }
 
 // ---------- Les horaires de la journée d'un bus favori, heure par heure ----------
-function HorairesFavori({ reseau, horaires, favori, maintenant, onFermer, onChoix }) {
+function HorairesFavori({ reseau, horaires, favori: ancien, maintenant, onFermer, onChoix }) {
   const { t } = useLangue();
+  const { bus } = useBusFavoris();
+  const favori = bus.find((b) => idBus(b) === idBus(ancien)) || ancien;      // relu : le rappel a pu changer
+  const [reglage, setReglage] = useState(false);
   const [decalage, setDecalage] = useState(0);              // 0 : aujourd'hui, 1 : demain
   const jour = ajouterJours(aujourdhuiIso(), decalage);
   const courses = journeeALArret(reseau, horaires, favori.arret.ids, jour, favori.ligneId, favori.direction);
   const prochain = decalage === 0 ? courses.find((c) => c.depart >= maintenant) : null;
   const parHeure = new Map();
   courses.forEach((c) => { const h = Math.floor(c.depart / 60); parHeure.set(h, [...(parHeure.get(h) || []), c]); });
+  if (reglage) return <RappelBus reseau={reseau} horaires={horaires} favori={favori} onFermer={() => setReglage(false)} />;
+  const r = favori.rappel;
   return (
     <section className="horaires-bus" aria-label={t("bus.horaires")}>
       <button type="button" className="course__retour" onClick={onFermer}>‹ {t("bus.retour.ville")}</button>
@@ -729,6 +736,8 @@ function HorairesFavori({ reseau, horaires, favori, maintenant, onFermer, onChoi
         <div><strong>{favori.arret.nom}</strong><small>{t("bus.vers", { direction: favori.direction })}</small></div></div>
       {prochain && <p className="horaires-bus__prochain"><small>{t("bus.prochain")}</small>
         <strong>{t("bus.dans", { minutes: Math.max(0, prochain.depart - maintenant), heure: minutesEnHeure(prochain.depart) })}</strong></p>}
+      <button type="button" className={r ? "bus__favori bus__favori--actif" : "bus__favori"} onClick={() => setReglage(true)}>
+        🔔 {r ? t("rappel.resume", { heure: minutesEnHeure(r.heure), avance: r.avance }) : t("rappel.bouton")}</button>
       <div className="horaires-bus__jour">
         <strong>{decalage === 0 ? t("jour.aujourdhui") : t("jour.demain")}</strong>
         <button type="button" onClick={() => setDecalage(decalage === 0 ? 1 : 0)}>{decalage === 0 ? `${t("jour.demain")} →` : `← ${t("jour.aujourdhui")}`}</button>
@@ -747,6 +756,65 @@ function HorairesFavori({ reseau, horaires, favori, maintenant, onFermer, onChoi
         </div>
       )}
       <p className="bus__source">{t("bus.horaires.note")}</p>
+    </section>
+  );
+}
+
+// ---------- 🔔 Le rappel d'un bus favori : l'heure, les jours, combien de temps avant ----------
+const JOURS_COURTS = { fr: ["L", "M", "M", "J", "V", "S", "D"], en: ["M", "T", "W", "T", "F", "S", "S"] };
+function RappelBus({ reseau, horaires, favori, onFermer }) {
+  const { t, langue } = useLangue();
+  const { regler } = useBusFavoris();
+  const [rappel, setRappel] = useState(favori.rappel || DEFAUT_RAPPEL);
+  const [message, setMessage] = useState("");
+  const cle = idBus(favori);
+  // Le bus le plus proche de l'heure choisie, aujourd'hui (le même calcul que le serveur des alertes)
+  const courses = journeeALArret(reseau, horaires, favori.arret.ids, aujourdhuiIso(), favori.ligneId, favori.direction);
+  const proche = courses.reduce((m, c) => (!m || Math.abs(c.depart - rappel.heure) < Math.abs(m.depart - rappel.heure) ? c : m), null);
+  const basculerJour = (j) => setRappel((r) => ({ ...r, jours: r.jours.includes(j) ? r.jours.filter((x) => x !== j) : [...r.jours, j].sort() }));
+  async function activer() {
+    setMessage("");
+    if (!rappel.jours.length) { setMessage(t("rappel.jours.aucun")); return; }
+    regler(cle, rappel);
+    const etat = etatNotifications();
+    if (etat === "installer") { setMessage(t("rappel.installer")); return; }
+    if (etat === "refuse") { setMessage(t("rappel.refuse")); return; }
+    if (etat === "impossible") { setMessage(t("rappel.impossible")); return; }
+    // Dans le geste du voyageur (l'iPhone l'exige) : l'autorisation, puis l'envoi au serveur
+    try { await activerNotifications(trainsSuivisPourLeServeur()); onFermer(); } catch { setMessage(t("notif.erreur")); }
+  }
+  return (
+    <section className="rappel-bus" aria-label={t("rappel.titre")}>
+      <button type="button" className="course__retour" onClick={onFermer}>‹ {t("bus.retour.horaires")}</button>
+      <div className="course__entete"><PuceLigne ligne={favori.ligne} />
+        <div><strong>🔔 {t("rappel.titre")}</strong><small>{favori.ligne.nom} · {favori.arret.nom} · {t("bus.vers", { direction: favori.direction })}</small></div></div>
+      <div className="rappel-bus__carte">
+        <label className="rappel-bus__champ">{t("rappel.vers")}
+          <input type="time" value={minutesEnHeure(rappel.heure)} step="300"
+                 onChange={(e) => { const [h, m] = e.target.value.split(":").map(Number); if (!Number.isNaN(h)) setRappel((r) => ({ ...r, heure: h * 60 + (m || 0) })); }} />
+        </label>
+        <small>{proche ? t("rappel.proche", { heure: minutesEnHeure(proche.depart) }) : t("bus.plusaujourdhui")}</small>
+        <fieldset className="rappel-bus__groupe"><legend>{t("rappel.jours")}</legend>
+          {JOURS_COURTS[langue === "en" ? "en" : "fr"].map((nom, j) => (
+            <button key={j} type="button" aria-pressed={rappel.jours.includes(j)} onClick={() => basculerJour(j)}
+                    className={rappel.jours.includes(j) ? "rappel-bus__puce rappel-bus__puce--actif" : "rappel-bus__puce"}>{nom}</button>
+          ))}
+        </fieldset>
+        <fieldset className="rappel-bus__groupe"><legend>{t("rappel.avance")}</legend>
+          {[3, 5, 10, 15].map((n) => (
+            <button key={n} type="button" aria-pressed={rappel.avance === n} onClick={() => setRappel((r) => ({ ...r, avance: n }))}
+                    className={rappel.avance === n ? "rappel-bus__puce rappel-bus__puce--actif" : "rappel-bus__puce"}>{n} min</button>
+          ))}
+        </fieldset>
+      </div>
+      {proche && (
+        <p className="rappel-bus__apercu"><strong>{t("rappel.apercu", { heure: minutesEnHeure(proche.depart - rappel.avance) })}</strong><br />
+          🚌 {t("rappel.message", { ligne: favori.ligne.nom, arret: favori.arret.nom, minutes: rappel.avance, heure: minutesEnHeure(proche.depart), direction: favori.direction })}</p>
+      )}
+      <p className="bus__source">{t("rappel.prevus")}</p>
+      {message && <p className="partir__message" role="alert">{message}</p>}
+      <button type="button" className="partir__bouton partir__bouton--plein" onClick={activer}>{favori.rappel ? t("rappel.enregistrer") : t("rappel.activer")}</button>
+      {favori.rappel && <button type="button" className="mes-bus__ailleurs" onClick={() => { regler(cle, null); onFermer(); }}>{t("rappel.supprimer")}</button>}
     </section>
   );
 }

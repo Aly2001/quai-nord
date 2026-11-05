@@ -8,6 +8,7 @@
 // =====================================================================
 import { minutesEnHeure } from "./trajetBus";
 import { traduire } from "../langue/langue";
+import { rappelsBusPourLeServeur } from "./busFavoris";
 
 const CLE_LANGUE = "quai-nord:langue";
 const langueChoisie = () => { try { return localStorage.getItem(CLE_LANGUE) === "en" ? "en" : "fr"; } catch { return "fr"; } };
@@ -48,7 +49,8 @@ async function envoyer(abonnement, trains) {
   try { langue = localStorage.getItem(CLE_LANGUE) === "en" ? "en" : "fr"; } catch { /* rien */ }
   const reponse = await fetch("/api/alertes/abonnement", {
     method: "POST", headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ abonnement: abonnement.toJSON(), langue, trains }),
+    // Chaque envoi contient TOUT : les trains suivis ET les rappels des bus favoris (le serveur remplace son fichier)
+    body: JSON.stringify({ abonnement: abonnement.toJSON(), langue, trains, bus: rappelsBusPourLeServeur() }),
   });
   if (!reponse.ok) throw new Error(`serveur ${reponse.status}`);
 }

@@ -2,6 +2,8 @@
 // Ils s'affichent dans En ville, onglet « Prochains passages », pour la ville choisie.
 import { useEffect, useState } from "react";
 import { ajouterSansPerdre, MAXIMUM_LISTE } from "./listeLimitee";
+import { synchroniserNotifications } from "./notifications";
+import { trainsSuivisPourLeServeur } from "./suivi";
 
 const CLE = "quai-nord-bus-favoris";
 const EVENEMENT = "quai-nord-bus-favoris";
@@ -13,7 +15,21 @@ function lire() {
 function ecrire(liste) {
   try { localStorage.setItem(CLE, JSON.stringify(liste)); } catch { /* stockage plein ou interdit : tant pis */ }
   window.dispatchEvent(new Event(EVENEMENT));
+  // Un rappel ajouté, changé ou retiré : le serveur des alertes est tenu à jour (s'il est utilisé)
+  synchroniserNotifications(trainsSuivisPourLeServeur());
 }
+
+// ---------- Le rappel d'un bus favori : { heure (minutes du jour), jours (0 = lundi … 6 = dimanche), avance (min) } ----------
+// Le serveur reçoit le strict nécessaire pour retrouver le bus dans les horaires : le réseau, la ligne,
+// la direction et l'arrêt (ses identifiants, et son nom au cas où les identifiants changent). Jamais la position.
+export function rappelsBusPourLeServeur(liste = lire()) {
+  return liste.filter((b) => b.rappel).map((b) => ({
+    code: b.code, ligneId: b.ligneId, ligne: b.ligne.nom, direction: b.direction,
+    arret: b.arret.nom, ids: b.arret.ids.slice(0, 10),
+    heure: b.rappel.heure, jours: b.rappel.jours, avance: b.rappel.avance,
+  }));
+}
+export const DEFAUT_RAPPEL = { heure: 8 * 60, jours: [0, 1, 2, 3, 4], avance: 5 };
 
 export function useBusFavoris() {
   const [bus, setBus] = useState(lire);
@@ -34,5 +50,6 @@ export function useBusFavoris() {
     return "ajoute";
   };
   const retirer = (cle) => ecrire(lire().filter((x) => idBus(x) !== cle));
-  return { bus, estFavori, basculer, retirer, maximum: MAXIMUM_LISTE };
+  const regler = (cle, rappel) => ecrire(lire().map((x) => (idBus(x) === cle ? { ...x, rappel: rappel || undefined } : x)));
+  return { bus, estFavori, basculer, retirer, regler, maximum: MAXIMUM_LISTE };
 }

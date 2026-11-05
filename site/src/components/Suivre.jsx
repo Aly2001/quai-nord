@@ -6,6 +6,7 @@ import { useSuivis, idSuivi, prochainTrainSuivi, trainsSuivisPourLeServeur, proc
 import { useMomentDuSuivi } from "../data/directSuivi";
 import { placeRestante } from "../data/listeLimitee";
 import { FeuillePleine } from "./FeuillePleine";
+import { rappelsBusPourLeServeur } from "../data/busFavoris";
 import { etatNotifications, activerNotifications, desactiverNotifications } from "../data/notifications";
 import { minutesEnHeure } from "../data/trajetBus";
 import { dateLongue } from "../data/horaires";
@@ -153,7 +154,7 @@ export function ListeSuivis() {
           </li>
         ))}
       </ul>
-      <button type="button" className="suivi__tout-arreter" onClick={() => { toutArreter(); desactiverNotifications(); }}>{t("suivi.tout")}</button>
+      <button type="button" className="suivi__tout-arreter" onClick={() => { toutArreter(); if (!rappelsBusPourLeServeur().length) desactiverNotifications(); }}>{t("suivi.tout")}</button>
     </>
   );
 }

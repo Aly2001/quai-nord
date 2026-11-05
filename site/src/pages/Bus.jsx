@@ -699,7 +699,8 @@ function ArretsDuBus({ reseau, code, arret, groupe, course, onFermer, onChoix, r
 // ---------- « ⭐ Mes bus à Calais » : les bus favoris de la ville choisie, avec leur prochain passage ----------
 function MesBus({ reseau, horaires: donnes, code, maintenant: donne, onOuvrir, onVille }) {
   const { t } = useLangue();
-  const { bus } = useBusFavoris();
+  const { bus, retirer } = useBusFavoris();
+  const [aRetirer, setARetirer] = useState(null);         // la carte dont on confirme le retrait
   // Dans l'onglet « Un trajet », les horaires et l'heure ne sont pas encore là : on les prend ici
   const [charges, setCharges] = useState({ code: null, horaires: null });
   const [ici_, setIci] = useState(() => enMinutes(heureActuelle()));
@@ -723,15 +724,30 @@ function MesBus({ reseau, horaires: donnes, code, maintenant: donne, onOuvrir, o
       {reseau && horaires && ici.map((b) => {
         const suivants = journeeALArret(reseau, horaires, b.arret.ids, aujourdhuiIso(), b.ligneId, b.direction).filter((c) => c.depart >= maintenant);
         const [premier, ...apres] = suivants;
+        // Plus de bus ce soir : on dit quand passe le PREMIER de demain (une info utile, pas un cul-de-sac)
+        const demain = premier ? null : journeeALArret(reseau, horaires, b.arret.ids, ajouterJours(aujourdhuiIso(), 1), b.ligneId, b.direction)[0];
+        const cle = idBus(b);
         return (
-          <button key={idBus(b)} type="button" className="mes-bus__carte" onClick={() => onOuvrir(b)}>
-            <PuceLigne ligne={b.ligne} />
-            <span className="mes-bus__texte"><strong>{b.arret.nom}</strong><small>{t("bus.vers", { direction: b.direction })}</small>
-              <small>{premier ? <><b>{t("bus.dans", { minutes: Math.max(0, premier.depart - maintenant), heure: minutesEnHeure(premier.depart) })}</b>
-                {apres.length > 0 && ` · ${t("bus.puis", { heures: apres.slice(0, 2).map((c) => minutesEnHeure(c.depart)).join(", ") })}`}</>
-                : t("bus.plusaujourdhui")}</small></span>
-            <span aria-hidden="true">›</span>
-          </button>
+          <div key={cle} className="mes-bus__rang">
+            <button type="button" className="mes-bus__carte" onClick={() => onOuvrir(b)}>
+              <PuceLigne ligne={b.ligne} />
+              <span className="mes-bus__texte"><strong>{b.arret.nom}</strong><small>{t("bus.vers", { direction: b.direction })}</small>
+                <small>{premier ? <><b>{t("bus.dans", { minutes: Math.max(0, premier.depart - maintenant), heure: minutesEnHeure(premier.depart) })}</b>
+                  {apres.length > 0 && ` · ${t("bus.puis", { heures: apres.slice(0, 2).map((c) => minutesEnHeure(c.depart)).join(", ") })}`}</>
+                  : demain ? t("bus.demain.premier", { heure: minutesEnHeure(demain.depart) }) : t("bus.plusaujourdhui")}</small></span>
+              <span aria-hidden="true">›</span>
+            </button>
+            {aRetirer === cle ? (
+              <span className="mes-bus__confirmer" role="alert">
+                {t(rappelsValides(b.rappels).length ? "bus.retirer.court.rappels" : "bus.retirer.court")}
+                <button type="button" className="mes-bus__oui" onClick={() => { retirer(cle); setARetirer(null); }}>{t("bus.retirer.oui.court")}</button>
+                <button type="button" onClick={() => setARetirer(null)}>{t("plein.annuler")}</button>
+              </span>
+            ) : (
+              <button type="button" className="mes-bus__retirer" onClick={() => setARetirer(cle)}
+                      aria-label={t("bus.retirer.aria", { ligne: b.ligne.nom, arret: b.arret.nom })}>{t("bus.retirer.bouton")}</button>
+            )}
+          </div>
         );
       })}
       {autreVille && (
@@ -769,6 +785,17 @@ function HorairesFavori({ reseau, horaires, favori: ancien, maintenant, onFermer
             <small>{r.repetition === "une" ? dateLongue(r.jour) : t(TEXTE_REPETITION[r.repetition])} · {t("rappel.avant", { minutes: r.avance })}</small></span>
           <button type="button" onClick={() => arreterRappel(favori, r.heure)}>{t("plein.arreter")}</button></div>
       ))}
+      {/* Retirer le favori (et ses rappels) : comme « Ne plus suivre » pour un train, avec une confirmation si des rappels sont posés */}
+      {!confirmer ? (
+        <button type="button" className="bus__retirer bus__retirer--haut" onClick={() => (rappels.length ? setConfirmer(true) : (retirer(idBus(favori)), onFermer()))}>
+          {t("bus.retirer")}</button>
+      ) : (
+        <div className="bus__confirmer" role="alert">
+          <p>{t(rappels.length > 1 ? "bus.retirer.confirmer" : "bus.retirer.confirmer.un", { nombre: rappels.length })}</p>
+          <button type="button" className="bus__retirer" onClick={() => { retirer(idBus(favori)); onFermer(); }}>{t("bus.retirer.oui")}</button>
+          <button type="button" className="mes-bus__ailleurs" onClick={() => setConfirmer(false)}>{t("plein.annuler")}</button>
+        </div>
+      )}
       <div className="horaires-bus__jour">
         <strong>{decalage === 0 ? t("jour.aujourdhui") : t("jour.demain")}</strong>
         <button type="button" onClick={() => setDecalage(decalage === 0 ? 1 : 0)}>{decalage === 0 ? `${t("jour.demain")} →` : `← ${t("jour.aujourdhui")}`}</button>
@@ -789,17 +816,6 @@ function HorairesFavori({ reseau, horaires, favori: ancien, maintenant, onFermer
         </div>
       )}
       <p className="bus__source">{t("bus.horaires.note2")}</p>
-      {/* Retirer le favori (et ses rappels) : comme « Ne plus suivre » pour un train, avec une confirmation si des rappels sont posés */}
-      {!confirmer ? (
-        <button type="button" className="bus__retirer" onClick={() => (rappels.length ? setConfirmer(true) : (retirer(idBus(favori)), onFermer()))}>
-          {t("bus.retirer")}</button>
-      ) : (
-        <div className="bus__confirmer" role="alert">
-          <p>{t(rappels.length > 1 ? "bus.retirer.confirmer" : "bus.retirer.confirmer.un", { nombre: rappels.length })}</p>
-          <button type="button" className="bus__retirer" onClick={() => { retirer(idBus(favori)); onFermer(); }}>{t("bus.retirer.oui")}</button>
-          <button type="button" className="mes-bus__ailleurs" onClick={() => setConfirmer(false)}>{t("plein.annuler")}</button>
-        </div>
-      )}
     </section>
   );
 }

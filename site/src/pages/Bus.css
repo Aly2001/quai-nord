@@ -189,3 +189,16 @@ a.bus__voir-arrets { text-decoration: none; }
   background: #FFFFFF; border: 1.5px solid #C9D3E3; border-radius: 999px; cursor: pointer; }
 .rappel-bus__puce--actif { background: var(--nuit); color: #FFFFFF; border-color: var(--nuit); }
 .rappel-bus__apercu { margin: 0; padding: 12px 14px; border-radius: 12px; background: #EEF1F5; font-size: 14px; line-height: 1.45; }
+.bus__favori--prevenir { background: var(--signal); border-color: var(--signal); }
+.rappel-bus__choix { display: flex; flex-direction: column; gap: 8px; }
+.rappel-bus__option { display: flex; align-items: center; gap: 12px; min-height: 60px; padding: 10px 12px; font: inherit; text-align: left; color: var(--nuit);
+  background: #FFFFFF; border: 1.5px solid #C9D3E3; border-radius: 12px; cursor: pointer; }
+.rappel-bus__option span:last-child { display: flex; flex-direction: column; }
+.rappel-bus__option small { font-size: 13px; color: var(--texte-doux); }
+.rappel-bus__option--actif { background: #FFF8E1; border-color: var(--signal); }
+.rappel-bus__rond { flex: none; width: 22px; height: 22px; border-radius: 50%; border: 2px solid var(--nuit); }
+.rappel-bus__option--actif .rappel-bus__rond { background: radial-gradient(circle, var(--nuit) 0 5px, transparent 6px); }
+.rappel-bus__actif { display: flex; align-items: center; gap: 10px; padding: 10px 12px; border-radius: 12px; background: #FFFFFF; border: 1px solid #E3E8EE; }
+.rappel-bus__actif > span:nth-child(2) { flex: 1; display: flex; flex-direction: column; }
+.rappel-bus__actif small { font-size: 13px; color: var(--texte-doux); }
+.rappel-bus__actif button { min-height: 44px; padding: 0 12px; font: inherit; font-weight: 700; color: #B91C1C; background: transparent; border: 0; cursor: pointer; }

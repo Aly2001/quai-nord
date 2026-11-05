@@ -57,6 +57,8 @@ TEXTES = {
         "etat_retard": "Retard annoncé : {minutes} min, mais partez comme prévu.",
         "etat_inconnu": "",
         "bus": ("🚌 Bus {ligne} à {arret} dans {dans} min", "{heure} vers {direction}. Horaires prévus."),
+        "bus_absent": ("⚠️ Le bus {ligne} de {prevu} ne passe pas aujourd'hui", "{arret}. Le réseau a modifié ses horaires. Le plus proche : {proche}.",
+                       "{arret}. Le réseau a modifié ses horaires. Touchez pour voir les autres bus."),
     },
     "en": {
         "supprime": ("🔴 Your {heure} train is cancelled", "{de} → {a}. Next train: {suivant}.",
@@ -72,6 +74,8 @@ TEXTES = {
         "etat_retard": "{minutes} min delay announced, but leave as planned.",
         "etat_inconnu": "",
         "bus": ("🚌 Bus {ligne} at {arret} in {dans} min", "{heure} towards {direction}. Scheduled times."),
+        "bus_absent": ("⚠️ The {prevu} line {ligne} bus isn't running today", "{arret}. The network has changed its timetable. Nearest: {proche}.",
+                       "{arret}. The network has changed its timetable. Tap to see other buses."),
     },
 }
 
@@ -194,6 +198,9 @@ def composer(type_, valeurs, langue):
         titre, avec, sans = t["disparu"]
         valeurs = {**valeurs, "quand": t[valeurs["jour"]]}
         return titre.format(**valeurs), (avec if valeurs.get("proche") else sans).format(**valeurs)
+    if type_ == "bus_absent":
+        titre, avec, sans = t["bus_absent"]
+        return titre.format(**valeurs), (avec if valeurs.get("proche") else sans).format(**valeurs)
     if type_ == "rappel":
         retard = valeurs.get("retard")
         etat = t["etat_retard"].format(minutes=retard) if retard and retard >= RETARD_MIN else t["etat_heure"] if retard is not None else t["etat_inconnu"]
@@ -245,13 +252,24 @@ def passages_du_bus(reseau, horaires, rappel, jour):
     return sorted(heures)
 
 
+TOLERANCE_BUS = 10        # minutes : au-delà, ce n'est plus « le bus de 19:27 » (le réseau a changé ses horaires)
+
+
 def bus_le_plus_proche(heures, visee):
     return min(heures, key=lambda h: (abs(h - visee), h)) if heures else None
+
+
+def le_bus_du_rappel(heures, visee):
+    """CE bus : celui qui passe à l'heure choisie (à quelques minutes près si le réseau l'a décalé), sinon None."""
+    proche = bus_le_plus_proche(heures, visee)
+    return proche if proche is not None and abs(proche - visee) <= TOLERANCE_BUS else None
 
 
 def decider_bus(rappel, minute_bus, deja, maintenant):
     """Le rappel part une fois, entre « avance » minutes avant le bus et son passage. Renvoie (valeurs ou None, état)."""
     if minute_bus is None or deja.get("envoye") or maintenant.weekday() not in rappel["jours"]:
+        return None, dict(deja)
+    if rappel.get("jour") and rappel["jour"] != maintenant.date().isoformat():       # « une fois » : ce jour-là seulement
         return None, dict(deja)
     minutes = maintenant.hour * 60 + maintenant.minute
     dans = minute_bus - minutes
@@ -322,13 +340,26 @@ def main(arguments=None):
             if not reseau:
                 continue
             jour = maintenant.date()
-            minute_bus = bus_le_plus_proche(passages_du_bus(reseau, horaires_bus, rappel, jour), rappel["heure"])
-            cle = f"{blob.name}|{jour}|bus|{rappel['code']}|{rappel['ligneId']}|{rappel['direction']}|{rappel['arret']}"
-            valeurs, nouvel = decider_bus(rappel, minute_bus, etat.get(cle, {}), maintenant)
+            heures = passages_du_bus(reseau, horaires_bus, rappel, jour)
+            minute_bus = le_bus_du_rappel(heures, rappel["heure"])
+            cle = f"{blob.name}|{jour}|bus|{rappel['code']}|{rappel['ligneId']}|{rappel['direction']}|{rappel['arret']}|{rappel['heure']}"
+            type_ = "bus"
+            if not heures:
+                continue                  # la ligne ne passe pas du tout ce jour-là (un dimanche) : rien à dire
+            if minute_bus is None:
+                # CE bus ne passe pas aujourd'hui (le réseau a changé ses horaires) : on le dit, au moment du rappel, une fois
+                valeurs, nouvel = decider_bus(rappel, rappel["heure"], etat.get(cle, {}), maintenant)
+                if valeurs:
+                    apres = [h for h in heures if h >= rappel["heure"]]
+                    valeurs = {**valeurs, "prevu": en_heure(rappel["heure"]), "proche": en_heure(apres[0]) if apres else None}
+                type_ = "bus_absent"
+                minute_bus = rappel["heure"]
+            else:
+                valeurs, nouvel = decider_bus(rappel, minute_bus, etat.get(cle, {}), maintenant)
             if not valeurs or la_nuit(maintenant):
                 continue
-            titre, corps = composer("bus", valeurs, abonnement.get("langue", "fr"))
-            print(f"   bus      {valeurs['heure']} {rappel['ligne']} {rappel['arret']} : {titre}")
+            titre, corps = composer(type_, valeurs, abonnement.get("langue", "fr"))
+            print(f"   {type_:8} {valeurs['heure']} {rappel['ligne']} {rappel['arret']} : {titre}")
             if essai:
                 continue
             if envoyer(abonnement["abonnement"], titre, corps, SITE + "/bus", blob,

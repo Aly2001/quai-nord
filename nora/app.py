@@ -783,9 +783,10 @@ class RappelBus(BaseModel):
     direction: str = Field(min_length=1, max_length=100)
     arret: str = Field(min_length=1, max_length=100)
     ids: list[str] = Field(max_length=10)
-    heure: int = Field(ge=0, le=1439)                          # l'heure visée (minutes du jour)
+    heure: int = Field(ge=0, le=1439)                          # l'heure de CE bus à cet arrêt (minutes du jour)
     jours: list[int] = Field(min_length=1, max_length=7)       # 0 = lundi … 6 = dimanche
     avance: int = Field(ge=1, le=30)                           # minutes avant le bus
+    jour: str | None = Field(default=None, pattern=r"^\d{4}-\d{2}-\d{2}$")   # « une fois » : ce jour-là seulement
 
     @field_validator("jours")
     @classmethod

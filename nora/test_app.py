@@ -685,7 +685,7 @@ def test_les_rappels_de_bus_sont_gardes_meme_sans_train(monkeypatch):
 
 def test_un_rappel_de_bus_invalide_est_refuse(monkeypatch):
     monkeypatch.setattr(module, "coffre", FauxCoffre())
-    for mauvais in ({"jours": [7]}, {"avance": 0}, {"heure": 1500}, {"code": "../x"}, {"ids": ["x" * 80]}):
+    for mauvais in ({"jours": [7]}, {"avance": 0}, {"heure": 1500}, {"code": "../x"}, {"ids": ["x" * 80]}, {"jour": "demain"}):
         corps = dict(ABONNEMENT, bus=[{**RAPPEL_BUS, **mauvais}])
         assert client.post("/api/alertes/abonnement", json=corps).status_code == 422, mauvais
     trop = dict(ABONNEMENT, bus=[RAPPEL_BUS] * 6)

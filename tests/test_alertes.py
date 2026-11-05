@@ -125,3 +125,18 @@ def test_une_notification_passee_s_efface_toute_seule():
     assert datetime.fromtimestamp(retard / 1000, PARIS).strftime("%H:%M") == "07:23"   # départ annoncé 07:21, + 2 min
     rappel = al.fin_de_validite("rappel", TRAIN, {}, JOUR)
     assert datetime.fromtimestamp(rappel / 1000, PARIS).strftime("%H:%M") == "07:14"
+
+
+def test_le_rappel_vaut_pour_CE_bus_et_dit_s_il_ne_passe_plus():
+    heures = al.passages_du_bus(_RESEAU, _HORAIRES, RAPPEL, JEUDI)
+    assert al.le_bus_du_rappel(heures, 619) == 619                             # le bus de 10:19
+    assert al.le_bus_du_rappel([600, 700], 619) is None                         # plus aucun bus à moins de 10 min
+    valeurs, _ = al.decider_bus(dict(RAPPEL, heure=619), 619, {}, a(10, 14, 5).replace(month=11))
+    titre, corps = al.composer("bus_absent", {**valeurs, "prevu": "10:19", "proche": "10:40"}, "fr")
+    assert titre == "⚠️ Le bus 4 de 10:19 ne passe pas aujourd'hui" and "10:40" in corps
+
+
+def test_un_rappel_une_fois_ne_vaut_que_ce_jour_la():
+    une = dict(RAPPEL, jours=[3], jour="2026-11-05")
+    assert al.decider_bus(une, 619, {}, a(10, 14, 5).replace(month=11))[0] is not None
+    assert al.decider_bus(une, 619, {}, datetime(2026, 11, 12, 10, 14, tzinfo=PARIS))[0] is None    # jeudi suivant

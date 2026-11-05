@@ -19,17 +19,35 @@ function ecrire(liste) {
   synchroniserNotifications(trainsSuivisPourLeServeur());
 }
 
-// ---------- Le rappel d'un bus favori : { heure (minutes du jour), jours (0 = lundi … 6 = dimanche), avance (min) } ----------
-// Le serveur reçoit le strict nécessaire pour retrouver le bus dans les horaires : le réseau, la ligne,
-// la direction et l'arrêt (ses identifiants, et son nom au cas où les identifiants changent). Jamais la position.
-export function rappelsBusPourLeServeur(liste = lire()) {
-  return liste.filter((b) => b.rappel).map((b) => ({
-    code: b.code, ligneId: b.ligneId, ligne: b.ligne.nom, direction: b.direction,
-    arret: b.arret.nom, ids: b.arret.ids.slice(0, 10),
-    heure: b.rappel.heure, jours: b.rappel.jours, avance: b.rappel.avance,
-  }));
+// ---------- Les rappels d'un bus favori : chacun posé sur UN bus des horaires (comme un train suivi) ----------
+// { heure (minutes du jour : l'heure de CE bus à cet arrêt), repetition: "une" | "semaine" | "tous", jour (pour « une »), avance (min) }
+// Rien à taper : on touche un bus, l'application connaît son heure. 5 rappels au plus, tous bus confondus.
+export const MAX_RAPPELS = 5;
+export const JOURS_DE = { une: null, semaine: [0, 1, 2, 3, 4], tous: [0, 1, 2, 3, 4, 5, 6] };
+const lundiZero = (iso) => (new Date(`${iso}T12:00:00`).getDay() + 6) % 7;
+const aujourdhui = () => new Date().toLocaleDateString("sv-SE");
+const maintenantMinutes = () => { const d = new Date(); return d.getHours() * 60 + d.getMinutes(); };
+
+// Un rappel « une fois » déjà passé ne sert plus ; un ancien rappel « vers 08:00 » (tapé, sans bus choisi) non plus
+export function rappelsValides(rappels, jour = aujourdhui(), minute = maintenantMinutes()) {
+  return (rappels || []).filter((r) => r && r.repetition && typeof r.heure === "number"
+    && !(r.repetition === "une" && (r.jour < jour || (r.jour === jour && r.heure < minute))));
 }
-export const DEFAUT_RAPPEL = { heure: 8 * 60, jours: [0, 1, 2, 3, 4], avance: 5 };
+// Ce rappel vaut-il pour ce bus, ce jour-là ? (la petite cloche dans la grille)
+export function rappelDuBus(favori, heure, jourIso) {
+  return rappelsValides(favori.rappels).find((r) => r.heure === heure
+    && (r.repetition === "une" ? r.jour === jourIso : JOURS_DE[r.repetition].includes(lundiZero(jourIso))));
+}
+
+// Le serveur reçoit le strict nécessaire pour retrouver le bus dans les horaires : le réseau, la ligne,
+// la direction, l'arrêt (ses identifiants, et son nom au cas où ils changent) et l'heure de CE bus. Jamais la position.
+export function rappelsBusPourLeServeur(liste = lire()) {
+  return liste.flatMap((b) => rappelsValides(b.rappels).map((r) => ({
+    code: b.code, ligneId: b.ligneId, ligne: b.ligne.nom, direction: b.direction,
+    arret: b.arret.nom, ids: b.arret.ids.slice(0, 10), heure: r.heure, avance: r.avance,
+    jours: r.repetition === "une" ? [lundiZero(r.jour)] : JOURS_DE[r.repetition], jour: r.repetition === "une" ? r.jour : null,
+  }))).slice(0, MAX_RAPPELS);
+}
 
 export function useBusFavoris() {
   const [bus, setBus] = useState(lire);
@@ -50,6 +68,20 @@ export function useBusFavoris() {
     return "ajoute";
   };
   const retirer = (cle) => ecrire(lire().filter((x) => idBus(x) !== cle));
-  const regler = (cle, rappel) => ecrire(lire().map((x) => (idBus(x) === cle ? { ...x, rappel: rappel || undefined } : x)));
-  return { bus, estFavori, basculer, retirer, regler, maximum: MAXIMUM_LISTE };
+  const nombreRappels = bus.reduce((n, b) => n + rappelsValides(b.rappels).length, 0);
+  // Poser (ou remplacer) le rappel d'un bus précis ; le favori est ajouté s'il n'y est pas encore
+  const poserRappel = (favori, rappel) => {
+    let liste = lire();
+    if (!liste.some((x) => idBus(x) === idBus(favori))) {
+      const r = ajouterSansPerdre(liste, favori, idBus, MAXIMUM_LISTE);
+      if (r.plein) return "plein";
+      liste = r.liste;
+    }
+    ecrire(liste.map((x) => (idBus(x) !== idBus(favori) ? x
+      : { ...x, rappel: undefined, rappels: [...rappelsValides(x.rappels).filter((a) => a.heure !== rappel.heure), rappel] })));
+    return "pose";
+  };
+  const arreterRappel = (favori, heure) => ecrire(lire().map((x) => (idBus(x) !== idBus(favori) ? x
+    : { ...x, rappel: undefined, rappels: rappelsValides(x.rappels).filter((a) => a.heure !== heure) })));
+  return { bus, estFavori, basculer, retirer, poserRappel, arreterRappel, nombreRappels, maximum: MAXIMUM_LISTE };
 }

@@ -13,7 +13,6 @@ import sys
 from datetime import datetime
 from pathlib import Path
 
-import numpy as np
 import pandas as pd
 
 import entrainer_modele as em
@@ -22,8 +21,6 @@ RACINE = Path(__file__).resolve().parent
 SORTIE = RACINE / "site" / "public" / "donnees" / "pages.json"
 ESSAI = RACINE / "resultats" / "essai_etat_ligne.json"     # dans Git (le dossier modele/ ne l'est pas)
 HISTORIQUE = RACINE / "modele" / "historique.csv"
-AVANCE = pd.Timedelta(minutes=30)          # comme l'essai : ce qu'on savait 30 min avant le départ du train
-CONNU_APRES = pd.Timedelta(minutes=5)
 CALME, AGITE, VUS_MIN = 0.10, 0.30, 5      # « la ligne allait bien » / « avait déjà des problèmes »
 TRANCHES = [(1, 1, "1re gare"), (2, 4, "2e à 4e"), (5, 8, "5e à 8e"), (9, 13, "9e à 13e"), (14, 999, "14e et +")]
 HEURES = [(5, 6, "5 h - 7 h"), (7, 8, "7 h - 9 h"), (9, 15, "9 h - 16 h"), (16, 18, "16 h - 19 h"), (19, 23, "19 h et +")]
@@ -45,24 +42,8 @@ def taux(serie):
     return round(100 * float(serie.mean()), 1) if len(serie) else None
 
 
-def etat_de_la_ligne(df):
-    """Pour chaque passage : la part des passages de SA ligne déjà perturbés, ce jour-là, 30 min avant le départ
-    de SON train (même règle que l'essai à blanc : jamais d'information venue de l'avenir)."""
-    df = df.copy()
-    df["moment"] = pd.to_datetime(df["heure_prevue"])
-    df["question"] = df.groupby(["date", "trip_id"])["moment"].transform("min") - AVANCE
-    faits = df[["date", "ligne", "moment", "perturbe"]].copy()
-    faits["connu"] = faits["moment"] + CONNU_APRES
-    faits = faits.sort_values("connu")
-    groupe = faits.groupby(["date", "ligne"], sort=False)
-    faits["vus"], faits["perturbes"] = groupe.cumcount() + 1, groupe["perturbe"].cumsum()
-    questions = df[["date", "trip_id", "ligne", "question"]].drop_duplicates(["date", "trip_id", "ligne"]).sort_values("question")
-    reponses = pd.merge_asof(questions, faits[["date", "ligne", "connu", "vus", "perturbes"]], left_on="question",
-                             right_on="connu", by=["date", "ligne"], direction="backward")
-    df = df.merge(reponses[["date", "trip_id", "ligne", "vus", "perturbes"]], on=["date", "trip_id", "ligne"], how="left")
-    df["vus"] = df["vus"].fillna(0)
-    df["part_matin"] = np.where(df["vus"] > 0, df["perturbes"] / df["vus"].clip(lower=1), np.nan)
-    return df
+# La même règle que le modèle et l'essai : ce qu'on savait de la ligne 30 min avant le départ du train.
+etat_de_la_ligne = em.etat_de_la_ligne
 
 
 def analyses(df):
@@ -89,13 +70,20 @@ def analyses(df):
     }
 
 
+def nombre_ou_rien(texte):
+    return float(texte) if texte not in (None, "") else None
+
+
 def modele():
     lignes = []
     if HISTORIQUE.exists():
         with open(HISTORIQUE, newline="", encoding="utf-8") as f:
             for l in csv.DictReader(f):
                 lignes.append({"date": l["date"], "examen": l["examen"], "journees": int(l["journees"]),
-                               "gain": float(l["gain_pct"]), "annonce": float(l["annonce_pct"]), "reel": float(l["reel_pct"])})
+                               "gain": float(l["gain_pct"]), "annonce": float(l["annonce_pct"]), "reel": float(l["reel_pct"]),
+                               # la version « état de la ligne » : absente des nuits d'avant le lot 6
+                               "gain_etat": nombre_ou_rien(l.get("gain_etat_pct")),
+                               "annonce_etat": nombre_ou_rien(l.get("annonce_etat_pct"))})
     essai = json.loads(ESSAI.read_text(encoding="utf-8")) if ESSAI.exists() else None
     return {"historique": lignes, "essai": essai, "conditions": {"gain_min": 3.0, "ecart_max": 2.0, "jours": 14}}
 

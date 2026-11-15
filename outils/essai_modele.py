@@ -15,7 +15,6 @@ Lancement, sur la VM, depuis ~/quai-nord (compter 10 à 20 minutes) :
     source .venv/bin/activate && nice python outils/essai_modele.py
 """
 import csv
-import math
 import sqlite3
 import sys
 from pathlib import Path
@@ -32,8 +31,6 @@ RACINE = Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(RACINE))
 import entrainer_modele as em  # noqa: E402  (les mêmes réglages et la même évaluation que chaque nuit)
 
-AVANCE = pd.Timedelta(minutes=30)   # le risque est annoncé au moins 30 min avant le départ du train
-CONNU_APRES = pd.Timedelta(minutes=5)  # un passage est jugé (retard de 5 min ou non) 5 min après son heure prévue
 JOURS_RECALAGE = 3
 GAIN_MIN, ECART_MAX = 3.0, 2.0
 
@@ -48,32 +45,8 @@ def charger():
         """, conn)
 
 
-def etat_de_la_ligne(df):
-    """Pour chaque passage : ce qu'on savait de SA ligne, ce jour-là, 30 min avant le départ de SON train.
-    part_matin : la part des passages déjà jugés qui étaient perturbés (vide s'il n'y en a aucun) ;
-    log_obs    : combien de passages étaient déjà jugés (log), pour que le modèle sache si la part est fiable."""
-    df = df.copy()
-    df["moment"] = pd.to_datetime(df["heure_prevue"])
-    depart = df.groupby(["date", "trip_id"])["moment"].transform("min")
-    df["question"] = depart - AVANCE
-
-    faits = df[["date", "ligne", "moment", "perturbe"]].copy()
-    faits["connu"] = faits["moment"] + CONNU_APRES
-    faits = faits.sort_values("connu")
-    groupe = faits.groupby(["date", "ligne"], sort=False)
-    faits["vus"] = groupe.cumcount() + 1
-    faits["perturbes"] = groupe["perturbe"].cumsum()
-
-    questions = (df[["date", "trip_id", "ligne", "question"]].drop_duplicates(["date", "trip_id", "ligne"])
-                 .sort_values("question"))
-    reponses = pd.merge_asof(questions, faits[["date", "ligne", "connu", "vus", "perturbes"]],
-                             left_on="question", right_on="connu", by=["date", "ligne"],
-                             direction="backward", allow_exact_matches=True)
-    df = df.merge(reponses[["date", "trip_id", "ligne", "vus", "perturbes"]], on=["date", "trip_id", "ligne"], how="left")
-    df["vus"] = df["vus"].fillna(0)
-    df["part_matin"] = np.where(df["vus"] > 0, df["perturbes"] / df["vus"].clip(lower=1), np.nan)
-    df["log_obs"] = np.log1p(df["vus"])
-    return df.drop(columns=["moment", "question", "perturbes"])
+# La même fonction que chaque nuit (entrainer_modele.py) : l'essai et le modèle calculent exactement pareil.
+etat_de_la_ligne = em.etat_de_la_ligne
 
 
 def modele(categories, nombres):

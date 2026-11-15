@@ -6,6 +6,12 @@ Il prédit le risque qu'un TER soit PERTURBÉ à une gare : en retard de 5 min o
 Ses variables : la ligne, l'heure, la position de l'arrêt dans le trajet, le jour de la semaine,
 la pluie et les rafales.
 
+Depuis le lot 6, DEUX versions sont évaluées chaque nuit, sur les mêmes jours :
+  - « actuel » : les variables ci-dessus ;
+  - « état de la ligne » : les mêmes, plus ce qu'on savait de la ligne CE JOUR-LÀ, 30 min avant le
+    départ du train (la part de ses passages déjà perturbés). Jamais d'information venue de l'avenir.
+L'historique garde les deux côte à côte : on branchera celle qui tient les conditions 2 semaines.
+
 Chaque nuit, le script :
   1. lit la table des retards (analyse.db), seulement les TER des Hauts-de-France constatés ;
   2. écarte les journées INCOMPLÈTES (collecte interrompue) et la journée en cours ;
@@ -26,6 +32,7 @@ from datetime import datetime
 from pathlib import Path
 
 import joblib
+import numpy as np
 import pandas as pd
 from sklearn.compose import ColumnTransformer
 from sklearn.impute import SimpleImputer
@@ -37,6 +44,9 @@ BASE_ANALYSE = "analyse.db"
 DOSSIER_MODELE = Path("modele")
 CATEGORIES = ["ligne", "heure", "position", "jour_semaine"]
 NOMBRES = ["pluie_mm", "rafales_kmh"]
+NOMBRES_ETAT = NOMBRES + ["part_matin", "log_obs"]     # la version « état de la ligne »
+AVANCE = pd.Timedelta(minutes=30)       # le risque est annoncé au moins 30 min avant le départ du train
+CONNU_APRES = pd.Timedelta(minutes=5)   # un passage est jugé (perturbé ou non) 5 min après son heure prévue
 TRANCHES = [0, 1, 2, 4, 7, 10, 14, 100]
 NOMS_TRANCHES = ["1er", "2e", "3e-4e", "5e-7e", "8e-10e", "11e-14e", "15e et +"]
 JOURS_TEST = 4             # les 4 derniers jours complets servent à l'évaluation
@@ -52,7 +62,7 @@ def charger(base=None):
     base = base or BASE_ANALYSE
     with sqlite3.connect(f"file:{base}?mode=ro", uri=True) as conn:
         return pd.read_sql("""
-            SELECT date_service, ligne, heure_prevue, ordre_arret, pluie_mm, rafales_kmh, perturbe
+            SELECT date_service, trip_id, ligne, heure_prevue, ordre_arret, pluie_mm, rafales_kmh, perturbe
             FROM retards
             WHERE hauts_de_france = 1 AND type_observation = 'CONSTATE' AND heure_prevue IS NOT NULL
               AND trip_id LIKE '%:TER:%'
@@ -69,6 +79,34 @@ def preparer_variables(df):
     return df
 
 
+def etat_de_la_ligne(df):
+    """Pour chaque passage : ce qu'on savait de SA ligne, ce jour-là, 30 min avant le départ de SON train.
+    part_matin : la part des passages déjà jugés qui étaient perturbés (vide s'il n'y en a aucun) ;
+    vus / log_obs : combien de passages étaient déjà jugés, pour que le modèle sache si la part est fiable.
+    Le passage prédit n'est JAMAIS compté : il est jugé après le départ de son train."""
+    df = df.copy()
+    df["moment"] = pd.to_datetime(df["heure_prevue"])
+    df["question"] = df.groupby(["date", "trip_id"])["moment"].transform("min") - AVANCE
+
+    faits = df[["date", "ligne", "moment", "perturbe"]].copy()
+    faits["connu"] = faits["moment"] + CONNU_APRES
+    faits = faits.sort_values("connu")
+    groupe = faits.groupby(["date", "ligne"], sort=False)
+    faits["vus"] = groupe.cumcount() + 1
+    faits["perturbes"] = groupe["perturbe"].cumsum()
+
+    questions = (df[["date", "trip_id", "ligne", "question"]].drop_duplicates(["date", "trip_id", "ligne"])
+                 .sort_values("question"))
+    reponses = pd.merge_asof(questions, faits[["date", "ligne", "connu", "vus", "perturbes"]],
+                             left_on="question", right_on="connu", by=["date", "ligne"],
+                             direction="backward", allow_exact_matches=True)
+    df = df.merge(reponses[["date", "trip_id", "ligne", "vus", "perturbes"]], on=["date", "trip_id", "ligne"], how="left")
+    df["vus"] = df["vus"].fillna(0)
+    df["part_matin"] = np.where(df["vus"] > 0, df["perturbes"] / df["vus"].clip(lower=1), np.nan)
+    df["log_obs"] = np.log1p(df["vus"])
+    return df.drop(columns=["moment", "question", "perturbes"])
+
+
 def jours_complets(df, aujourd_hui=None):
     """Les dates à garder : passées, et assez complètes (comparées aux autres jours du même type,
     semaine ou week-end). Une journée où la collecte s'est arrêtée serait DÉFORMÉE."""
@@ -80,18 +118,18 @@ def jours_complets(df, aujourd_hui=None):
     return sorted(par_jour[par_jour >= SEUIL_COMPLET * habituel].index)
 
 
-def preparer(table):
-    X = table[CATEGORIES + NOMBRES].copy()
+def preparer(table, nombres=NOMBRES):
+    X = table[CATEGORIES + nombres].copy()
     for c in CATEGORIES:
         X[c] = X[c].astype(str)
     return X
 
 
-def construire_modele():
+def construire_modele(nombres=NOMBRES):
     return make_pipeline(
         ColumnTransformer([
             ("categories", OneHotEncoder(handle_unknown="infrequent_if_exist", min_frequency=FREQUENCE_MIN), CATEGORIES),
-            ("nombres", make_pipeline(SimpleImputer(strategy="median"), StandardScaler()), NOMBRES),
+            ("nombres", make_pipeline(SimpleImputer(strategy="median"), StandardScaler()), nombres),
         ]),
         LogisticRegression(C=1.0, max_iter=2000),
     )
@@ -105,7 +143,8 @@ def brier(probabilites, realite):
 
 
 def evaluer(df, jours):
-    """Apprend sur les jours anciens, teste sur les JOURS_TEST derniers. Renvoie les scores de Brier."""
+    """Apprend sur les jours anciens, teste sur les JOURS_TEST derniers. Renvoie les scores de Brier
+    des deux versions (actuelle, et avec l'état de la ligne si df a la colonne part_matin)."""
     jours_test = jours[-JOURS_TEST:]
     apprentissage = df[df["date"].isin(jours[:-JOURS_TEST])]
     test = df[df["date"].isin(jours_test)]
@@ -124,6 +163,13 @@ def evaluer(df, jours):
     # La calibration, en résumé : le risque moyen ANNONCÉ, comparé à la part VRAIMENT perturbée
     calibration = {"annonce_pct": round(100 * float(probabilites.mean()), 1),
                    "reel_pct": round(100 * float(test["perturbe"].mean()), 1)}
+
+    if "part_matin" in df:          # la version « état de la ligne », sur exactement les mêmes jours
+        avec_etat = construire_modele(NOMBRES_ETAT).fit(preparer(apprentissage, NOMBRES_ETAT), apprentissage["perturbe"])
+        p_etat = avec_etat.predict_proba(preparer(test, NOMBRES_ETAT))[:, 1]
+        scores["modele_etat"] = brier(p_etat, test["perturbe"])
+        scores["gain_etat_pct"] = round(100 * (1 - scores["modele_etat"] / scores["taux_de_la_ligne"]), 2)
+        calibration["annonce_etat_pct"] = round(100 * float(p_etat.mean()), 1)
     return scores, calibration, [d.strftime("%Y-%m-%d") for d in jours_test]
 
 
@@ -154,22 +200,26 @@ def main():
     if len(jours) < JOURS_TEST + 4:
         print("   Pas encore assez de journées complètes pour évaluer un modèle (il en faut au moins 8).")
         return 0
-    df = df[df["date"].isin(jours)]
+    df = etat_de_la_ligne(df[df["date"].isin(jours)])
 
     scores, calibration, jours_test = evaluer(df, jours)
     print(f"2. Évaluation sur {', '.join(jours_test)} (jamais vus) :")
     for nom, valeur in scores.items():
         print(f"   {nom:<24} {valeur}")
-    print(f"   risque moyen annoncé {calibration['annonce_pct']} %, réellement perturbés {calibration['reel_pct']} %")
+    print(f"   risque moyen annoncé {calibration['annonce_pct']} % "
+          f"(avec l'état de la ligne : {calibration['annonce_etat_pct']} %), réellement perturbés {calibration['reel_pct']} %")
 
     modele = construire_modele().fit(preparer(df), df["perturbe"])        # le modèle final : tous les jours
     DOSSIER_MODELE.mkdir(exist_ok=True)
     joblib.dump(modele, DOSSIER_MODELE / "modele_perturbations.joblib")
+    avec_etat = construire_modele(NOMBRES_ETAT).fit(preparer(df, NOMBRES_ETAT), df["perturbe"])
+    joblib.dump(avec_etat, DOSSIER_MODELE / "modele_etat_ligne.joblib")
     rapport = {
         "genere_le": datetime.now().strftime("%Y-%m-%d %H:%M"),
         "modele": "régression logistique",
         "cible": "perturbé (retard de 5 min ou plus, ou supprimé)",
         "variables": CATEGORIES + NOMBRES,
+        "variables_etat_ligne": CATEGORIES + NOMBRES_ETAT,
         "journees": len(jours), "premiere": f"{jours[0]:%Y-%m-%d}", "derniere": f"{jours[-1]:%Y-%m-%d}",
         "passages": int(len(df)), "jours_test": jours_test, "scores_brier": scores, "calibration": calibration,
     }
@@ -180,8 +230,12 @@ def main():
         "journees": len(jours), "constante": scores["constante"], "ligne": scores["taux_de_la_ligne"],
         "modele": scores["modele"], "gain_pct": scores["gain_sur_la_ligne_pct"],
         "annonce_pct": calibration["annonce_pct"], "reel_pct": calibration["reel_pct"],
+        # La version « état de la ligne » (colonnes vides pour les nuits d'avant le lot 6)
+        "modele_etat": scores["modele_etat"], "gain_etat_pct": scores["gain_etat_pct"],
+        "annonce_etat_pct": calibration["annonce_etat_pct"],
     })
-    print(f"3. Modèle enregistré dans {DOSSIER_MODELE}/ (gain sur la référence : {scores['gain_sur_la_ligne_pct']} %)")
+    print(f"3. Modèles enregistrés dans {DOSSIER_MODELE}/ (gain sur la référence : actuel {scores['gain_sur_la_ligne_pct']} %, "
+          f"avec l'état de la ligne {scores['gain_etat_pct']} %)")
     print(f"   Historique : column -s, -t < {DOSSIER_MODELE}/historique.csv")
     return 0
 

@@ -77,6 +77,8 @@ def creer_tables(conn):
             derniere_vue     INTEGER,         -- dernière mise à jour
             PRIMARY KEY (trip_id, date_service, stop_id)
         );
+        -- Pour retrouver vite les derniers jours (mise à jour de la nuit, vérification du GTFS)
+        CREATE INDEX IF NOT EXISTS idx_passages_date ON passages(date_service);
 
         -- Journal des collectes : utile pour vérifier que tout tourne bien
         CREATE TABLE IF NOT EXISTS collectes (

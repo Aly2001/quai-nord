@@ -64,7 +64,7 @@ def preparer_variables(df):
     df = df.copy()
     df["date"] = pd.to_datetime(df["date_service"].astype(str), format="%Y%m%d")
     df["heure"] = pd.to_datetime(df["heure_prevue"]).dt.hour
-    df["jour_semaine"] = df["date"].dt.dayofweek
+    df["jour_semaine"] = df["date"].dt.day_of_week
     df["position"] = pd.cut(df["ordre_arret"] + 1, bins=TRANCHES, labels=NOMS_TRANCHES)   # numérotée à partir de 0
     return df
 
@@ -74,7 +74,7 @@ def jours_complets(df, aujourd_hui=None):
     semaine ou week-end). Une journée où la collecte s'est arrêtée serait DÉFORMÉE."""
     aujourd_hui = pd.Timestamp(aujourd_hui or datetime.now().date())
     par_jour = df[df["date"] < aujourd_hui].groupby("date").size()
-    week_end = par_jour.index.dayofweek >= 5
+    week_end = par_jour.index.day_of_week >= 5
     habituel = pd.Series(par_jour.where(~week_end).median(), index=par_jour.index)
     habituel[week_end] = par_jour[week_end].median()
     return sorted(par_jour[par_jour >= SEUIL_COMPLET * habituel].index)

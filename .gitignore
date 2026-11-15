@@ -3,6 +3,9 @@
 # Bases de donnees et fichiers generes (lourds, recreables)
 *.db
 *.db-journal
+*.db-wal
+*.db-shm
+mise_a_jour.verrou
 *.zip
 *.csv
 *.tmp

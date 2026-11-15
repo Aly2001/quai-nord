@@ -73,10 +73,10 @@ def analyses(df):
                 for a, b, nom in TRANCHES if len(d := df[(df["rang"] >= a) & (df["rang"] <= b)])]
     heures = [{"tranche": nom, "taux": taux(d["perturbe"]), "passages": int(len(d))}
               for a, b, nom in HEURES if len(d := df[(df["h"] >= a) & (df["h"] <= b)])]
-    par_jour = [{"date": f"{j:%Y-%m-%d}", "etiquette": f"{JOURS[j.dayofweek]} {j:%d/%m}", "taux": taux(d["perturbe"]),
+    par_jour = [{"date": f"{j:%Y-%m-%d}", "etiquette": f"{JOURS[j.day_of_week]} {j:%d/%m}", "taux": taux(d["perturbe"]),
                  "passages": int(len(d))} for j, d in df.groupby("date")]
     semaine = [{"jour": JOURS[n], "taux": taux(d["perturbe"]), "passages": int(len(d))}
-               for n, d in df.groupby(df["date"].dt.dayofweek)]
+               for n, d in df.groupby(df["date"].dt.day_of_week)]
     etat = etat_de_la_ligne(df)
     connus = etat[etat["vus"] >= VUS_MIN]
     calme, agite = connus[connus["part_matin"] < CALME], connus[connus["part_matin"] >= AGITE]

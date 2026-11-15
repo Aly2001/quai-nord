@@ -42,8 +42,21 @@ MIN_PAR_TRAIN = 5      # grâce au lissage, quelques passages suffisent
 MIN_PAR_GROUPE = 10
 
 
+FILTRE = ("type_observation = 'CONSTATE' AND heure_prevue IS NOT NULL "
+          "AND supprime = 0")   # les suppressions seront traitées à part, avec le modèle
+
+
 def lisser(retards, passages, a_priori):
     return (retards + K * a_priori) / (passages + K)
+
+
+def la_plus_frequente(comptes):
+    """Pour chaque train, la valeur la plus fréquente (en cas d'égalité : la plus petite,
+    comme pandas .mode()). comptes : colonnes numero_train, valeur, n."""
+    if comptes.empty:
+        return pd.Series(dtype=object)
+    tries = comptes.sort_values(["numero_train", "n", "valeur"], ascending=[True, False, True])
+    return tries.drop_duplicates("numero_train").set_index("numero_train")["valeur"]
 
 
 def main():
@@ -52,40 +65,50 @@ def main():
     if not SORTIE.parent.exists():
         raise SystemExit("Dossier site/public/horaires introuvable : lance d'abord python exporter_horaires.py")
 
-    conn = sqlite3.connect(BASE_ANALYSE)
-    df = pd.read_sql("""
-        SELECT numero_train, ligne, gare, heure_prevue, date_service, en_retard
+    # Tous les comptages sont faits PAR SQLITE : avant, la table entière (des millions de
+    # lignes) était chargée dans pandas, ce qui saturait la mémoire de la machine (1 Go) et
+    # prenait plus de 2 heures. Les résultats sont exactement les mêmes.
+    conn = sqlite3.connect(f"file:{BASE_ANALYSE}?mode=ro", uri=True)
+    conn.execute(f"""
+        CREATE TEMP VIEW constates AS
+        SELECT numero_train, ligne, gare, date_service, en_retard,
+               substr(heure_prevue, 12, 2) AS heure
         FROM retards
-        WHERE type_observation = 'CONSTATE' AND heure_prevue IS NOT NULL
-          AND supprime = 0            -- les suppressions seront traitées à part, avec le modèle
-    """, conn)
-    conn.close()
-    if df.empty:
+        WHERE {FILTRE}
+    """)
+    lire = lambda requete: pd.read_sql(requete, conn)
+
+    total, retards_total, jours = conn.execute(
+        "SELECT COUNT(*), SUM(en_retard), COUNT(DISTINCT date_service) FROM constates").fetchone()
+    if not total:
+        conn.close()
         raise SystemExit("Aucun retard constaté : laisse tourner le collecteur un peu plus.")
-    df["heure"] = pd.to_datetime(df["heure_prevue"]).dt.strftime("%H")
 
     # ---------- Niveau 0 : toute la France ----------
-    taux_global = df["en_retard"].mean()
+    taux_global = retards_total / total
 
     # ---------- Niveau 1 : par heure (a priori = toute la France) ----------
-    h = df.groupby("heure")["en_retard"].agg(["sum", "count"])
+    h = lire('SELECT heure, SUM(en_retard) AS "sum", COUNT(*) AS "count" FROM constates '
+             'GROUP BY heure').set_index("heure")
     h["taux"] = lisser(h["sum"], h["count"], taux_global)
 
     # ---------- Niveau 2 : par ligne et par heure (a priori = l'heure) ----------
-    avec_ligne = df.dropna(subset=["ligne"])
-    lh = avec_ligne.groupby(["ligne", "heure"])["en_retard"].agg(["sum", "count"])
+    lh = lire('SELECT ligne, heure, SUM(en_retard) AS "sum", COUNT(*) AS "count" FROM constates '
+              'WHERE ligne IS NOT NULL GROUP BY ligne, heure').set_index(["ligne", "heure"])
     a_priori_lh = [h["taux"].get(heure, taux_global) for _, heure in lh.index]
     lh["taux"] = lisser(lh["sum"], lh["count"], pd.Series(a_priori_lh, index=lh.index))
 
     # ---------- Niveau 3 : par train (a priori = sa ligne à son heure habituelle) ----------
-    trains = df.dropna(subset=["numero_train"])
-    mode = lambda s: s.mode().iat[0] if not s.mode().empty else None
-    t = trains.groupby("numero_train").agg(
-        retards=("en_retard", "sum"),
-        passages=("en_retard", "count"),
-        ligne=("ligne", mode),
-        heure=("heure", mode),
-    )
+    t = lire('SELECT numero_train, SUM(en_retard) AS retards, COUNT(*) AS passages FROM constates '
+             'WHERE numero_train IS NOT NULL GROUP BY numero_train').set_index("numero_train")
+    t["ligne"] = la_plus_frequente(lire(
+        'SELECT numero_train, ligne AS valeur, COUNT(*) AS n FROM constates '
+        'WHERE numero_train IS NOT NULL AND ligne IS NOT NULL GROUP BY numero_train, ligne'))
+    t["heure"] = la_plus_frequente(lire(
+        'SELECT numero_train, heure AS valeur, COUNT(*) AS n FROM constates '
+        'WHERE numero_train IS NOT NULL AND heure IS NOT NULL GROUP BY numero_train, heure'))
+    for colonne in ("ligne", "heure"):
+        t[colonne] = t[colonne].astype(object).where(t[colonne].notna(), None)
 
     def a_priori_train(train):
         # L'a priori d'un train = sa ligne à son heure habituelle, calculée SANS ce train
@@ -98,14 +121,17 @@ def main():
         autres_passages = lh.at[cle, "count"] - train["passages"]
         return lisser(max(autres_retards, 0), max(autres_passages, 0), a_priori_heure)
 
-    t["a_priori"] = t.apply(a_priori_train, axis=1)
+    t["a_priori"] = t.apply(a_priori_train, axis=1) if len(t) else []
     t["taux"] = lisser(t["retards"], t["passages"], t["a_priori"])
 
     # ---------- Pour la carte : par ligne et par gare (a priori = toute la France) ----------
-    par_l = df.dropna(subset=["ligne"]).groupby("ligne")["en_retard"].agg(["sum", "count"])
+    par_l = lire('SELECT ligne, SUM(en_retard) AS "sum", COUNT(*) AS "count" FROM constates '
+                 'WHERE ligne IS NOT NULL GROUP BY ligne').set_index("ligne")
     par_l["taux"] = lisser(par_l["sum"], par_l["count"], taux_global)
-    par_g = df.dropna(subset=["gare"]).groupby("gare")["en_retard"].agg(["sum", "count"])
+    par_g = lire('SELECT gare, SUM(en_retard) AS "sum", COUNT(*) AS "count" FROM constates '
+                 'WHERE gare IS NOT NULL GROUP BY gare').set_index("gare")
     par_g["taux"] = lisser(par_g["sum"], par_g["count"], taux_global)
+    conn.close()
     # Seulement les gares du site (région + Paris Nord), pour garder un fichier léger
     index_gares = SORTIE.parent / "gares.json"
     if index_gares.exists():
@@ -118,8 +144,8 @@ def main():
 
     resultat = {
         "genere_le": datetime.now(ZoneInfo("Europe/Paris")).strftime("%Y-%m-%d %H:%M"),
-        "jours_observes": int(df["date_service"].nunique()),
-        "passages": int(len(df)),
+        "jours_observes": int(jours),
+        "passages": int(total),
         "lissage": {"methode": "moyenne bayésienne", "k": K, "taux_global": round(float(taux_global), 3)},
         "par_train": {num: entree(r["taux"], r["passages"], r["retards"])
                       for num, r in t.iterrows() if r["passages"] >= MIN_PAR_TRAIN},
@@ -132,7 +158,7 @@ def main():
     }
     SORTIE.write_text(json.dumps(resultat, ensure_ascii=False), encoding="utf-8")
 
-    print(f"Passages constatés utilisés : {len(df)} sur {resultat['jours_observes']} jour(s)")
+    print(f"Passages constatés utilisés : {total} sur {resultat['jours_observes']} jour(s)")
     print(f"Taux moyen (toute la France) : {taux_global:.1%}")
     print(f"Trains avec un risque propre    : {len(resultat['par_train'])}")
     print(f"Couples ligne / heure           : {len(resultat['par_ligne_heure'])}")

@@ -8,15 +8,23 @@ et produit une table claire, prête pour l'analyse :
   - analyse.db : table "retards" (une ligne par train, par jour et par gare)
   - retards_hdf.csv : la même chose pour les Hauts-de-France (Excel / Power BI)
 
-La table est entièrement reconstruite à chaque lancement.
+Chaque nuit, seuls les DERNIERS JOURS sont recalculés (JOURS_RECALCULES) : les jours plus
+anciens sont terminés, leurs retards ne bougent plus. C'est bien plus rapide, et la table ne
+dépend plus de la taille de l'historique.
+La table est reconstruite EN ENTIER seulement si elle n'existe pas encore, si ses colonnes
+ont changé (nouvelle version du script), ou à la demande :
+    python construire_retards.py --complet
+
 Lancement : python construire_retards.py
 (Le collecteur peut continuer à tourner pendant ce temps.)
 """
 
+import csv
 import os
 import sqlite3
+import sys
+from datetime import date, timedelta
 
-import pandas as pd
 
 BASE_TEMPS_REEL = "sncf.db"
 BASE_GTFS = "gtfs.db"
@@ -24,6 +32,7 @@ BASE_ANALYSE = "analyse.db"
 BASE_METEO = "meteo.db"        # facultatif : créé par collecter_meteo.py
 EXPORT_CSV = "retards_hdf.csv"
 SEUIL_RETARD = 300   # 5 minutes, en secondes
+JOURS_RECALCULES = 3 # aujourd'hui et les 3 jours d'avant : un retard peut encore être complété ou constaté
 
 
 def colonne_ou_null(conn, table, colonne):
@@ -52,8 +61,8 @@ def colonnes_meteo(avec_meteo):
     return ",\n            ".join(f"NULL AS {n}" for n in noms)
 
 
-def construire(conn, avec_meteo):
-    print("1. Construction de la table des retards...")
+def requete(conn, avec_meteo):
+    """La requête qui transforme les passages bruts en lignes de la table des retards."""
     numero_train = colonne_ou_null(conn, "trips", "trip_headsign")
     nom_ligne = colonne_ou_null(conn, "routes", "route_long_name")
     date_iso = ("substr(p.date_service, 1, 4) || '-' || "
@@ -70,10 +79,7 @@ def construire(conn, avec_meteo):
                                  AND mt.heure = strftime('%Y-%m-%d %H:00:00', {heure_prevue}, '+1 hour')
     """ if avec_meteo else ""
 
-    conn.executescript(f"""
-        DROP TABLE IF EXISTS a.retards;
-
-        CREATE TABLE a.retards AS
+    selection = f"""
         SELECT
             -- Identification
             p.trip_id,
@@ -131,13 +137,52 @@ def construire(conn, avec_meteo):
                                  AND st.stop_id = p.stop_id
         {jointure_meteo}
         -- Un retard mesuré, OU une suppression (qui n'a pas de retard, mais compte autant pour le voyageur)
-        WHERE COALESCE(p.retard_arrivee, p.retard_depart) IS NOT NULL
-           OR p.statut_train = 'SUPPRIME' OR p.statut_arret = 'SAUTE';
+        WHERE (COALESCE(p.retard_arrivee, p.retard_depart) IS NOT NULL
+               OR p.statut_train = 'SUPPRIME' OR p.statut_arret = 'SAUTE')
+    """
+    return selection
 
-        CREATE INDEX a.idx_retards_gare ON retards(gare);
-        CREATE INDEX a.idx_retards_date ON retards(date_service);
-    """)
-    conn.commit()
+
+def colonnes_attendues(conn, selection):
+    """Les colonnes que produirait la sélection (sans rien calculer : LIMIT 0)."""
+    curseur = conn.execute(f"SELECT * FROM ({selection}) LIMIT 0")
+    return [description[0] for description in curseur.description]
+
+
+def colonnes_existantes(conn):
+    return [ligne[1] for ligne in conn.execute("PRAGMA a.table_info(retards)")]
+
+
+def construire(conn, avec_meteo, complet=False, aujourd_hui=None):
+    selection = requete(conn, avec_meteo)
+    existantes = colonnes_existantes(conn)
+    if not complet and not existantes:
+        print("   (la table n'existe pas encore : construction complète)")
+        complet = True
+    elif not complet and existantes != colonnes_attendues(conn, selection):
+        print("   (les colonnes ont changé : construction complète)")
+        complet = True
+
+    if complet:
+        print("1. Construction COMPLÈTE de la table des retards...")
+        conn.executescript(f"""
+            DROP TABLE IF EXISTS a.retards;
+            CREATE TABLE a.retards AS {selection};
+            CREATE INDEX a.idx_retards_gare ON retards(gare);
+            CREATE INDEX a.idx_retards_date ON retards(date_service);
+        """)
+        conn.commit()
+        return
+
+    aujourd_hui = aujourd_hui or date.today()
+    depuis = (aujourd_hui - timedelta(days=JOURS_RECALCULES)).strftime("%Y%m%d")
+    print(f"1. Mise à jour de la table des retards (jours de service depuis le {depuis})...")
+    # Une seule transaction : si quelque chose échoue, la table reste comme avant.
+    with conn:
+        supprimees = conn.execute("DELETE FROM a.retards WHERE date_service >= ?", (depuis,)).rowcount
+        ajoutees = conn.execute(f"INSERT INTO a.retards {selection} AND p.date_service >= ?",
+                                (depuis,)).rowcount
+    print(f"   {supprimees} lignes remplacées par {ajoutees} lignes à jour")
 
 
 def resume(conn):
@@ -173,12 +218,22 @@ def resume(conn):
         print(f"   {heure}h  | {nb:>8} | {pct:5.1f} % {barre}")
 
 
-def exporter_csv():
-    conn = sqlite3.connect(BASE_ANALYSE)
-    df = pd.read_sql("SELECT * FROM retards WHERE hauts_de_france = 1", conn)
+def exporter_csv(base=BASE_ANALYSE, sortie=EXPORT_CSV):
+    """Écrit le fichier ligne par ligne : la table entière ne passe jamais en mémoire
+    (la machine n'a que 1 Go de mémoire)."""
+    conn = sqlite3.connect(f"file:{base}?mode=ro", uri=True)
+    curseur = conn.execute("SELECT * FROM retards WHERE hauts_de_france = 1")
+    temporaire = f"{sortie}.tmp"
+    nombre = 0
+    with open(temporaire, "w", newline="", encoding="utf-8-sig") as fichier:
+        ecrivain = csv.writer(fichier, delimiter=";")
+        ecrivain.writerow([d[0] for d in curseur.description])
+        while paquet := curseur.fetchmany(50_000):
+            ecrivain.writerows(paquet)
+            nombre += len(paquet)
     conn.close()
-    df.to_csv(EXPORT_CSV, index=False, encoding="utf-8-sig", sep=";")
-    print(f"\n3. Export : {len(df)} lignes dans {EXPORT_CSV} (ouvrable dans Excel)")
+    os.replace(temporaire, sortie)      # Power BI ne lit jamais un fichier à moitié écrit
+    print(f"\n3. Export : {nombre} lignes dans {sortie} (ouvrable dans Excel)")
 
 
 if __name__ == "__main__":
@@ -195,7 +250,7 @@ if __name__ == "__main__":
         conn.execute(f"ATTACH DATABASE '{BASE_METEO}' AS m")
     else:
         print("(meteo.db introuvable : les colonnes météo resteront vides. Lance collecter_meteo.py.)")
-    construire(conn, avec_meteo)
+    construire(conn, avec_meteo, complet="--complet" in sys.argv)
     resume(conn)
     conn.close()
     exporter_csv()

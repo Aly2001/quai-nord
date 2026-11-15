@@ -9,7 +9,7 @@ l'historique). Elle doit donc exister à deux endroits : la machine ET le cloud.
      (fonction « backup » de SQLite, prévue pour ça) ;
   2. compression (gzip) : environ 10 fois plus léger ;
   3. envoi dans le bucket, avec la date dans le nom ;
-  4. suppression des sauvegardes les plus anciennes (on en garde 14).
+  4. suppression des sauvegardes les plus anciennes (on en garde 7).
 
 Lancé automatiquement chaque nuit par mettre_a_jour.py (dernière étape).
 À la main : python sauvegarder.py
@@ -30,7 +30,7 @@ from zoneinfo import ZoneInfo
 
 BASE = Path("sncf.db")
 BUCKET = "gs://quai-nord-transfert-aly/sauvegardes"
-A_GARDER = 14
+A_GARDER = 7           # une semaine : assez pour revenir en arrière, sans remplir le bucket
 
 
 def gcloud(*arguments, capturer=False):
@@ -63,7 +63,7 @@ def main():
         passages, = sqlite3.connect(copie).execute("SELECT COUNT(*) FROM passages").fetchone()
 
         # 2. Compression
-        with open(copie, "rb") as entree, gzip.open(archive, "wb") as sortie:
+        with open(copie, "rb") as entree, gzip.open(archive, "wb", compresslevel=6) as sortie   # 6 : presque aussi léger que 9, bien plus rapide:
             shutil.copyfileobj(entree, sortie)
         taille = archive.stat().st_size / 1024 / 1024
         print(f"   Copie : {passages} passages, {taille:.1f} Mo compressés", flush=True)

@@ -18,6 +18,7 @@ Lancement : python charger_gtfs.py
 import os
 import sqlite3
 import zipfile
+from datetime import date, timedelta
 
 import pandas as pd
 import requests
@@ -28,6 +29,7 @@ FICHIER_ZIP = "gtfs_sncf.zip"
 BASE_GTFS = "gtfs.db"
 BASE_TEMPORAIRE = "gtfs_tmp.db"
 BASE_TEMPS_REEL = "sncf.db"
+JOURS_VERIFIES = 7     # la vérification ne regarde que la dernière semaine : rapide, et c'est elle qui compte
 
 # Contour simplifié des Hauts-de-France : une liste de points (longitude,
 # latitude) qui fait le tour de la région. Précis à quelques kilomètres
@@ -142,18 +144,21 @@ def verifier_correspondance():
     # Lecture seule : cette vérification ne doit jamais gêner le collecteur qui écrit.
     conn = sqlite3.connect(f"file:{BASE_TEMPS_REEL}?mode=ro", uri=True, timeout=60)
     conn.execute(f"ATTACH DATABASE '{BASE_GTFS}' AS g")
+    depuis = (date.today() - timedelta(days=JOURS_VERIFIES)).strftime("%Y%m%d")
 
     total, gares_ok, trains_ok = conn.execute("""
         SELECT COUNT(*),
                SUM(stop_id IN (SELECT stop_id FROM g.stops)),
                SUM(trip_id IN (SELECT trip_id FROM g.trips))
         FROM passages
-    """).fetchone()
+        WHERE date_service >= ?
+    """, (depuis,)).fetchone()
     if total:
+        print(f"   (passages des {JOURS_VERIFIES} derniers jours)")
         print(f"   Gares reconnues  : {100 * gares_ok / total:5.1f} %")
         print(f"   Trains reconnus  : {100 * trains_ok / total:5.1f} %")
 
-    print("\n   Aperçu : gares des Hauts-de-France les plus touchées")
+    print(f"\n   Aperçu : gares des Hauts-de-France les plus touchées ({JOURS_VERIFIES} derniers jours)")
     print("   " + "-" * 58)
     print(f"   {'Gare':<32}{'Passages':>10}{'Retard ≥ 5 min':>16}")
     for nom, nb, pct in conn.execute("""
@@ -163,11 +168,12 @@ def verifier_correspondance():
         FROM passages p
         JOIN g.stops s ON s.stop_id = p.stop_id
         WHERE s.hauts_de_france = 1 AND p.retard_arrivee IS NOT NULL
+          AND p.date_service >= ?
         GROUP BY s.stop_name
         HAVING nb >= 5
         ORDER BY pct DESC, nb DESC
         LIMIT 10
-    """):
+    """, (depuis,)):
         print(f"   {nom[:31]:<32}{nb:>10}{pct:>15.0f} %")
     conn.close()
 

@@ -20,6 +20,7 @@ On peut aussi le lancer à la main :
     python mettre_a_jour.py
 """
 
+import fcntl
 import os
 import subprocess
 import sys
@@ -40,6 +41,8 @@ ETAPES = [
 ]
 FACULTATIVES = {"sauvegarder.py", "entrainer_modele.py", "exporter_pages.py"}
 FICHIER_SUIVI = Path("derniere_mise_a_jour.txt")   # date de la dernière réussite
+FICHIER_VERROU = Path("mise_a_jour.verrou")        # une seule mise à jour à la fois
+DEJA_EN_COURS = 75                                 # code de sortie si une autre tourne déjà
 
 
 # Sous Windows, quand l'affichage est redirigé vers un fichier (le journal), Python utilise
@@ -48,6 +51,8 @@ FICHIER_SUIVI = Path("derniere_mise_a_jour.txt")   # date de la dernière réuss
 ENVIRONNEMENT = os.environ.copy()
 ENVIRONNEMENT["PYTHONUTF8"] = "1"
 ENVIRONNEMENT["PYTHONIOENCODING"] = "utf-8"
+# Affichage immédiat dans le journal : si une étape est coupée, on voit où elle en était.
+ENVIRONNEMENT["PYTHONUNBUFFERED"] = "1"
 if hasattr(sys.stdout, "reconfigure"):
     sys.stdout.reconfigure(encoding="utf-8")
 
@@ -56,7 +61,24 @@ def horodatage():
     return datetime.now().strftime("%Y-%m-%d %H:%M:%S")
 
 
+def prendre_le_verrou(chemin=FICHIER_VERROU):
+    """Renvoie le fichier verrouillé, ou None si une autre mise à jour tourne déjà.
+    Le verrou est libéré tout seul quand le programme s'arrête, même s'il est tué :
+    il ne peut pas rester bloqué."""
+    fichier = open(chemin, "w")
+    try:
+        fcntl.flock(fichier, fcntl.LOCK_EX | fcntl.LOCK_NB)
+    except BlockingIOError:
+        fichier.close()
+        return None
+    return fichier
+
+
 def main():
+    verrou = prendre_le_verrou()
+    if verrou is None:
+        print(f"[{horodatage()}] Une mise à jour tourne déjà : on ne la lance pas une 2e fois.", flush=True)
+        sys.exit(DEJA_EN_COURS)
     debut_total = time.time()
     print(f"[{horodatage()}] Début de la mise à jour", flush=True)
 

@@ -139,7 +139,8 @@ def verifier_correspondance():
     if not os.path.exists(BASE_TEMPS_REEL):
         print("   (sncf.db introuvable, vérification ignorée)")
         return
-    conn = sqlite3.connect(BASE_TEMPS_REEL)
+    # Lecture seule : cette vérification ne doit jamais gêner le collecteur qui écrit.
+    conn = sqlite3.connect(f"file:{BASE_TEMPS_REEL}?mode=ro", uri=True, timeout=60)
     conn.execute(f"ATTACH DATABASE '{BASE_GTFS}' AS g")
 
     total, gares_ok, trains_ok = conn.execute("""

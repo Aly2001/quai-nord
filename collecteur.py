@@ -199,11 +199,26 @@ def une_collecte(conn):
                      (maintenant, nb_trains, len(lignes), "OK", None))
         conn.commit()
         log.info("Collecte OK : %d trains, %d passages", nb_trains, len(lignes))
-    except Exception as erreur:   # on ne s'arrête jamais pour une erreur réseau
+    except Exception as erreur:   # on ne s'arrête jamais pour une erreur (réseau, base occupée...)
+        log.error("Échec de la collecte : %s", erreur)
+        noter_echec(conn, maintenant, erreur)
+
+
+def noter_echec(conn, maintenant, erreur):
+    """Garde une trace de l'échec dans la table collectes, SANS jamais planter.
+    Avant, si la base était occupée, cette écriture échouait à son tour et arrêtait le
+    collecteur : systemd le relançait, ce qui tuait aussi la mise à jour en cours."""
+    try:
+        conn.rollback()           # on abandonne ce qui était à moitié écrit
         conn.execute("INSERT INTO collectes VALUES (?,?,?,?,?)",
                      (maintenant, 0, 0, "ERREUR", str(erreur)[:500]))
         conn.commit()
-        log.error("Échec de la collecte : %s", erreur)
+    except Exception as autre:
+        log.warning("Échec non noté dans la base (%s) : on réessaie à la prochaine collecte", autre)
+        try:
+            conn.rollback()
+        except Exception:
+            pass
 
 
 # ----------------------------------------------------------------------
@@ -212,6 +227,7 @@ def une_collecte(conn):
 mise_a_jour_en_cours = None      # le processus en cours, s'il y en a un
 prochain_essai = 0               # après un échec, on attend avant de réessayer
 DELAI_APRES_ECHEC = 3600         # 1 heure
+DEJA_EN_COURS = 75               # code renvoyé par mettre_a_jour.py si une autre mise à jour tourne déjà
 
 
 def mise_a_jour_necessaire():
@@ -233,6 +249,8 @@ def lancer_mise_a_jour_si_besoin():
             return
         if code == 0:
             log.info("Mise à jour du site terminée avec succès")
+        elif code == DEJA_EN_COURS:
+            log.info("Une mise à jour tourne déjà : on la laisse finir")
         else:
             log.error("La mise à jour du site a échoué : voir %s. Nouvel essai dans 1 h.",
                       JOURNAL_MISE_A_JOUR)
@@ -252,15 +270,34 @@ def lancer_mise_a_jour_si_besoin():
             env=environnement)
 
 
+def ouvrir_base(chemin=FICHIER_BASE):
+    """Ouvre sncf.db en mode WAL.
+    Sans WAL, quand la mise à jour LIT la base (vérification du GTFS, calcul des retards,
+    sauvegarde), le collecteur ne peut pas ÉCRIRE : au bout de 30 s, « database is locked ».
+    Avec WAL, une lecture et une écriture peuvent avoir lieu en même temps.
+    Le réglage est enregistré dans le fichier : il suffit de le faire une fois."""
+    conn = sqlite3.connect(chemin, timeout=120)
+    try:
+        mode, = conn.execute("PRAGMA journal_mode=WAL").fetchone()
+        if mode.lower() != "wal":
+            log.warning("Mode WAL non activé (mode actuel : %s)", mode)
+    except sqlite3.OperationalError as erreur:     # base occupée : on réessaiera au prochain démarrage
+        log.warning("Mode WAL non activé pour l'instant : %s", erreur)
+    return conn
+
+
 def main():
-    conn = sqlite3.connect(FICHIER_BASE, timeout=30)
+    conn = ouvrir_base()
     creer_tables(conn)
     log.info("Démarrage du collecteur (toutes les %d s). Ctrl+C pour arrêter.",
              INTERVALLE_SECONDES)
     try:
         while True:
             debut = time.time()
-            une_collecte(conn)
+            try:
+                une_collecte(conn)
+            except Exception as erreur:              # filet de sécurité : le collecteur ne s'arrête jamais
+                log.error("Erreur inattendue pendant la collecte : %s", erreur)
             try:
                 lancer_mise_a_jour_si_besoin()
             except Exception as erreur:              # la collecte ne doit jamais s'arrêter

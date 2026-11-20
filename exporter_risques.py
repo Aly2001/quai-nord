@@ -50,13 +50,61 @@ def lisser(retards, passages, a_priori):
     return (retards + K * a_priori) / (passages + K)
 
 
-def la_plus_frequente(comptes):
-    """Pour chaque train, la valeur la plus fréquente (en cas d'égalité : la plus petite,
-    comme pandas .mode()). comptes : colonnes numero_train, valeur, n."""
-    if comptes.empty:
-        return pd.Series(dtype=object)
-    tries = comptes.sort_values(["numero_train", "n", "valeur"], ascending=[True, False, True])
-    return tries.drop_duplicates("numero_train").set_index("numero_train")["valeur"]
+def la_plus_frequente(compteur):
+    """La valeur la plus fréquente (en cas d'égalité : la plus petite, comme pandas .mode()),
+    ou None s'il n'y en a aucune."""
+    if not compteur:
+        return None
+    return min(compteur.items(), key=lambda paire: (-paire[1], paire[0]))[0]
+
+
+def compter(base):
+    """Parcourt UNE fois les retards constatés et renvoie tous les compteurs utiles.
+    Chaque compteur : {clé: [retards, passages]}."""
+    def ajouter(compteur, cle, retard):
+        case = compteur.get(cle)
+        if case is None:
+            compteur[cle] = [retard, 1]
+        else:
+            case[0] += retard
+            case[1] += 1
+
+    c = {"total": 0, "retards": 0, "jours": set(), "heure": {}, "ligne_heure": {}, "train": {},
+         "train_ligne": {}, "train_heure": {}, "ligne": {}, "gare": {}}
+    conn = sqlite3.connect(f"file:{base}?mode=ro", uri=True)
+    curseur = conn.execute(f"""
+        SELECT numero_train, ligne, gare, date_service, en_retard, substr(heure_prevue, 12, 2)
+        FROM retards WHERE {FILTRE}
+    """)
+    while paquet := curseur.fetchmany(50_000):
+        for train, ligne, gare, jour, retard, heure in paquet:
+            retard = int(retard or 0)
+            c["total"] += 1
+            c["retards"] += retard
+            c["jours"].add(jour)
+            ajouter(c["heure"], heure, retard)
+            if ligne is not None:
+                ajouter(c["ligne_heure"], (ligne, heure), retard)
+                ajouter(c["ligne"], ligne, retard)
+            if gare is not None:
+                ajouter(c["gare"], gare, retard)
+            if train is not None:
+                ajouter(c["train"], train, retard)
+                if ligne is not None:
+                    par_ligne = c["train_ligne"].setdefault(train, {})
+                    par_ligne[ligne] = par_ligne.get(ligne, 0) + 1
+                if heure is not None:
+                    par_heure = c["train_heure"].setdefault(train, {})
+                    par_heure[heure] = par_heure.get(heure, 0) + 1
+    conn.close()
+    return c
+
+
+def tableau(compteur, index):
+    """Un compteur {clé: [retards, passages]} en tableau pandas (colonnes sum et count), trié par clé."""
+    noms = index if isinstance(index, list) else [index]
+    lignes = [(*(cle if isinstance(cle, tuple) else (cle,)), r, n) for cle, (r, n) in sorted(compteur.items())]
+    return pd.DataFrame(lignes, columns=[*noms, "sum", "count"]).set_index(index)
 
 
 def main():
@@ -65,50 +113,33 @@ def main():
     if not SORTIE.parent.exists():
         raise SystemExit("Dossier site/public/horaires introuvable : lance d'abord python exporter_horaires.py")
 
-    # Tous les comptages sont faits PAR SQLITE : avant, la table entière (des millions de
-    # lignes) était chargée dans pandas, ce qui saturait la mémoire de la machine (1 Go) et
-    # prenait plus de 2 heures. Les résultats sont exactement les mêmes.
-    conn = sqlite3.connect(f"file:{BASE_ANALYSE}?mode=ro", uri=True)
-    conn.execute(f"""
-        CREATE TEMP VIEW constates AS
-        SELECT numero_train, ligne, gare, date_service, en_retard,
-               substr(heure_prevue, 12, 2) AS heure
-        FROM retards
-        WHERE {FILTRE}
-    """)
-    lire = lambda requete: pd.read_sql(requete, conn)
-
-    total, retards_total, jours = conn.execute(
-        "SELECT COUNT(*), SUM(en_retard), COUNT(DISTINCT date_service) FROM constates").fetchone()
+    # UNE SEULE LECTURE de la table, ligne par ligne, en comptant au fur et à mesure.
+    # Pourquoi : la machine a peu de mémoire (1 Go) et un disque lent. Charger toute la table
+    # dans pandas saturait la mémoire, et faire plusieurs GROUP BY obligeait SQLite à trier des
+    # millions de lignes sur le disque, plusieurs fois : des heures, de plus en plus chaque nuit.
+    # Ici, on ne garde en mémoire que les compteurs (quelques milliers de trains, lignes, gares).
+    # Les résultats sont exactement les mêmes.
+    c = compter(BASE_ANALYSE)
+    total, jours = c["total"], len(c["jours"])
     if not total:
-        conn.close()
         raise SystemExit("Aucun retard constaté : laisse tourner le collecteur un peu plus.")
 
     # ---------- Niveau 0 : toute la France ----------
-    taux_global = retards_total / total
+    taux_global = c["retards"] / total
 
     # ---------- Niveau 1 : par heure (a priori = toute la France) ----------
-    h = lire('SELECT heure, SUM(en_retard) AS "sum", COUNT(*) AS "count" FROM constates '
-             'GROUP BY heure').set_index("heure")
+    h = tableau(c["heure"], "heure")
     h["taux"] = lisser(h["sum"], h["count"], taux_global)
 
     # ---------- Niveau 2 : par ligne et par heure (a priori = l'heure) ----------
-    lh = lire('SELECT ligne, heure, SUM(en_retard) AS "sum", COUNT(*) AS "count" FROM constates '
-              'WHERE ligne IS NOT NULL GROUP BY ligne, heure').set_index(["ligne", "heure"])
+    lh = tableau(c["ligne_heure"], ["ligne", "heure"])
     a_priori_lh = [h["taux"].get(heure, taux_global) for _, heure in lh.index]
-    lh["taux"] = lisser(lh["sum"], lh["count"], pd.Series(a_priori_lh, index=lh.index))
+    lh["taux"] = lisser(lh["sum"], lh["count"], pd.Series(a_priori_lh, index=lh.index, dtype=float))
 
     # ---------- Niveau 3 : par train (a priori = sa ligne à son heure habituelle) ----------
-    t = lire('SELECT numero_train, SUM(en_retard) AS retards, COUNT(*) AS passages FROM constates '
-             'WHERE numero_train IS NOT NULL GROUP BY numero_train').set_index("numero_train")
-    t["ligne"] = la_plus_frequente(lire(
-        'SELECT numero_train, ligne AS valeur, COUNT(*) AS n FROM constates '
-        'WHERE numero_train IS NOT NULL AND ligne IS NOT NULL GROUP BY numero_train, ligne'))
-    t["heure"] = la_plus_frequente(lire(
-        'SELECT numero_train, heure AS valeur, COUNT(*) AS n FROM constates '
-        'WHERE numero_train IS NOT NULL AND heure IS NOT NULL GROUP BY numero_train, heure'))
-    for colonne in ("ligne", "heure"):
-        t[colonne] = t[colonne].astype(object).where(t[colonne].notna(), None)
+    t = tableau(c["train"], "numero_train").rename(columns={"sum": "retards", "count": "passages"})
+    t["ligne"] = [la_plus_frequente(c["train_ligne"].get(num)) for num in t.index]
+    t["heure"] = [la_plus_frequente(c["train_heure"].get(num)) for num in t.index]
 
     def a_priori_train(train):
         # L'a priori d'un train = sa ligne à son heure habituelle, calculée SANS ce train
@@ -125,13 +156,10 @@ def main():
     t["taux"] = lisser(t["retards"], t["passages"], t["a_priori"])
 
     # ---------- Pour la carte : par ligne et par gare (a priori = toute la France) ----------
-    par_l = lire('SELECT ligne, SUM(en_retard) AS "sum", COUNT(*) AS "count" FROM constates '
-                 'WHERE ligne IS NOT NULL GROUP BY ligne').set_index("ligne")
+    par_l = tableau(c["ligne"], "ligne")
     par_l["taux"] = lisser(par_l["sum"], par_l["count"], taux_global)
-    par_g = lire('SELECT gare, SUM(en_retard) AS "sum", COUNT(*) AS "count" FROM constates '
-                 'WHERE gare IS NOT NULL GROUP BY gare').set_index("gare")
+    par_g = tableau(c["gare"], "gare")
     par_g["taux"] = lisser(par_g["sum"], par_g["count"], taux_global)
-    conn.close()
     # Seulement les gares du site (région + Paris Nord), pour garder un fichier léger
     index_gares = SORTIE.parent / "gares.json"
     if index_gares.exists():

@@ -63,7 +63,7 @@ def main():
         passages, = sqlite3.connect(copie).execute("SELECT COUNT(*) FROM passages").fetchone()
 
         # 2. Compression
-        with open(copie, "rb") as entree, gzip.open(archive, "wb", compresslevel=6) as sortie   # 6 : presque aussi léger que 9, bien plus rapide:
+        with open(copie, "rb") as entree, gzip.open(archive, "wb", compresslevel=6) as sortie:   # 6 : presque aussi léger que 9, bien plus rapide
             shutil.copyfileobj(entree, sortie)
         taille = archive.stat().st_size / 1024 / 1024
         print(f"   Copie : {passages} passages, {taille:.1f} Mo compressés", flush=True)

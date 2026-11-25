@@ -52,5 +52,17 @@ def test_on_garde_les_20_derniers():
                        "retard_minutes": np.arange(n, dtype=float), "perturbe": 0, "supprime": 0, "ordre_arret": 1})
     dernier = sq.construire_sequences(df)[-1]
     assert dernier[:, 0].sum() == sq.LONGUEUR
-    # Le dernier train part à 9 h 50 → question à 9 h 20 → connus jusqu'au passage de 9 h 10 (n° 25)
-    assert dernier[-1, 1] == pytest.approx(25 / 60) and dernier[0, 1] == pytest.approx(6 / 60)
+    # Le dernier train part à 9 h 50 → question à 9 h 20 → connus jusqu'au passage de 9 h 10 (n° 25).
+    # Son retard final (25 min) n'est pas encore connu à 9 h 20 : on n'en voit que 10 min.
+    assert dernier[-1, 1] == pytest.approx(10 / 60) and dernier[0, 1] == pytest.approx(6 / 60)
+
+
+def test_le_retard_pas_encore_connu_reste_cache():
+    """Le train de 8 h arrive avec 40 min de retard. À 8 h 30 (question du train de 9 h),
+    on sait seulement qu'il a AU MOINS 30 min de retard : le réseau ne doit voir que 30."""
+    df = journee()
+    df.loc[1, "retard_minutes"] = 40.0
+    seq = sq.construire_sequences(df)
+    assert seq[2][-1, 1] == pytest.approx(30 / 60)
+    assert seq[3][-1, 1] < 0.1                              # le train de 10 h : le dernier connu est celui de 9 h
+    assert seq[3][-2, 1] == pytest.approx(40 / 60)          # à 9 h 30, le retard de 40 min du 8 h est connu

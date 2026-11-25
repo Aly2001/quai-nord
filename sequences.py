@@ -13,7 +13,9 @@ le même code des deux côtés, pour que le modèle reçoive exactement les mêm
 Résultat : un tenseur de forme (N, LONGUEUR, 6), en float32.
   Chaque passage de la séquence est décrit par 6 nombres, déjà ramenés à des valeurs proches de 0-1 :
     0  present        1 pour un vrai passage, 0 pour le remplissage du petit matin
-    1  retard         retard en minutes / 60, borné entre -0,1 et 1 (de -6 à +60 min)
+    1  retard         retard VISIBLE au moment de la question, en minutes / 60, borné entre -0,1 et 1 :
+                      un train de 8 h qui arrivera avec 40 min de retard n'en montre que 30 à 8 h 30
+                      (il n'est pas encore arrivé). Jamais le retard final s'il n'était pas encore connu.
     2  perturbe       1 si retard de 5 min ou plus, ou supprimé
     3  supprime       1 si supprimé (train entier ou arrêt sauté)
     4  il_y_a         il y a combien de temps il a été jugé, en heures / 12, borné à 1
@@ -64,6 +66,11 @@ def construire_sequences(df, longueur=LONGUEUR):
         fenetres = combien[:, None] + np.arange(longueur)[None, :]   # indices dans `faits`
         seq = faits[fenetres]
         il_y_a_h = (question_ns[lignes][:, None] - quand[fenetres]) / 3.6e12
-        seq[:, :, 4] = np.where(seq[:, :, 0] > 0, np.clip(il_y_a_h / 12, 0, 1), 0)
+        present = seq[:, :, 0] > 0
+        seq[:, :, 4] = np.where(present, np.clip(il_y_a_h / 12, 0, 1), 0)
+        # Le retard visible à l'heure de la question : au plus le temps écoulé depuis l'heure prévue
+        # (heure prévue = heure « connu » − 5 min). Le retard final n'est connu qu'à l'arrivée du train.
+        ecoule_h = il_y_a_h + CONNU_APRES / pd.Timedelta(hours=1)
+        seq[:, :, 1] = np.where(present, np.minimum(seq[:, :, 1], ecoule_h), 0)
         sortie[lignes] = seq
     return sortie

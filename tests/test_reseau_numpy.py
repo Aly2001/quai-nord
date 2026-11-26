@@ -37,9 +37,9 @@ def test_export_puis_lecture(tmp_path):
         def get_layer(self, nom): return self.couches[nom]
 
     prep = rn.apprendre_preparation(trains(1000))
-    rn.exporter(Modele(), prep, tmp_path / "reseau_gru.npz")
+    rn.exporter(Modele(), prep, tmp_path / "reseau_gru.npz", derniere_journee="2026-11-25")
     poids, relue = rn.charger(tmp_path / "reseau_gru.npz")
-    assert relue == prep and poids["gru_1"].shape == (32, 96) and poids["sortie_1"].shape == (1,)
+    assert relue["derniere_journee"] == "2026-11-25" and relue["vocab"] == prep["vocab"] and poids["gru_1"].shape == (32, 96) and poids["sortie_1"].shape == (1,)
 
 
 def test_numpy_identique_a_keras(tmp_path):

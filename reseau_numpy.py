@@ -81,8 +81,13 @@ def construire_keras(nb_lignes, longueur=20, nb_infos=6):
 
 # ---------- Enregistrer et relire les poids ----------
 
-def exporter(modele, preparation, chemin):
-    """Dans Colab : enregistre les poids du modèle Keras et la préparation dans un seul fichier."""
+def exporter(modele, preparation, chemin, derniere_journee=None):
+    """Dans Colab : enregistre les poids du modèle Keras et la préparation dans un seul fichier.
+    derniere_journee : la dernière journée vue à l'apprentissage. La note de chaque nuit
+    (evaluer_reseau.py) ne juge le réseau QUE sur des journées postérieures : jamais vues."""
+    from datetime import date
+    preparation = {**preparation, "entraine_le": date.today().isoformat(),
+                   "derniere_journee": None if derniere_journee is None else str(derniere_journee)[:10]}
     poids = {}
     for nom in ("gru", "emb_ligne", "emb_heure", "emb_jour", "cachee", "sortie"):
         for i, tableau in enumerate(modele.get_layer(nom).get_weights()):

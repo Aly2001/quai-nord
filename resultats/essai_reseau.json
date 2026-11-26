@@ -1,0 +1,117 @@
+{
+ "date": "2026-11-26",
+ "methode": "10 nuits rejouées dans Colab (outils/essai_reseau.ipynb) : apprentissage sur les jours anciens, test sur les 4 derniers jours jamais vus ; réseau entraîné 3 fois par nuit (moyenne, écart entre les 3).",
+ "poids": 6182,
+ "nuits": [
+  {
+   "date": "2026-11-16",
+   "gain_logistique": 3.43,
+   "gain_etat": 4.91,
+   "gain_reseau": 13.1,
+   "ecart_graines": 0.23,
+   "reel": 17.62,
+   "annonce_logistique": 20.02,
+   "annonce_etat": 19.52,
+   "annonce_reseau": 19.37
+  },
+  {
+   "date": "2026-11-17",
+   "gain_logistique": 1.91,
+   "gain_etat": 3.48,
+   "gain_reseau": 11.91,
+   "ecart_graines": 0.15,
+   "reel": 19.23,
+   "annonce_logistique": 21.74,
+   "annonce_etat": 20.25,
+   "annonce_reseau": 21.36
+  },
+  {
+   "date": "2026-11-18",
+   "gain_logistique": 1.89,
+   "gain_etat": 4.63,
+   "gain_reseau": 11.98,
+   "ecart_graines": 0.44,
+   "reel": 22.88,
+   "annonce_logistique": 25.48,
+   "annonce_etat": 23.42,
+   "annonce_reseau": 23.85
+  },
+  {
+   "date": "2026-11-19",
+   "gain_logistique": 2.32,
+   "gain_etat": 6.69,
+   "gain_reseau": 12.99,
+   "ecart_graines": 0.12,
+   "reel": 28.45,
+   "annonce_logistique": 26.26,
+   "annonce_etat": 26.55,
+   "annonce_reseau": 26.42
+  },
+  {
+   "date": "2026-11-20",
+   "gain_logistique": 2.15,
+   "gain_etat": 6.25,
+   "gain_reseau": 12.17,
+   "ecart_graines": 0.43,
+   "reel": 28.21,
+   "annonce_logistique": 26.82,
+   "annonce_etat": 26.9,
+   "annonce_reseau": 27.15
+  },
+  {
+   "date": "2026-11-21",
+   "gain_logistique": 3.68,
+   "gain_etat": 7.86,
+   "gain_reseau": 13.44,
+   "ecart_graines": 0.23,
+   "reel": 28.56,
+   "annonce_logistique": 27.45,
+   "annonce_etat": 28.11,
+   "annonce_reseau": 26.67
+  },
+  {
+   "date": "2026-11-22",
+   "gain_logistique": 3.07,
+   "gain_etat": 7.94,
+   "gain_reseau": 13.81,
+   "ecart_graines": 0.08,
+   "reel": 27.28,
+   "annonce_logistique": 23.96,
+   "annonce_etat": 25.03,
+   "annonce_reseau": 24.63
+  },
+  {
+   "date": "2026-11-23",
+   "gain_logistique": 3.39,
+   "gain_etat": 7.23,
+   "gain_reseau": 11.69,
+   "ecart_graines": 0.45,
+   "reel": 22.74,
+   "annonce_logistique": 23.41,
+   "annonce_etat": 22.58,
+   "annonce_reseau": 22.28
+  },
+  {
+   "date": "2026-11-24",
+   "gain_logistique": 2.85,
+   "gain_etat": 7.21,
+   "gain_reseau": 12.63,
+   "ecart_graines": 0.19,
+   "reel": 21.4,
+   "annonce_logistique": 22.27,
+   "annonce_etat": 21.28,
+   "annonce_reseau": 20.22
+  },
+  {
+   "date": "2026-11-25",
+   "gain_logistique": 1.83,
+   "gain_etat": 5.46,
+   "gain_reseau": 12.45,
+   "ecart_graines": null,
+   "reel": 21.83,
+   "annonce_logistique": 19.67,
+   "annonce_etat": 19.06,
+   "annonce_reseau": null
+  }
+ ]
+}

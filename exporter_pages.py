@@ -21,6 +21,8 @@ RACINE = Path(__file__).resolve().parent
 SORTIE = RACINE / "site" / "public" / "donnees" / "pages.json"
 ESSAI = RACINE / "resultats" / "essai_etat_ligne.json"     # dans Git (le dossier modele/ ne l'est pas)
 HISTORIQUE = RACINE / "modele" / "historique.csv"
+ESSAI_RESEAU = RACINE / "resultats" / "essai_reseau.json"           # les 10 nuits rejouées dans Colab
+HISTORIQUE_RESEAU = RACINE / "modele" / "historique_reseau.csv"     # les vraies journées (evaluer_reseau.py)
 CALME, AGITE, VUS_MIN = 0.10, 0.30, 5      # « la ligne allait bien » / « avait déjà des problèmes »
 TRANCHES = [(1, 1, "1re gare"), (2, 4, "2e à 4e"), (5, 8, "5e à 8e"), (9, 13, "9e à 13e"), (14, 999, "14e et +")]
 HEURES = [(5, 6, "5 h - 7 h"), (7, 8, "7 h - 9 h"), (9, 15, "9 h - 16 h"), (16, 18, "16 h - 19 h"), (19, 23, "19 h et +")]
@@ -85,7 +87,25 @@ def modele():
                                "gain_etat": nombre_ou_rien(l.get("gain_etat_pct")),
                                "annonce_etat": nombre_ou_rien(l.get("annonce_etat_pct"))})
     essai = json.loads(ESSAI.read_text(encoding="utf-8")) if ESSAI.exists() else None
-    return {"historique": lignes, "essai": essai, "conditions": {"gain_min": 3.0, "ecart_max": 2.0, "jours": 14}}
+    return {"historique": lignes, "essai": essai, "reseau": reseau(),
+            "conditions": {"gain_min": 3.0, "ecart_max": 2.0, "jours": 14}}
+
+
+def reseau():
+    """Le réseau de neurones : les nuits rejouées dans Colab, et ses vraies journées notées chaque nuit."""
+    journees = []
+    if HISTORIQUE_RESEAU.exists():
+        with open(HISTORIQUE_RESEAU, newline="", encoding="utf-8") as f:
+            for l in csv.DictReader(f):
+                journees.append({"journee": l["journee"], "poids_jusqu_au": l["poids_jusqu_au"],
+                                 "gain_reseau": float(l["gain_reseau_pct"]), "gain_etat": float(l["gain_etat_pct"]),
+                                 "gain_logistique": float(l["gain_logistique_pct"]),
+                                 "annonce_reseau": float(l["annonce_reseau_pct"]), "reel": float(l["reel_pct"])})
+    journees.sort(key=lambda j: j["journee"])
+    essai = json.loads(ESSAI_RESEAU.read_text(encoding="utf-8")) if ESSAI_RESEAU.exists() else None
+    if not journees and not essai:
+        return None
+    return {"journees": journees, "essai": essai}
 
 
 def main():

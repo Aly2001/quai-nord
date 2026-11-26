@@ -28,3 +28,20 @@
 .legende { margin: 0; display: flex; flex-wrap: wrap; gap: 6px 14px; font-size: 13px; color: var(--texte-doux); }
 .legende > span { display: inline-flex; align-items: center; gap: 6px; }
 .legende__trait { width: 14px; height: 4px; border-radius: 2px; }
+
+/* ---------- Le réseau de neurones ---------- */
+.modele__carte--nouveau { border-left: 4px solid #2E9E6A; }
+.candidat { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 2px 8px; align-items: center; padding: 10px 12px; border-radius: 10px; background: #F5F7F9; }
+.candidat--tete { background: #E6F4EC; }
+.candidat__nom { font-size: 15px; font-weight: 600; }
+.candidat__tete { display: inline-block; margin-left: 6px; padding: 2px 7px; border-radius: 999px; background: #2E9E6A; color: #FFFFFF; font-size: 11px; font-weight: 700; vertical-align: middle; }
+.candidat__gain { font-family: var(--police-titre); font-size: 22px; text-align: right; }
+.candidat small { grid-column: 1 / -1; font-size: 12px; color: #6B7488; }
+.progression { display: flex; gap: 3px; }
+.progression__case { flex: 1; height: 10px; border-radius: 2px; background: #DCE3EA; }
+.progression__case--ok { background: #2E9E6A; }
+.progression__case--ko { background: #F28C38; }
+.surtitre--vert { color: #7FE0A8 !important; }
+.flux { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; font-size: 12px !important; color: #FFFFFF !important; }
+.flux span:not([aria-hidden]) { padding: 6px 8px; border-radius: 8px; background: #1E2E52; }
+.flux b { color: #7FE0A8; }

@@ -42,3 +42,23 @@ def test_le_modele_lit_l_historique_et_l_essai():
     m = ep.modele()
     assert m["conditions"] == {"gain_min": 3.0, "ecart_max": 2.0, "jours": 14}
     assert m["essai"]["nuits"][-1]["etat_ligne"] == 5.65
+
+
+def test_le_reseau_nuits_rejouees_et_vraies_journees(tmp_path, monkeypatch):
+    fichier = tmp_path / "historique_reseau.csv"
+    fichier.write_text(
+        "nuit,journee,poids_jusqu_au,passages,brier_ligne,gain_reseau_pct,gain_etat_pct,gain_logistique_pct,"
+        "annonce_reseau_pct,annonce_etat_pct,annonce_logistique_pct,reel_pct\n"
+        "2026-11-28,2026-11-27,2026-11-23,7000,0.16,12.1,6.0,2.2,20.5,20.1,21.0,21.3\n"
+        "2026-11-27,2026-11-26,2026-11-23,7100,0.15,11.0,5.5,2.0,19.0,19.4,20.2,18.1\n", encoding="utf-8")
+    monkeypatch.setattr(ep, "HISTORIQUE_RESEAU", fichier)
+    r = ep.modele()["reseau"]
+    assert [j["journee"] for j in r["journees"]] == ["2026-11-26", "2026-11-27"]       # dans l'ordre
+    assert r["journees"][-1]["gain_reseau"] == 12.1 and r["journees"][-1]["reel"] == 21.3
+    assert len(r["essai"]["nuits"]) == 10 and r["essai"]["nuits"][0]["gain_reseau"] == 13.1
+
+
+def test_pas_de_reseau_sans_donnees(tmp_path, monkeypatch):
+    monkeypatch.setattr(ep, "HISTORIQUE_RESEAU", tmp_path / "absent.csv")
+    monkeypatch.setattr(ep, "ESSAI_RESEAU", tmp_path / "absent.json")
+    assert ep.modele()["reseau"] is None

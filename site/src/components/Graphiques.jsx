@@ -20,7 +20,8 @@ export function Courbes({ series, etiquettes, seuil, min, max, legendeSeuil, des
         const points = s.valeurs.map((v, i) => (v === null || v === undefined ? null : [X(i), Y(Math.max(min, Math.min(max, v)))])).filter(Boolean);
         return (
           <g key={s.nom}>
-            <polyline points={points.map((p) => p.join(",")).join(" ")} fill="none" stroke={s.couleur} strokeWidth="2.5" strokeLinejoin="round" />
+            <polyline points={points.map((p) => p.join(",")).join(" ")} fill="none" stroke={s.couleur} strokeWidth="2.5" strokeLinejoin="round"
+                      strokeDasharray={s.pointilles ? "5 4" : undefined} />
             {points.length > 0 && <circle cx={points.at(-1)[0]} cy={points.at(-1)[1]} r="4" fill={s.couleur} />}
           </g>
         );

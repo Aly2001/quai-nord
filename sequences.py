@@ -32,17 +32,28 @@ CONNU_APRES = pd.Timedelta(minutes=5)     # un passage est jugé 5 min après so
 INFOS = ["present", "retard", "perturbe", "supprime", "il_y_a", "position"]
 
 
-def construire_sequences(df, longueur=LONGUEUR):
-    """df : une ligne par passage, avec les colonnes date (jour de service), trip_id, ligne,
-    heure_prevue, retard_minutes, perturbe, supprime, ordre_arret.
-    Renvoie un tableau numpy (len(df), longueur, 6), dans le MÊME ordre que df."""
-    df = df.reset_index(drop=True)
-    sortie = np.zeros((len(df), longueur, NB_INFOS), dtype=np.float32)
+def question_par_defaut(df):
+    """L'heure de la question : le premier passage du train ce jour-là, moins 30 min."""
     moment = pd.to_datetime(df["heure_prevue"])
-    # La question est posée 30 min avant le départ du train (son premier passage du jour)
-    question = moment.groupby([df["date"], df["trip_id"]]).transform("min") - AVANCE
-    connu = moment + CONNU_APRES
+    return moment.groupby([df["date"], df["trip_id"]]).transform("min") - AVANCE
 
+
+def construire_sequences(df, longueur=LONGUEUR, cibles=None, question=None):
+    """df : les passages OBSERVÉS (une ligne par passage), avec les colonnes date (jour de service),
+    trip_id, ligne, heure_prevue, retard_minutes, perturbe, supprime, ordre_arret.
+    cibles : les passages à PRÉDIRE (par défaut : df lui-même, comme à l'apprentissage) ;
+             colonnes date, ligne et, si question n'est pas donnée, trip_id et heure_prevue.
+    question : l'heure de la question pour chaque cible (par défaut : départ du train − 30 min).
+               En direct, c'est « maintenant » si le train part dans plus de 30 min.
+    Renvoie un tableau numpy (len(cibles), longueur, 6), dans le MÊME ordre que cibles."""
+    df = df.reset_index(drop=True)
+    cibles = df if cibles is None else cibles.reset_index(drop=True)
+    if question is None:
+        question = question_par_defaut(cibles)
+    question_ns = pd.to_datetime(pd.Series(question).reset_index(drop=True)).to_numpy("datetime64[ns]").astype(np.int64)
+    sortie = np.zeros((len(cibles), longueur, NB_INFOS), dtype=np.float32)
+
+    connu = pd.to_datetime(df["heure_prevue"]) + CONNU_APRES
     infos = np.column_stack([
         np.ones(len(df)),
         np.clip(df["retard_minutes"].fillna(0).to_numpy(float) / 60, -0.1, 1),
@@ -52,11 +63,14 @@ def construire_sequences(df, longueur=LONGUEUR):
         np.clip(df["ordre_arret"].fillna(0).to_numpy(float) / 30, 0, 1),
     ]).astype(np.float32)
     connu_ns = connu.to_numpy("datetime64[ns]").astype(np.int64)
-    question_ns = question.to_numpy("datetime64[ns]").astype(np.int64)
+    evenements = df.groupby(["date", "ligne"], sort=False).indices
 
-    for _, lignes in df.groupby(["date", "ligne"], sort=False).indices.items():
+    for cle, lignes in cibles.groupby(["date", "ligne"], sort=False).indices.items():
+        passes = evenements.get(cle)
+        if passes is None:
+            continue                                                  # rien d'observé : que du remplissage
         # Les passages de cette ligne ce jour-là, du plus tôt au plus tard jugé
-        ordre = lignes[np.argsort(connu_ns[lignes], kind="stable")]
+        ordre = passes[np.argsort(connu_ns[passes], kind="stable")]
         faits_connus = connu_ns[ordre]
         # Pour chaque question : combien de passages étaient déjà jugés (connu <= question)
         combien = np.searchsorted(faits_connus, question_ns[lignes], side="right")

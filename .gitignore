@@ -6,6 +6,7 @@
 *.db-wal
 *.db-shm
 mise_a_jour.verrou
+predire_direct.verrou
 *.zip
 *.csv
 *.tmp

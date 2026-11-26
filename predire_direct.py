@@ -21,6 +21,7 @@ import fcntl
 import json
 import os
 import sqlite3
+import subprocess
 import sys
 from datetime import datetime, timedelta
 from pathlib import Path
@@ -158,11 +159,12 @@ def calculer(maintenant=None, base_tr=BASE_TEMPS_REEL, base_gtfs=BASE_GTFS, base
 
 
 def publier(fichier):
-    """Dépose le fichier dans le bucket public, sans cache (le site doit voir la dernière version)."""
-    from google.cloud import storage
-    blob = storage.Client().bucket(BUCKET_PUBLIC).blob(fichier.name)
-    blob.cache_control = "no-cache, max-age=0"
-    blob.upload_from_filename(str(fichier), content_type="application/json")
+    """Dépose le fichier dans le bucket public, sans cache (le site doit voir la dernière version).
+    Avec la commande gcloud, comme sauvegarder.py : la bibliothèque Python n'a ici que le droit de LIRE
+    (« Provided scope(s) are not authorized »)."""
+    subprocess.run(["gcloud", "storage", "cp", str(fichier), f"gs://{BUCKET_PUBLIC}/{fichier.name}",
+                    "--cache-control=no-cache, max-age=0", "--content-type=application/json", "--quiet"],
+                   check=True, timeout=120, capture_output=True, text=True)
 
 
 def main():

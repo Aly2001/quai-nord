@@ -1,0 +1,77 @@
+# ======================================================================
+#  Réapprentissage automatique du réseau de neurones de Quai Nord
+#
+#  Chaque lundi matin (après la mise à jour de la nuit), GitHub :
+#    1. récupère dans le bucket les retards des Hauts-de-France et le réseau actuel ;
+#    2. réentraîne le réseau (outils/reapprendre_reseau.py), vérifie le calcul numpy de la VM,
+#       et le compare à l'ancien sur une journée qu'aucun des deux n'a vue ;
+#    3. s'il n'est pas moins bon : dépose le nouveau fichier de poids dans le bucket
+#       (l'ancien est gardé dans modele/archives/). Sinon, l'ancien reste en place.
+#  La VM l'utilise dès la nuit suivante. On peut aussi le lancer à la main :
+#  onglet Actions → « Réapprentissage du réseau » → Run workflow.
+#
+#  Accès au bucket : la clé d'un compte de service qui ne peut toucher QU'À ce bucket,
+#  rangée dans les secrets du dépôt (GCP_SA_KEY), jamais dans le code.
+# ======================================================================
+name: Réapprentissage du réseau
+
+on:
+  schedule:
+    - cron: "30 7 * * 1"          # chaque lundi à 7 h 30 UTC (8 h 30 à Paris l'hiver)
+  workflow_dispatch:              # bouton « Run workflow »
+
+jobs:
+  reapprendre:
+    name: Réapprendre le réseau
+    runs-on: ubuntu-latest
+    timeout-minutes: 120
+    env:
+      BUCKET: gs://quai-nord-transfert-aly
+    steps:
+      - name: Récupérer le code
+        uses: actions/checkout@v4
+
+      - name: Installer Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Installer les librairies (avec TensorFlow)
+        run: pip install -r requirements.txt tensorflow
+
+      - name: Se connecter à Google Cloud
+        uses: google-github-actions/auth@v2
+        with:
+          credentials_json: ${{ secrets.GCP_SA_KEY }}
+
+      - name: Installer gcloud
+        uses: google-github-actions/setup-gcloud@v2
+
+      - name: Récupérer les données et le réseau actuel
+        run: |
+          gcloud storage cp "$BUCKET/donnees/retards_hdf.csv" .
+          gcloud storage cp "$BUCKET/modele/reseau_gru.npz" reseau_actuel.npz || echo "Pas encore de réseau dans le bucket."
+
+      - name: Réapprendre, vérifier, comparer
+        id: reapprendre
+        run: |
+          set +e
+          python outils/reapprendre_reseau.py retards_hdf.csv reseau_actuel.npz reseau_gru.npz
+          code=$?
+          echo "code=$code" >> "$GITHUB_OUTPUT"
+          # 0 = nouveau réseau retenu ; 3 = ancien gardé (pas une erreur) ; autre = vraie erreur
+          if [ "$code" -ne 0 ] && [ "$code" -ne 3 ]; then exit "$code"; fi
+
+      - name: Déposer le nouveau réseau
+        if: steps.reapprendre.outputs.code == '0'
+        run: |
+          if [ -f reseau_actuel.npz ]; then
+            gcloud storage cp reseau_actuel.npz "$BUCKET/modele/archives/reseau_gru_avant_$(date +%F).npz"
+          fi
+          gcloud storage cp reseau_gru.npz "$BUCKET/modele/reseau_gru.npz"
+          echo "✅ Nouveau réseau déposé : la VM l'utilisera dès la nuit prochaine." >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Ancien réseau gardé
+        if: steps.reapprendre.outputs.code == '3'
+        run: |
+          echo "ℹ️ Le nouveau réseau était moins bon : l'ancien reste en place." >> "$GITHUB_STEP_SUMMARY"

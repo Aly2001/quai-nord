@@ -30,6 +30,8 @@ from zoneinfo import ZoneInfo
 
 BASE = Path("sncf.db")
 BUCKET = "gs://quai-nord-transfert-aly/sauvegardes"
+BUCKET_DONNEES = "gs://quai-nord-transfert-aly/donnees"
+DONNEES_RESEAU = Path("retards_hdf.csv")
 A_GARDER = 7           # une semaine : assez pour revenir en arrière, sans remplir le bucket
 
 
@@ -88,6 +90,20 @@ def main():
         # Les fichiers temporaires ne restent jamais sur la machine
         copie.unlink(missing_ok=True)
         archive.unlink(missing_ok=True)
+
+    envoyer_donnees_du_reseau()
+
+
+def envoyer_donnees_du_reseau():
+    """Le fichier des retards des Hauts-de-France, pour le réapprentissage automatique du réseau de
+    neurones (GitHub Actions, chaque semaine). Un échec ici ne compte pas comme un échec de la sauvegarde."""
+    if not DONNEES_RESEAU.exists():
+        return
+    try:
+        gcloud("storage", "cp", str(DONNEES_RESEAU), f"{BUCKET_DONNEES}/{DONNEES_RESEAU.name}", "--quiet")
+        print(f"   Données du réseau envoyées : {BUCKET_DONNEES}/{DONNEES_RESEAU.name}", flush=True)
+    except Exception as erreur:
+        print(f"   (données du réseau non envoyées : {erreur})", flush=True)
 
 
 if __name__ == "__main__":

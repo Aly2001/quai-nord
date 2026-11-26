@@ -23,6 +23,7 @@ import os
 import sqlite3
 import subprocess
 import sys
+import time
 from datetime import datetime, timedelta
 from pathlib import Path
 from zoneinfo import ZoneInfo
@@ -43,6 +44,9 @@ BUCKET_PUBLIC = "quai-nord-direct"                 # bucket lisible par tous : s
 HORIZON = timedelta(hours=3)                       # les trains des 3 prochaines heures
 PARIS = ZoneInfo("Europe/Paris")
 VERROU = Path("predire_direct.verrou")
+# L'interrupteur : le site n'AFFICHE le risque en direct que si ce fichier existe sur la VM.
+# Pour l'allumer : touch modele/afficher_direct   — pour l'éteindre : rm modele/afficher_direct
+INTERRUPTEUR = Path("modele/afficher_direct")
 
 
 def ouvrir(base_tr=BASE_TEMPS_REEL, base_gtfs=BASE_GTFS, base_meteo=BASE_METEO):
@@ -99,7 +103,7 @@ def prevus(conn, avec_meteo, jour):
     conn.execute("DELETE FROM services_actifs")
     conn.executemany("INSERT OR IGNORE INTO services_actifs VALUES (?)", [(s,) for s in services])
     df = pd.read_sql(f"""
-        SELECT st.trip_id, t.{numero} AS numero_train, r.route_short_name AS ligne, s.stop_name AS gare,
+        SELECT st.trip_id, st.stop_id, t.{numero} AS numero_train, r.route_short_name AS ligne, s.stop_name AS gare,
                CAST(st.stop_sequence AS INTEGER) AS ordre_arret, {heure_prevue} AS heure_prevue,
                {pluie} AS pluie_mm, {rafales} AS rafales_kmh, '{jour:%Y%m%d}' AS date_service
         FROM g.stop_times st
@@ -127,7 +131,8 @@ def calculer(maintenant=None, base_tr=BASE_TEMPS_REEL, base_gtfs=BASE_GTFS, base
     finally:
         conn.close()
 
-    resultat = {"genere_le": maintenant.strftime("%Y-%m-%dT%H:%M"), "horizon_h": HORIZON.seconds // 3600,
+    resultat = {"genere_le": maintenant.strftime("%Y-%m-%dT%H:%M"), "maj": int(time.time()),
+                "afficher": INTERRUPTEUR.exists(), "horizon_h": HORIZON.seconds // 3600,
                 "reseau": {"entraine_le": preparation.get("entraine_le"),
                            "appris_jusqu_au": preparation.get("derniere_journee")},
                 "trains": {}}
@@ -152,8 +157,8 @@ def calculer(maintenant=None, base_tr=BASE_TEMPS_REEL, base_gtfs=BASE_GTFS, base
     for (cle, date_service), train in cibles.sort_values("heure_prevue").groupby(["cle", "date_service"]):
         resultat["trains"][cle] = {
             "jour": f"{pd.Timestamp(date_service):%Y-%m-%d}", "ligne": train["ligne"].iat[0],
-            "arrets": [{"gare": g, "heure": f"{h:%H:%M}", "risque": round(float(r), 3)}
-                       for g, h, r in zip(train["gare"], train["heure_prevue"], train["risque"])],
+            "arrets": [{"gare": g, "stop_id": s, "heure": f"{h:%H:%M}", "risque": round(float(r), 3)}
+                       for g, s, h, r in zip(train["gare"], train["stop_id"], train["heure_prevue"], train["risque"])],
         }
     return resultat
 

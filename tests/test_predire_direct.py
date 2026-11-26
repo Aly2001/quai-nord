@@ -72,6 +72,14 @@ def test_seulement_les_trains_des_3_prochaines_heures(bases):
     assert set(r["trains"]) == {"847014", "847015", "847016", "847017"}
     assert all(0 < a["risque"] < 1 for t in r["trains"].values() for a in t["arrets"])
     assert r["reseau"]["appris_jusqu_au"] == "2026-11-23"
+    assert r["trains"]["847014"]["arrets"][0]["stop_id"] == "B" and isinstance(r["maj"], int)
+
+
+def test_interrupteur_eteint_par_defaut(bases, monkeypatch):
+    monkeypatch.setattr(pdx, "INTERRUPTEUR", bases / "afficher_direct")
+    assert calculer(bases, "2026-11-26 14:05")["afficher"] is False
+    (bases / "afficher_direct").touch()
+    assert calculer(bases, "2026-11-26 14:05")["afficher"] is True
 
 
 def test_ce_qui_s_est_passe_avant_compte(bases):

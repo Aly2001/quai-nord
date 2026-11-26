@@ -17,6 +17,7 @@ import {
   useMeteo, meteoDuTrain, useTempsReel, infoDirect, ajouterMinutes,
   trajetsDirects, trajetsAvecCorrespondance, garderMeilleurs, formatDuree,
 } from "../data/horaires";
+import { useRisquesDirect, risqueDirect, comparerHabitude } from "../data/direct";
 import "./Trajet.css";
 import { useTitrePage } from "../components/titrePage";
 
@@ -50,6 +51,8 @@ export default function Trajet() {
   const debut = jour === aujourdhuiIso() && maintenant > heure ? maintenant : heure;
   const aujourdhui = jour === aujourdhuiIso();
   const tempsReel = useTempsReel(jourValide);           // aujourd'hui : retards et suppressions ; après : suppressions
+  const direct = useRisquesDirect(aujourdhui);          // le risque du réseau de neurones, recalculé toutes les 5 min
+  const apercuDirect = params.get("apercu") === "direct"; // voir le direct avant de l'allumer pour tout le monde
 
   // ---------- 1. Charger les départs de la gare choisie ----------
   useEffect(() => {
@@ -188,7 +191,7 @@ export default function Trajet() {
                   return (
                     <CarteTrajet key={`${t.heure}-${t.arrivee}-${i}`} cle={`${t.heure}-${t.arrivee}-${i}`} rang={i}
                                  choisie={nora?.cle === `${t.heure}-${t.arrivee}-${i}`} trajet={t} jour={jour}
-                                 risques={risques} meteo={meteo} tempsReel={tempsReel} aujourdhui={aujourdhui}
+                                 risques={risques} meteo={meteo} tempsReel={tempsReel} aujourdhui={aujourdhui} direct={direct} apercuDirect={apercuDirect}
                                  suivant={iSuivant === null ? null : { rang: iSuivant, heure: trajets[iSuivant].heure }}
                                  onDemanderNora={setNora}
                                  reseauArrivee={reseauDeGare(t.gareArrivee)}
@@ -225,7 +228,7 @@ export default function Trajet() {
 //  Une carte de trajet (direct ou avec correspondance)
 // =====================================================================
 // Le texte envoyé à Nora pour qu'elle réponde sur CE train, avec SES vrais chiffres
-function contexteNora(t, jour, risque, pourcentage, niveau, meteoDepart = null) {
+function contexteNora(t, jour, risque, pourcentage, niveau, meteoDepart = null, direct = null) {
   const [premier, dernier] = [t.troncons[0], t.troncons[t.troncons.length - 1]];
   let texte = `${premier.train.transport} ${premier.train.numero}${premier.train.ligne ? ` (ligne ${premier.train.ligne})` : ""}, `
     + `départ ${t.heure} de ${t.gareDepart}, arrivée ${t.arrivee} à ${t.gareArrivee}, le ${jour}. `;
@@ -233,10 +236,17 @@ function contexteNora(t, jour, risque, pourcentage, niveau, meteoDepart = null) 
     texte += `Une correspondance à ${t.correspondance.gare} (${t.correspondance.attente} min), `
       + `puis le train ${dernier.train.transport} ${dernier.train.numero}. `;
   }
-  texte += risque
-    ? `Risque de retard estimé (5 min ou plus) : ${pourcentage} %, niveau ${niveau.mot.toLowerCase()}, `
-      + `basé sur ${risque.n} passages observés de ${risque.source}.`
-    : "Pas encore assez de données pour estimer son risque de retard.";
+  if (direct) {
+    texte += `Risque de retard EN DIRECT (5 min ou plus), calculé par le réseau de neurones à partir des trains `
+      + `de la ligne depuis ce matin : ${pourcentage} %, niveau ${niveau.mot.toLowerCase()}. `
+      + (direct.habituel !== null ? `D'habitude, ce train a un risque de ${direct.habituel} % : la ligne va `
+        + { pire: "moins bien", mieux: "mieux", pareil: "comme" }[direct.tendance] + " que d'habitude aujourd'hui." : "");
+  } else {
+    texte += risque
+      ? `Risque de retard estimé (5 min ou plus) : ${pourcentage} %, niveau ${niveau.mot.toLowerCase()}, `
+        + `basé sur ${risque.n} passages observés de ${risque.source}.`
+      : "Pas encore assez de données pour estimer son risque de retard.";
+  }
   if (meteoDepart) {
     texte += ` Météo prévue au départ : ${Math.round(meteoDepart.temperature)} °C, pluie ${meteoDepart.pluie} mm/h, `
       + `rafales ${Math.round(meteoDepart.rafales)} km/h${meteoDepart.neige > 0 ? ", neige" : ""}.`;
@@ -286,14 +296,18 @@ function AlerteReseau({ trajets, tempsReel, aujourdhui }) {
 }
 
 function CarteTrajet({ trajet: t, jour, risques, meteo, tempsReel, onDemanderNora, reseauArrivee = null, cle, choisie = false, rapide = false,
-                       aujourdhui = true, suivant = null, rang = 0 }) {
+                       aujourdhui = true, suivant = null, rang = 0, direct = null, apercuDirect = false }) {
   const { t: tx, langue } = useLangue();           // « tx » : ici, « t » désigne déjà un trajet
   const [details, setDetails] = useState(false);
   const [premier, dernier] = [t.troncons[0], t.troncons[t.troncons.length - 1]];
 
-  // Le risque affiché : celui du train qui arrive à destination
+  // Le risque affiché : celui du train qui arrive à destination.
+  // En direct (réseau de neurones), à SA gare d'arrivée ; sinon, le risque habituel calculé la nuit.
   const risque = risqueDuTrain(risques, dernier.train);
-  const pourcentage = risque ? Math.round(risque.taux * 100) : null;
+  const habituel = risque ? Math.round(risque.taux * 100) : null;
+  const enDirect = aujourdhui ? risqueDirect(direct, dernier.train, dernier.arrivee.stop_id, jour, undefined, apercuDirect) : null;
+  const pourcentage = enDirect ? Math.round(enDirect.taux * 100) : habituel;
+  const tendance = enDirect ? comparerHabitude(pourcentage, habituel) : null;
   const niveau = pourcentage !== null ? niveauRisque(pourcentage) : null;
   // Aucun train n'a un risque nul : sous 1 %, on écrit « < 1 % » plutôt que « 0 % »
   const texteRisque = pourcentage === null ? "" : pourcentage < 1 ? "< 1 %" : `${pourcentage} %`;
@@ -312,7 +326,7 @@ function CarteTrajet({ trajet: t, jour, risques, meteo, tempsReel, onDemanderNor
     titre: `${premier.train.transport} ${premier.train.numero} · ${t.heure} ${t.gareDepart} → ${t.gareArrivee}`,
     contexte: (supprime ? "IMPORTANT : d'après le temps réel de la SNCF, ce train est annoncé SUPPRIMÉ. "
       + "Ne parle pas de son risque de retard : dis qu'il est supprimé, et propose le train suivant. " : "")
-      + contexteNora(t, jour, risque, pourcentage, niveau, meteoDepart),
+      + contexteNora(t, jour, risque, pourcentage, niveau, meteoDepart, enDirect && { habituel, tendance }),
     // Le direct passe avant le risque : un train supprimé n'a pas de « risque », il ne roule pas
     accueil: supprime ? accueilSupprime(t.heure, aujourdhui, suivant?.heure, langue) : accueilDuTrain(t.heure, texteRisque, langue),
     suggestions: questions,
@@ -412,9 +426,10 @@ function CarteTrajet({ trajet: t, jour, risques, meteo, tempsReel, onDemanderNor
       </div>
 
       {/* ---------- La boîte de risque (à la place du prix) ---------- */}
-      <div className="risque-boite">
+      <div className={`risque-boite${enDirect ? " risque-boite--direct" : ""}`}>
         <p className="risque-boite__titre">
           {tx("res.risque")}
+          {enDirect && <span className="risque-boite__direct"><span aria-hidden="true" className="risque-boite__point" />{tx("res.direct.pastille")}</span>}
           <Link to="/faq#risque" className="risque-boite__aide" aria-label={tx("res.risque.aide")}>?</Link>
         </p>
         {niveau ? (
@@ -426,8 +441,16 @@ function CarteTrajet({ trajet: t, jour, risques, meteo, tempsReel, onDemanderNor
                  aria-label={tx("res.risque.label", { risque: texteRisque, niveau: tx(`niveau.${niveau.classe}`).toLowerCase() })}>
               <span className="risque-boite__jauge" style={{ width: `${Math.max(pourcentage, 3)}%` }} />
             </div>
+            {enDirect && habituel !== null && (
+              <p className="risque-boite__habitude">
+                <span>{tx("res.direct.habitude", { risque: habituel })}</span>
+                <span className="risque-boite__mini" aria-hidden="true"><span style={{ width: `${Math.max(habituel, 3)}%` }} /></span>
+              </p>
+            )}
             <p className="risque-boite__source">
-              {tx("res.base", { nombre: risque.n, source: sourceTraduite(risque.source, tx) })}
+              {enDirect
+                ? `${tendance ? tx(`res.direct.${tendance}`, { ligne: enDirect.ligne }) + " · " : ""}${tx("res.direct.maj", { heure: enDirect.maj })}`
+                : tx("res.base", { nombre: risque.n, source: sourceTraduite(risque.source, tx) })}
               {t.correspondance ? tx("res.deuxieme") : ""}
             </p>
           </>

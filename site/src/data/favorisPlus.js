@@ -4,7 +4,7 @@
 //  Tout reste sur l'appareil (stockage local) : pas de compte, rien n'est envoyé.
 // =====================================================================
 import { useEffect, useState } from "react";
-import { normaliser, trajetsDirects, infoDirect, risqueDuTrain, niveauRisque } from "./horaires";
+import { normaliser, trajetsDirects, trajetsAvecCorrespondance, garderMeilleurs, infoDirect, risqueDuTrain, niveauRisque } from "./horaires";
 import { ajouterSansPerdre, MAXIMUM_LISTE } from "./listeLimitee";
 
 const CLES = { trains: "quai-nord:trains-favoris", ville: "quai-nord:ville-favoris", surveille: "quai-nord:train-surveille" };
@@ -79,21 +79,37 @@ export function useFavorisPlus() {
 
 // L'état du jour d'un train favori, à partir des départs de sa gare, du direct et des risques :
 //   { statut: "absent" }                             : il ne circule pas ce jour-là ;
+//   { statut: "attente" }                            : un train part bien à cette heure, mais le trajet a une
+//                                                      correspondance : on attend les horaires de la gare de correspondance ;
 //   { statut: "supprime" | "retard" | "heure", trajet, minutes } : ce que dit le direct ;
 //   { statut: "prevu", trajet, risque, niveau }       : pas encore de direct, son risque habituel.
-export function etatDuTrain(favori, departs, tempsReel, risques) {
-  const trajet = trajetsDirects(departs || [], favori.de, normaliser(favori.a)).find((t) => t.heure === favori.heure);
-  if (!trajet) return { statut: "absent" };
-  const tr = trajet.troncons[0];
-  const direct = infoDirect(tempsReel, tr.train.trip_id, tr.depart.stop_id, tr.arrivee.stop_id);
-  if (direct?.supprime) return { statut: "supprime", trajet };
-  const retard = Math.round(Math.max(direct?.retardDepart ?? 0, direct?.retardArrivee ?? 0) / 60);
-  // Les deux retards, en minutes : le départ ANNONCÉ et l'arrivée ANNONCÉE en découlent (voir moment.js)
-  const detail = direct ? { retardDepart: Math.round((direct.retardDepart ?? 0) / 60),
-    retardArrivee: Math.round((direct.retardArrivee ?? direct.retardDepart ?? 0) / 60) } : {};
+// fichiers : les départs des gares de correspondance (voir chargerCorrespondances), ou null s'ils ne sont pas chargés.
+// Un trajet avec correspondance est suivi avec SES DEUX trains : le 1er pour le départ, le 2e pour l'arrivée.
+export function etatDuTrain(favori, departs, tempsReel, risques, fichiers = null) {
+  const cible = normaliser(favori.a);
+  let trajet = trajetsDirects(departs || [], favori.de, cible).find((t) => t.heure === favori.heure);
+  if (!trajet) {
+    if (!(departs || []).some((t) => t.heure === favori.heure)) return { statut: "absent" };
+    if (!fichiers) return { statut: "attente" };
+    const avec = trajetsAvecCorrespondance(departs, favori.de, cible, fichiers).filter((t) => t.heure === favori.heure);
+    trajet = avec.find((t) => t.arrivee === favori.arrivee) || garderMeilleurs([], avec)[0];
+    if (!trajet) return { statut: "absent" };
+  }
+  const premier = trajet.troncons[0];
+  const dernier = trajet.troncons.at(-1);
+  const auDepart = infoDirect(tempsReel, premier.train.trip_id, premier.depart.stop_id, premier.arrivee.stop_id);
+  const aLArrivee = dernier === premier ? auDepart
+    : infoDirect(tempsReel, dernier.train.trip_id, dernier.depart.stop_id, dernier.arrivee.stop_id);
+  if (auDepart?.supprime || aLArrivee?.supprime) return { statut: "supprime", trajet };
+  const direct = auDepart || aLArrivee;
+  // Les deux retards, en minutes : le départ ANNONCÉ (1er train) et l'arrivée ANNONCÉE (dernier train) — voir moment.js
+  const retardDepart = Math.round((auDepart?.retardDepart ?? 0) / 60);
+  const retardArrivee = Math.round((aLArrivee?.retardArrivee ?? aLArrivee?.retardDepart ?? auDepart?.retardArrivee ?? 0) / 60);
+  const retard = Math.max(retardDepart, retardArrivee);
+  const detail = direct ? { retardDepart, retardArrivee } : {};
   if (direct && retard >= 1) return { statut: "retard", trajet, minutes: retard, ...detail };
   if (direct) return { statut: "heure", trajet, ...detail };
-  const risque = risqueDuTrain(risques, tr.train);
+  const risque = risqueDuTrain(risques, dernier.train);                   // comme la carte : le train qui arrive
   const pourcentage = risque ? Math.round(risque.taux * 100) : null;      // taux : entre 0 et 1
   return { statut: "prevu", trajet, risque: pourcentage, niveau: pourcentage === null ? null : niveauRisque(pourcentage) };
 }

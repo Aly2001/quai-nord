@@ -2,6 +2,7 @@ import { useEffect, useState } from "react";
 import { Link } from "react-router-dom";
 import { useFavoris } from "../data/favoris";
 import { useFavorisPlus, etatDuTrain, idTrain, idVille } from "../data/favorisPlus";
+import { useCorrespondances } from "../data/directSuivi";
 import { useLangue } from "../langue/langue";
 import { aujourdhuiIso, heureActuelle, useIndexHoraires, trouverGare, DOSSIER, useTempsReel, useRisques, ajouterMinutes } from "../data/horaires";
 import { MAXIMUM_LISTE } from "../data/listeLimitee";
@@ -146,8 +147,10 @@ const MOTS_ETAT = {
 export function EtatTrain({ favori, tempsReel, risques }) {
   const { t } = useLangue();
   const departs = useDepartsDuJour(favori.de);
+  const fichiers = useCorrespondances(favori, departs, aujourdhuiIso());
   if (!departs) return <span className="etat-train etat-train--attente">…</span>;
-  const etat = etatDuTrain(favori, departs, tempsReel, risques);
+  const etat = etatDuTrain(favori, departs, tempsReel, risques, fichiers);
+  if (etat.statut === "attente") return <span className="etat-train etat-train--attente">…</span>;
   if (etat.statut === "retard") return <span className="etat-train etat-train--retard">{t("montrain.retard", { minutes: etat.minutes })}</span>;
   if (etat.statut === "prevu") {
     return etat.risque === null ? <span className="etat-train etat-train--absent">{t("montrain.prevu")}</span>
@@ -164,8 +167,9 @@ export function MonTrainDuJour() {
   const tempsReel = useTempsReel(Boolean(trainSurveille));
   const risques = useRisques();
   const departs = useDepartsDuJour(trainSurveille?.de);
+  const fichiers = useCorrespondances(trainSurveille, departs, aujourdhuiIso());
   if (!trainSurveille) return null;
-  const etat = departs ? etatDuTrain(trainSurveille, departs, tempsReel, risques) : null;
+  const etat = departs ? etatDuTrain(trainSurveille, departs, tempsReel, risques, fichiers) : null;
   const lien = `/trajet?${new URLSearchParams({ de: trainSurveille.de, a: trainSurveille.a, jour: aujourdhuiIso(), heure: trainSurveille.heure })}`;
   return (
     <Link to={lien} className={`mon-train mon-train--${etat?.statut || "attente"}`}>

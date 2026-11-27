@@ -41,6 +41,9 @@
 .partir__pied a, .partir__pied button { font: inherit; font-weight: 600; color: #1F6F8B; background: none; border: 0; text-decoration: underline; cursor: pointer; }
 
 .partir__alerte--absent { flex-direction: column; background: #FFF4D6; color: #7A4B00; }
+/* Le lien-bouton « Voir les trains … » : son texte toujours visible (blanc sur bleu nuit), sur une ou deux lignes */
+.partir__alerte--absent a.partir__bouton--plein { display: inline-flex; align-items: center; align-self: flex-start;
+  padding: 10px 14px; line-height: 1.3; color: #FFFFFF; -webkit-text-fill-color: #FFFFFF; text-decoration: none; }
 .partir__alerte--absent button { align-self: flex-start; min-height: 44px; padding: 0 14px; font: inherit; font-weight: 700; border: 0;
   border-radius: 12px; background: var(--nuit); color: #FFFFFF; cursor: pointer; }
 
